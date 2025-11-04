@@ -6,7 +6,7 @@ We are still very much in the explorative phase. Everything that is working is s
 # Try it out
 ***Build it*** - `sudo docker build -t workspace-nouveau:latest -f Dockerfile .`
 
-***Run it*** - `sudo docker run -it --shm-size=512m -p 6901:6901 -p 8080:8080 -p 8888:8888 -p 8888:8888 -p 8899:8899 -e VNC_PW=password workspace-nouveau:latest`
+***Run it*** - `sudo docker run -it --shm-size=512m -p 6901:6901 -p 8080:8080 -p 8888:8888 -p 8899:8899 -e VNC_PW=password workspace-nouveau:latest`
 
 ***Open workspace*** - https://localhost:6901  
 It will ask you to log in:  
