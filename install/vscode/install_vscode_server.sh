@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -xe
 
+# Modified version of the base code-server install script.
+# Trimmed down to only what is needed for our usecase.
+
 echo_latest_version() {
   # https://gist.github.com/lukechilds/a83e1d7127b78fef38c2914c4ececc3c#gistcomment-2758860
   version="$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)"

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -xe
 
+# Trimmed down version of KASM's own firefox install script (the full onw is
+# quite verbose!)
+
 # Add icon
 if [ -f /dockerstartup/install/firefox/firefox/firefox.desktop ]; then
   mv /dockerstartup/install/firefox/firefox.desktop $HOME/Desktop/
