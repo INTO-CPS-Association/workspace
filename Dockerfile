@@ -4,13 +4,16 @@ USER root
 ENV HOME=/home/kasm-default-profile
 ENV STARTUPDIR=/dockerstartup
 ENV INST_DIR=$STARTUPDIR/install
+ENV MAIN_USER=kasm-user
 WORKDIR $HOME
 
-COPY ./kasm_desktop_install/ $INST_DIR
+COPY ./startup/ $STARTUPDIR
+COPY ./install/ $INST_DIR
 
 RUN bash ${INST_DIR}/firefox/install_firefox.sh
-
-#RUN curl -fsSL https://code-server.dev/install.sh | sh
+RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
+RUN chmod +x $STARTUPDIR/vscode_server_startup.sh
+RUN chmod 755 $STARTUPDIR/vscode_server_startup.sh
 
 RUN $STARTUPDIR/set_user_permission.sh $HOME && \
     chown 1000:0 $HOME && \
@@ -18,7 +21,7 @@ RUN $STARTUPDIR/set_user_permission.sh $HOME && \
     chown -R 1000:0 $HOME && \
     rm -Rf ${INST_DIR}
 
-ENV HOME=/home/kasm-user
+ENV HOME=/home/$MAIN_USER
 WORKDIR $HOME
 USER 1000
 
