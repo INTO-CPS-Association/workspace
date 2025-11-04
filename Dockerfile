@@ -10,11 +10,11 @@ WORKDIR $HOME
 COPY ./startup/ $STARTUPDIR
 COPY ./install/ $INST_DIR
 
-RUN bash ${INST_DIR}/firefox/install_firefox.sh
-RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
-RUN chmod +x $STARTUPDIR/custom_startup.sh
-RUN chmod 755 $STARTUPDIR/custom_startup.sh
-EXPOSE 8080
+RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
+    bash ${INST_DIR}/vscode/install_vscode_server.sh && \
+    bash ${INST_DIR}/jupyter/install_jupyter.sh
+    
+EXPOSE 8080 8888 8899
 
 RUN $STARTUPDIR/set_user_permission.sh $HOME && \
     chown 1000:0 $HOME && \
