@@ -9,6 +9,7 @@ WORKDIR $HOME
 
 COPY ./startup/ $STARTUPDIR
 COPY ./install/ $INST_DIR
+COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 
 RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/vscode/install_vscode_server.sh && \
