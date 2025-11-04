@@ -12,8 +12,9 @@ COPY ./install/ $INST_DIR
 
 RUN bash ${INST_DIR}/firefox/install_firefox.sh
 RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
-RUN chmod +x $STARTUPDIR/vscode_server_startup.sh
-RUN chmod 755 $STARTUPDIR/vscode_server_startup.sh
+RUN chmod +x $STARTUPDIR/custom_startup.sh
+RUN chmod 755 $STARTUPDIR/custom_startup.sh
+EXPOSE 8080
 
 RUN $STARTUPDIR/set_user_permission.sh $HOME && \
     chown 1000:0 $HOME && \

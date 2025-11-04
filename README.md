@@ -1,1 +1,8 @@
-Starting from a clean slate, the goal is to have a functioning remote workspace on one port with the workspaces installations of Jupyter lab, notebook and VSCode accesible on other ports as microservices.
+# Workspace Nouveau
+A new workspace image for [DTaaS](https://github.com/INTO-CPS-Association/DTaaS).
+
+# Current state
+Based on the KASM core ubuntu image.
+Added VSCode service with [code-server](https://github.com/coder/code-server), is started by the [custom_startup.sh](/startup/custom_startup.sh) script.
+Still need to convince KASM to expose the code-server port.
+Still need to install Jupyter.
