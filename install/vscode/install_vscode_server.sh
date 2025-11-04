@@ -31,7 +31,6 @@ CACHE_DIR=/tmp/code-server-cache
 VERSION=${VERSION:-$(echo_latest_version)}
 ARCH=amd64
 
-
 fetch "https://github.com/coder/code-server/releases/download/v$VERSION/code-server_${VERSION}_$ARCH.deb" \
     "$CACHE_DIR/code-server_${VERSION}_$ARCH.deb"
 dpkg -i "$CACHE_DIR/code-server_${VERSION}_$ARCH.deb"
