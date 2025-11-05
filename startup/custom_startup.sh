@@ -12,6 +12,8 @@ if [[ -n "$USER_PW" ]]; then
     echo -e "${USER_PW}\n${USER_PW}\n" | passwd
 fi
 
+ln -s $PERSISTENT_DIR $HOME/Desktop/Workspace
+
 code-server \
     --auth none \
     --bind-addr 0.0.0.0:${CODE_SERVER_PORT} \

@@ -6,7 +6,7 @@ ARG MAIN_USER=dtaas-user
 ENV HOME=/home/kasm-default-profile \
     STARTUPDIR=/dockerstartup \
     INST_DIR=${STARTUPDIR}/install \
-    PERSISTENT_DIR=/workspace \
+    PERSISTENT_DIR=/Workspace \
     VNCOPTIONS="${VNCOPTIONS} -disableBasicAuth" \
     MAIN_USER=${MAIN_USER}
 WORKDIR $HOME
@@ -69,6 +69,7 @@ ENV AUDIO_PORT=4901 \
     MAX_FRAME_RATE=24 \
     NO_VNC_PORT=6901 \
     OMP_WAIT_POLICY=PASSIVE \
+    PERSISTENT_DIR=/Workspace \
     PULSE_RUNTIME_PATH=/var/run/pulse \
     SDL_GAMECONTROLLERCONFIG="030000005e040000be02000014010000,XInput Controller,platform:Linux,a:b0,b:b1,x:b2,y:b3,back:b8,guide:b16,start:b9,leftstick:b10,rightstick:b11,leftshoulder:b4,rightshoulder:b5,dpup:b12,dpdown:b13,dpleft:b14,dpright:b15,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,righttrigger:b7" \
     SHELL=/bin/bash \

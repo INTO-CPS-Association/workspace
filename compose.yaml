@@ -17,7 +17,7 @@ services:
       - "8899:8899"
     shm_size: 512m
     volumes:
-      - ./persistent_dir:/workspace
+      - ./persistent_dir:/Workspace
     develop:
       watch:
         - path: .
