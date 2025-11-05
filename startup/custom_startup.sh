@@ -22,14 +22,14 @@ jupyter notebook \
     --port=${JUPYTER_NOTEBOOK_PORT} \
     --ip=0.0.0.0 \
     --no-browser \
-    --NotebookApp.token='' \
-    --NotebookApp.password='' &
+    --ServerApp.token='' \
+    --ServerApp.password='' &
 
 jupyter lab \
     --port=${JUPYTER_LAB_PORT} \
     --ip=0.0.0.0 \
     --no-browser \
-    --NotebookApp.token='' \
-    --NotebookApp.password='' &
+    --ServerApp.token='' \
+    --ServerApp.password='' &
 
 wait
