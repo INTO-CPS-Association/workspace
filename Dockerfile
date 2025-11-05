@@ -24,8 +24,11 @@ RUN chown 1000:0 ${HOME} && \
 
 ENV HOME=/home/${MAIN_USER}
 RUN usermod --login ${MAIN_USER} --move-home --home ${HOME} kasm-user && \
-    groupmod --new-name ${MAIN_USER} kasm-user
+    groupmod --new-name ${MAIN_USER} kasm-user && \
+    adduser ${MAIN_USER} sudo && \
+    passwd -d ${MAIN_USER}
 WORKDIR ${HOME}
+
 USER 1000
 
 CMD ["--tail-log"]

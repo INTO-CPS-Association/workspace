@@ -5,6 +5,13 @@ set -xe
 # located in /dockerstartup dir. This serves as the entrypoint for our custom
 # image.
 
+# Set user password if supplied.
+# NOTE: User has sudo permissions by default. Unprotected user is unprotected
+# root access.
+if [[ -n "$USER_PW" ]]; then
+    echo -e "${USER_PW}\n${USER_PW}\n" | passwd
+fi
+
 code-server \
     --auth none \
     --bind-addr 0.0.0.0:8080 \
