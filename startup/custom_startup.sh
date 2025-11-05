@@ -14,19 +14,19 @@ fi
 
 code-server \
     --auth none \
-    --bind-addr 0.0.0.0:8080 \
+    --bind-addr 0.0.0.0:${CODE_SERVER_PORT} \
     --disable-telemetry \
     --disable-update-check &
 
 jupyter notebook \
-    --port=8888 \
+    --port=${JUPYTER_NOTEBOOK_PORT} \
     --ip=0.0.0.0 \
     --no-browser \
     --NotebookApp.token='' \
     --NotebookApp.password='' &
 
 jupyter lab \
-    --port=8899 \
+    --port=${JUPYTER_LAB_PORT} \
     --ip=0.0.0.0 \
     --no-browser \
     --NotebookApp.token='' \

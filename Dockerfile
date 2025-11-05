@@ -5,7 +5,10 @@ ENV HOME=/home/kasm-default-profile \
     STARTUPDIR=/dockerstartup \
     INST_DIR=${STARTUPDIR}/install \
     MAIN_USER=dtaas-user \
-    VNCOPTIONS="${VNCOPTIONS} -disableBasicAuth"
+    VNCOPTIONS="${VNCOPTIONS} -disableBasicAuth" \
+    CODE_SERVER_PORT=8080 \
+    JUPYTER_NOTEBOOK_PORT=8888 \
+    JUPYTER_LAB_PORT=8899
 WORKDIR $HOME
 
 COPY ./startup/ ${STARTUPDIR}
@@ -16,7 +19,9 @@ RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/vscode/install_vscode_server.sh && \
     bash ${INST_DIR}/jupyter/install_jupyter.sh
     
-EXPOSE 8080 8888 8899
+EXPOSE ${CODE_SERVER_PORT} \
+    ${JUPYTER_NOTEBOOK_PORT} \
+    ${JUPYTER_LAB_PORT}
 
 RUN chown 1000:0 ${HOME} && \
     $STARTUPDIR/set_user_permission.sh ${HOME} && \
