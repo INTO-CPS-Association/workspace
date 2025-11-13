@@ -5,6 +5,8 @@ set -xe
 # located in /dockerstartup dir. This serves as the entrypoint for our custom
 # image.
 
+sudo nginx &
+
 # Set user password if supplied.
 # NOTE: User has sudo permissions by default. Unprotected user is unprotected
 # root access.
@@ -20,18 +22,6 @@ code-server \
     --disable-telemetry \
     --disable-update-check &
 
-jupyter notebook \
-    --port=${JUPYTER_NOTEBOOK_PORT} \
-    --ip=0.0.0.0 \
-    --no-browser \
-    --IdentityProvider.token='' \
-    --ServerApp.password='' &
-
-jupyter lab \
-    --port=${JUPYTER_LAB_PORT} \
-    --ip=0.0.0.0 \
-    --no-browser \
-    --IdentityProvider.token='' \
-    --ServerApp.password='' &
+jupyter notebook &
 
 wait

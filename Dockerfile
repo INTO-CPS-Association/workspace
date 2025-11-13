@@ -16,8 +16,15 @@ COPY ./install/ ${INST_DIR}
 COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 
 RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
+    bash ${INST_DIR}/nginx/install_nginx.sh && \
     bash ${INST_DIR}/vscode/install_vscode_server.sh && \
     bash ${INST_DIR}/jupyter/install_jupyter.sh
+
+COPY ./config/nginx/nginx.conf /etc/nginx/nginx.conf
+
+RUN python3 ${INST_DIR}/nginx/configure_nginx.py
+
+COPY ./config/jupyter/jupyter_notebook_config.py /etc/jupyter/
 
 RUN chown 1000:0 ${HOME} && \
     $STARTUPDIR/set_user_permission.sh ${HOME} && \
@@ -35,11 +42,9 @@ RUN usermod --login ${MAIN_USER} --move-home --home ${HOME} kasm-user && \
 FROM scratch AS squashed-stage
 COPY --from=build-stage / /
 
-ARG CODE_SERVER_PORT=8080 \
+ARG CODE_SERVER_PORT=8054 \
     DISTRO=ubuntu \
     EXTRA_SH=noop.sh \
-    JUPYTER_LAB_PORT=8899 \
-    JUPYTER_NOTEBOOK_PORT=8888 \
     LANG='en_US.UTF-8' \
     LANGUAGE='en_US:en' \
     LC_ALL='en_US.UTF-8' \
@@ -56,8 +61,6 @@ ENV AUDIO_PORT=4901 \
     GOMP_SPINCOUNT=0 \
     HOME=/home/${MAIN_USER} \
     INST_SCRIPTS=/dockerstartup/install \
-    JUPYTER_LAB_PORT=${JUPYTER_LAB_PORT} \
-    JUPYTER_NOTEBOOK_PORT=${JUPYTER_NOTEBOOK_PORT} \
     KASMVNC_AUTO_RECOVER=true \
     KASM_VNC_PATH=/usr/share/kasmvnc \
     LANG=$LANG \
@@ -85,15 +88,15 @@ ENV AUDIO_PORT=4901 \
     VNC_RESOLUTION=1280x1024 \
     VNC_RESOLUTION=1280x720 \
     VNC_VIEW_ONLY_PW=vncviewonlypassword \
+    WORKSPACE_BASE_URL="/${MAIN_USER}" \
     TZ=$TZ
     
-EXPOSE $VNC_PORT \
+EXPOSE 8080 \
+       $VNC_PORT \
        $NO_VNC_PORT \
        $UPLOAD_PORT \
        $AUDIO_PORT \
-       $CODE_SERVER_PORT \
-       $JUPYTER_NOTEBOOK_PORT \
-       $JUPYTER_LAB_PORT
+       $CODE_SERVER_PORT
 
 WORKDIR ${HOME}
 
