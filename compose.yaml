@@ -6,11 +6,8 @@ services:
     build:
       context: .
       args:
-        CODE_SERVER_PORT: 8054
         MAIN_USER: dtaas-user
     ports:
-      - "6901:6901"
-      - "8054:8054"
       - "8080:8080"
     shm_size: 512m
     volumes:

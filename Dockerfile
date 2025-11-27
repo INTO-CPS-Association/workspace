@@ -43,8 +43,7 @@ RUN usermod --login ${MAIN_USER} --move-home --home ${HOME} kasm-user && \
 FROM scratch AS squashed-stage
 COPY --from=build-stage / /
 
-ARG CODE_SERVER_PORT=8054 \
-    DISTRO=ubuntu \
+ARG DISTRO=ubuntu \
     EXTRA_SH=noop.sh \
     LANG='en_US.UTF-8' \
     LANGUAGE='en_US:en' \
@@ -55,7 +54,7 @@ ARG CODE_SERVER_PORT=8054 \
     TZ='Etc/UTC'
 
 ENV AUDIO_PORT=4901 \
-    CODE_SERVER_PORT=${CODE_SERVER_PORT} \
+    CODE_SERVER_PORT=8054 \
     DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:1 \
     DISTRO=$DISTRO \

@@ -25,7 +25,7 @@ sudo docker build -t workspace-nouveau:latest -f Dockerfile .
 
 ```ps1
 sudo docker run -it --shm-size=512m \
-  -p 6901:6901 -p 8080:8080 -p 8054:8054 \
+  -p 8080:8080\
   workspace-nouveau:latest
 ```
 
@@ -33,8 +33,8 @@ sudo docker run -it --shm-size=512m \
 
 An active container provides the following services
 
-* ***Open workspace*** - https://localhost:6901
-* ***Open VSCode*** - http://localhost:8054
+* ***Open workspace*** - https://localhost:8080/dtaas-user/tools/vnc
+* ***Open VSCode*** - http://localhost:8080/dtaas-user/tools/vscode
 * ***Open Jupyter Notebook*** - http://localhost:8080
 * ***Open Jupyter Lab*** - http://localhost:8080/dtaas-user/lab
 
@@ -46,8 +46,7 @@ An active container provides the following services
 * Jupyter is available.
 * No longer need to authenticate when opening VNC Desktop.
 * User is now a sudoer, can install debian packages, and user password
-  can be set at container instantiation (via the environmetn variable USER_PW).
-* Still need to allow http (Only the virtual desktop itself
-  currently demands HTTPS).
-* Reverse proxy partially exist, but is not fully functional for vscode and vnc.
+  can be set at container instantiation (via the environment variable USER_PW).
+* All access to services is over http (VNC https is hidden behind reverse proxy).
+* Reverse proxy exists, BUT VNC's websocket doesn't adhere to supbath structure(!).
 * Still need to get image under 500 MB.
