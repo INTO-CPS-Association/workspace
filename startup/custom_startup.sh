@@ -18,7 +18,7 @@ ln -s $PERSISTENT_DIR $HOME/Desktop/workspace
 
 code-server \
     --auth none \
-    --bind-addr 0.0.0.0:${CODE_SERVER_PORT} \
+    --port ${CODE_SERVER_PORT} \
     --disable-telemetry \
     --disable-update-check &
 
