@@ -8,7 +8,8 @@ ENV HOME=/home/kasm-default-profile \
     INST_DIR=${STARTUPDIR}/install \
     PERSISTENT_DIR=/workspace \
     VNCOPTIONS="${VNCOPTIONS} -disableBasicAuth" \
-    MAIN_USER=${MAIN_USER}
+    MAIN_USER=${MAIN_USER} \
+    WORKSPACE_BASE_URL="/${MAIN_USER}"
 WORKDIR $HOME
 
 COPY ./startup/ ${STARTUPDIR}
