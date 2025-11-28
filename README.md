@@ -33,7 +33,7 @@ sudo docker run -it --shm-size=512m \
 
 An active container provides the following services
 
-* ***Open workspace*** - https://localhost:8080/dtaas-user/tools/vnc
+* ***Open workspace*** - http://localhost:8080/dtaas-user/tools/vnc?path=dtaas-user%2Ftools%2Fvnc%2Fwebsockify
 * ***Open VSCode*** - http://localhost:8080/dtaas-user/tools/vscode
 * ***Open Jupyter Notebook*** - http://localhost:8080
 * ***Open Jupyter Lab*** - http://localhost:8080/dtaas-user/lab
@@ -48,5 +48,5 @@ An active container provides the following services
 * User is now a sudoer, can install debian packages, and user password
   can be set at container instantiation (via the environment variable USER_PW).
 * All access to services is over http (VNC https is hidden behind reverse proxy).
-* Reverse proxy exists, BUT VNC's websocket doesn't adhere to supbath structure(!).
+* Reverse proxy exists, and VNC's websocket is forced to adchere to path structure with 'path' argument as path of http request.
 * Still need to get image under 500 MB.
