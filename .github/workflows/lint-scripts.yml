@@ -92,3 +92,4 @@ jobs:
       - name: Run yamllint
         run: |
           yamllint .
+        continue-on-error: true

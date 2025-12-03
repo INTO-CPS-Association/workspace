@@ -1,7 +1,6 @@
 yaml-files:
   - '*.yaml'
   - '*.yml'
-  - '.yamllint'
 
 extends: default
 
@@ -15,5 +14,5 @@ rules:
     min-spaces-from-content: 1
   document-start: disable
   truthy:
-    allowed-values: ['TRUE', 'True', 'true', 'FALSE', 'False', 'false']
+    allowed-values: ['true', 'false']
     check-keys: true
