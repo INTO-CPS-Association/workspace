@@ -33,7 +33,7 @@ Contains custom startup scripts for the container runtime.
 
 ### Top-Level Files
 - `Dockerfile` - Main container image definition (must be linted with hadolint)
-- `compose.yaml` - Docker Compose configuration (must be validated with docker-compose config)
+- `compose.yaml` - Docker Compose configuration (must be validated with docker compose config)
 - `LICENSE.md` - Project license
 - `README.md` - Project documentation
 
