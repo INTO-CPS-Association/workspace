@@ -22,7 +22,7 @@ c.ServerApp.open_browser = False
 c.ExtensionApp.open_browser = False
 
 # set base url if available
-base_url = os.getenv("WORKSPACE_BASE_URL", "/")
+base_url = "/" + os.getenv("MAIN_USER", "")
 if base_url is not None and base_url != "/":
     c.ServerApp.base_url = base_url
 

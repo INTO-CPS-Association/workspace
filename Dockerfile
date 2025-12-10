@@ -1,4 +1,4 @@
-FROM kasmweb/core-ubuntu-noble:1.18.0
+FROM kasmweb/core-ubuntu-noble:1.18.0-rolling-daily
 USER root
 
 ENV CODE_SERVER_PORT=8054 \
@@ -6,21 +6,19 @@ ENV CODE_SERVER_PORT=8054 \
     INST_DIR=${STARTUPDIR}/install \
     JUPYTER_SERVER_PORT=8090 \
     PERSISTENT_DIR=/workspace \
-    STARTUPDIR=/dockerstartup \
     VNCOPTIONS="${VNCOPTIONS} -disableBasicAuth"
 WORKDIR $HOME
 
 COPY ./install/ ${INST_DIR}
-COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 
 RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/nginx/install_nginx.sh && \
     bash ${INST_DIR}/vscode/install_vscode_server.sh && \
     bash ${INST_DIR}/jupyter/install_jupyter.sh
 
-COPY ./startup/ ${STARTUPDIR}
+COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 
-COPY ./config/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY ./startup/ ${STARTUPDIR}
 
 COPY ./config/jupyter/jupyter_notebook_config.py /etc/jupyter/
 
@@ -31,12 +29,10 @@ RUN chown 1000:0 ${HOME} && \
 RUN mkdir ${PERSISTENT_DIR} && \
     chmod a+rwx ${PERSISTENT_DIR}
 
-RUN adduser kasm-user sudo && \
-    passwd -d kasm-user
+RUN adduser $(id -un 1000) sudo && \
+    passwd -d $(id -un 1000)
     
 EXPOSE 8080
 
-USER 1000
-
-ENTRYPOINT ["/dockerstartup/dtaas_user_setup.sh", "/dockerstartup/kasm_default_profile.sh", "/dockerstartup/vnc_startup.sh", "/dockerstartup/kasm_startup.sh"]
+ENTRYPOINT ["/dockerstartup/dtaas_shim.sh", "/dockerstartup/kasm_default_profile.sh", "/dockerstartup/vnc_startup.sh", "/dockerstartup/kasm_startup.sh"]
 CMD ["--wait"]
