@@ -5,8 +5,8 @@ services:
     image: workspace-nouveau:latest
     build:
       context: .
-      args:
-        MAIN_USER: dtaas-user
+    environment:
+      - MAIN_USER=dtaas-user
     ports:
       - "8080:8080"
     shm_size: 512m

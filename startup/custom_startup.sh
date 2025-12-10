@@ -5,6 +5,9 @@ set -xe
 # located in /dockerstartup dir. This serves as the entrypoint for our custom
 # image.
 
+export WORKSPACE_BASE_URL="/${MAIN_USER}"
+
+sudo -E python3 ${STARTUPDIR}/configure_nginx.py
 sudo nginx &
 
 # Set user password if supplied.
