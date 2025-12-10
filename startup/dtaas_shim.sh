@@ -5,6 +5,8 @@
 
 set -e
 
+source /tmp/.docker_set_envs
+
 if [[ ${DEBUG_ALL:-0} == 1 ]]; then
     export KASM_DEBUG=1
     export DTAAS_DEBUG=1
@@ -35,7 +37,7 @@ function convert_current_user_to_main_user {
 
 function do_user_dependent_configurations {
     echo "Configuring nginx."
-    cp -f ${STARTUPDIR}/nginx.conf.template /etc/nginx/nginx.conf
+    cp -f ${STARTUPDIR}/nginx.conf /etc/nginx/nginx.conf
     python3 ${STARTUPDIR}/configure_nginx.py
 }
 
