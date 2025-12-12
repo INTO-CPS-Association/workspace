@@ -9,33 +9,33 @@ echo_latest_version() {
   version="$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)"
   version="${version#https://github.com/coder/code-server/releases/tag/}"
   version="${version#v}"
-  echo "$version"
+  echo "${version}"
 }
 
 fetch() {
   URL="$1"
   FILE="$2"
 
-  if [ -e "$FILE" ]; then
-    echoh "+ Reusing $FILE"
+  if [[ -e "${FILE}" ]]; then
+    echoh "+ Reusing ${FILE}"
     return
   fi
 
-  mkdir -p "$CACHE_DIR"
+  mkdir -p "${CACHE_DIR}"
   curl \
     -#fL \
-    -o "$FILE.incomplete" \
+    -o "${FILE}.incomplete" \
     -C - \
-    "$URL"
-  mv "$FILE.incomplete" "$FILE"
+    "${URL}"
+  mv "${FILE}.incomplete" "${FILE}"
 }
 
 CACHE_DIR=/tmp/code-server-cache
-VERSION=${VERSION:-$(echo_latest_version)}
+VERSION=${VERSION:-$(set -e; echo_latest_version)}
 ARCH=amd64
 
-fetch "https://github.com/coder/code-server/releases/download/v$VERSION/code-server_${VERSION}_$ARCH.deb" \
-    "$CACHE_DIR/code-server_${VERSION}_$ARCH.deb"
-dpkg -i "$CACHE_DIR/code-server_${VERSION}_$ARCH.deb"
+fetch "https://github.com/coder/code-server/releases/download/v${VERSION}/code-server_${VERSION}_${ARCH}.deb" \
+    "${CACHE_DIR}/code-server_${VERSION}_${ARCH}.deb"
+dpkg -i "${CACHE_DIR}/code-server_${VERSION}_${ARCH}.deb"
 
 rm -rf /tmp/code-server-cache

@@ -31,14 +31,14 @@ COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 COPY ./config/jupyter/jupyter_notebook_config.py /etc/jupyter/
 
 RUN chown 1000:0 ${HOME} && \
-    $STARTUPDIR/set_user_permission.sh ${HOME} && \
+    "${STARTUPDIR}"/set_user_permission.sh ${HOME} && \
     rm -Rf ${INST_DIR}
 
 RUN mkdir ${PERSISTENT_DIR} && \
     chmod a+rwx ${PERSISTENT_DIR}
 
-RUN adduser $(id -un 1000) sudo && \
-    passwd -d $(id -un 1000)
+RUN adduser "$(id -un 1000)" sudo && \
+    passwd -d "$(id -un 1000)"
 
 RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}' for k, v in os.environ.items()))" >> /tmp/.docker_set_envs && \
     chmod 755 /tmp/.docker_set_envs

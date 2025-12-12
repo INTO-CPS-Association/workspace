@@ -11,8 +11,8 @@ fi
 
 function cleanup {
     trap - SIGINT SIGTERM SIGQUIT SIGHUP ERR
-    kill -- -${DTAAS_PROCS['nginx']}
-    kill -- $(jobs -p)
+    kill -- -"${DTAAS_PROCS['nginx']}"
+    kill -- "$(jobs -p)"
     exit 0
 }
 
@@ -35,7 +35,7 @@ function start_jupyter {
 function start_vscode_server {
     code-server \
     --auth none \
-    --port ${CODE_SERVER_PORT} \
+    --port "${CODE_SERVER_PORT}" \
     --disable-telemetry \
     --disable-update-check &
     DTAAS_PROCS['vscode']=$!
@@ -43,8 +43,8 @@ function start_vscode_server {
 
 # Links the persistent dir to its subdirectory in home. Can only happen after
 # KASM has setup the main user home directories.
-if [ ! -h $HOME/Desktop/workspace ]; then
-    ln -s $PERSISTENT_DIR $HOME/Desktop/workspace
+if [[ ! -h "${HOME}"/Desktop/workspace ]]; then
+    ln -s "${PERSISTENT_DIR}" "${HOME}"/Desktop/workspace
 fi
 
 start_nginx
@@ -58,17 +58,17 @@ do
     RESTART_QUEUE=()
 
     for process in "${!DTAAS_PROCS[@]}"; do
-        if ! kill -0 "${DTAAS_PROCS[$process]}" 2>/dev/null ; then
-            echo "[WARNING] $process stopped, queuing restart"
-            RESTART_QUEUE+=("$process")
+        if ! kill -0 "${DTAAS_PROCS[${process}]}" 2>/dev/null ; then
+            echo "[WARNING] ${process} stopped, queuing restart"
+            RESTART_QUEUE+=("${process}")
         fi
     done
 
     for process in "${RESTART_QUEUE[@]}"; do
-        case $process in
+        case ${process} in
             nginx)
                 echo "[INFO] Restarting nginx"
-                kill -- -${DTAAS_PROCS[$process]}
+                kill -- -"${DTAAS_PROCS[${process}]}"
                 start_nginx
                 ;;
             jupyter)
@@ -80,7 +80,7 @@ do
                 start_vscode_server
                 ;;
             *)
-                echo "[WARNING] An unknown service '$process' unexpectededly monitored by the custom_startup script was reported to have exitted. This is most irregular - check if something is adding processes to the custom_startup scripts list of monitored subprocesses."
+                echo "[WARNING] An unknown service '${process}' unexpectededly monitored by the custom_startup script was reported to have exitted. This is most irregular - check if something is adding processes to the custom_startup scripts list of monitored subprocesses."
                 ;;
         esac
     done
