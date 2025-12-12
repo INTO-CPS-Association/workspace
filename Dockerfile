@@ -1,4 +1,4 @@
-FROM kasmweb/core-ubuntu-noble:1.18.0-rolling-daily AS configure
+FROM kasmweb/core-ubuntu-noble:1.18.0 AS configure
 USER root
 
 ENV CODE_SERVER_PORT=8054 \
