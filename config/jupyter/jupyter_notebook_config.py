@@ -1,6 +1,10 @@
+"""
+Config file for jupyter
+"""
+
 import os
 
-c = get_config()
+c = get_config()  # noqa: F821 pylint: disable=undefined-variable
 
 jupyter_server_port = int(os.getenv("JUPYTER_SERVER_PORT"))
 
