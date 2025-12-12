@@ -8,13 +8,16 @@ This repository contains a Dockerfile and associated configuration for building 
 
 ### `config/` - Configuration Files
 Contains required configuration for software services installed in the Docker image.
+- `jupyter/jupyter_notebook_config.py` - Jupyter server configuration
 - `kasm_vnc/kasmvnc.yaml` - KasmVNC server configuration
 
 ### `install/` - Installation Scripts
 Contains installation scripts for all software components installed in the Docker image.
 - `firefox/install_firefox.sh` - Firefox browser installation
 - `jupyter/install_jupyter.sh` - Jupyter notebook installation
+- `nginx/install_nginx.sh` - nginx installation
 - `vscode/install_vscode_server.sh` - VS Code Server installation
+- `dtaas_cleanup.sh` - Post installation cleanup script. Removes unused files from install and base image
 
 **Script Requirements:**
 - All bash/zsh scripts must be linted with shellcheck
@@ -22,9 +25,12 @@ Contains installation scripts for all software components installed in the Docke
 - Scripts must follow proper style conventions for their respective languages
 - Include error handling and proper exit codes
 
-### `startup/` - Startup Scripts
-Contains custom startup scripts for the container runtime.
+### `startup/` - Startup Scripts and Resources
+Contains custom startup scripts for the container runtime and resources necessary to run those scripts.
+- `configue_nginx.py` - Replaces placeholders in nginx.conf with proper values
 - `custom_startup.sh` - Pluggable startup service configuration
+- `dtaas_shim.sh` - Setup script that runs before base images startup scripts
+- `nginx.conf` - nginx config file with placeholder markers
 
 **Startup Script Requirements:**
 - Must be executable and properly handle signals
