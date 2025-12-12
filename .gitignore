@@ -1,0 +1,68 @@
+# Python virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+__pycache__/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# dotenv environment variables file
+.env
+.env.test
+
+# Mac temp files
+servers/.DS_Store
+data/.DS_Store
+**/.DS_Store
+.DS_Store
+
+# Built docs
+site/
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# yarn cache
+.yarn
+
+# certs
+*.pem
+*.crt
+*.key
+
+# qlty config
+.qlty
+!.qlty/qlty.toml
+
+# Docker
+*.log
+.dockerignore
+docker-compose.override.yml
+.docker/
+**/docker-compose.override.yml
+
+# Container runtime files
+*.tar
+*.tar.gz
+*.tgz
+.container-*

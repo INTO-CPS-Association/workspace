@@ -1,0 +1,14 @@
+# ShellCheck configuration for containerized desktop environment
+
+# Enable all optional checks
+enable=all
+
+# Disable specific checks that may not apply to Docker context
+# SC2034: Variable appears unused (often false positives with Docker ENV vars)
+disable=SC2034
+
+# Set shell dialect
+shell=bash
+
+# Follow external sources
+external-sources=true
