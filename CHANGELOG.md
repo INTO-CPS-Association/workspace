@@ -4,6 +4,8 @@ The main changes made so far are listed here.
 
 ## 15-Dec-2025
 
+* Adds both ml-workspace and workspace-nouveau in one docker compose
+  and puts them behind traefik proxy
 * Based on the KASM core ubuntu image.
 * Added VSCode service with [code-server](https://github.com/coder/code-server),
   is started by the [custom_startup.sh](/startup/custom_startup.sh) script.

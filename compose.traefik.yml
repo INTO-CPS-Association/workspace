@@ -12,9 +12,6 @@ services:
       - "--entrypoints.web.proxyProtocol.insecure=true"
       - "--log.level=DEBUG"
     labels:
-      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=http://localhost,http://host.docker.internal"
-      - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS"
-      - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
       - "traefik.http.routers.myservice.rule=Host(`myservice.localhost`)"
       - "traefik.http.services.myservice.loadbalancer.server.port=80"
     ports:
@@ -44,8 +41,9 @@ services:
     image: mltooling/ml-workspace-minimal:0.13.2
     restart: unless-stopped
     environment:
-      - MAIN_USER=user2
-    shm_size: 512m
+      - AUTHENTICATE_VIA_JUPYTER=
+      - WORKSPACE_BASE_URL=user2
+    shm_size: "512m"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u2.entryPoints=web"
