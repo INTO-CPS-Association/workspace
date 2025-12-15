@@ -10,7 +10,7 @@ name: workspace-traefik-secure
 
 services:
   traefik:
-    image: traefik:v2.10
+    image: traefik:v3.2
     restart: unless-stopped
     command:
       - "--api.insecure=true"  # DEV ONLY - disable in production
@@ -36,6 +36,8 @@ services:
   traefik-forward-auth:
     image: thomseddon/traefik-forward-auth:latest
     restart: unless-stopped
+    volumes:
+      - ./dtaas/conf.dev.example:/conf
     environment:
       - DEFAULT_PROVIDER=generic-oauth
       - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
@@ -46,6 +48,7 @@ services:
       - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
       - SECRET=${OAUTH_SECRET}
       - INSECURE_COOKIE=true  # DEV ONLY - set to false with HTTPS in production
+      - CONFIG=/conf
       - LOG_LEVEL=debug  # DEV ONLY - use info in production
     labels:
       - "traefik.enable=true"
@@ -62,6 +65,8 @@ services:
   client:
     image: ghcr.io/into-cps-association/dtaas-web:latest
     restart: unless-stopped
+    volumes:
+      - ./dtaas/client.js:/dtaas/client/build/env.js
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.client.entryPoints=web"
@@ -77,12 +82,12 @@ services:
     build:
       context: .
     environment:
-      - MAIN_USER=user1
+      - MAIN_USER=${username1}
     shm_size: 512m
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u1.entryPoints=web"
-      - "traefik.http.routers.u1.rule=PathPrefix(`/user1`)"
+      - "traefik.http.routers.u1.rule=PathPrefix(`/${username1}`)"
       - "traefik.http.routers.u1.middlewares=traefik-forward-auth"
     networks:
       - users
@@ -92,12 +97,12 @@ services:
     restart: unless-stopped
     environment:
       - AUTHENTICATE_VIA_JUPYTER=
-      - WORKSPACE_BASE_URL=user2
+      - WORKSPACE_BASE_URL=${username2}
     shm_size: "512m"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u2.entryPoints=web"
-      - "traefik.http.routers.u2.rule=PathPrefix(`/user2`)"
+      - "traefik.http.routers.u2.rule=PathPrefix(`/${username2}`)"
       - "traefik.http.routers.u2.middlewares=traefik-forward-auth"
     networks:
       - users
