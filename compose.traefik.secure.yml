@@ -1,16 +1,24 @@
 name: workspace-traefik-secure
 
+# WARNING: This configuration includes insecure settings for DEVELOPMENT/TESTING only
+# For production use, review TRAEFIK_SECURE.md security recommendations:
+# - Enable HTTPS/TLS with proper certificates
+# - Remove --api.insecure=true
+# - Remove forwardedHeaders.insecure and proxyProtocol.insecure
+# - Set INSECURE_COOKIE=false in traefik-forward-auth
+# - Change log level from DEBUG to INFO or WARN
+
 services:
   traefik:
     image: traefik:v2.10
     restart: unless-stopped
     command:
-      - "--api.insecure=true"
+      - "--api.insecure=true"  # DEV ONLY - disable in production
       - "--providers.docker=true"
       - "--entryPoints.web.address=:80"
-      - "--entrypoints.web.forwardedHeaders.insecure=true"
-      - "--entrypoints.web.proxyProtocol.insecure=true"
-      - "--log.level=DEBUG"
+      - "--entrypoints.web.forwardedHeaders.insecure=true"  # DEV ONLY
+      - "--entrypoints.web.proxyProtocol.insecure=true"  # DEV ONLY
+      - "--log.level=DEBUG"  # DEV ONLY - use INFO/WARN in production
     labels:
       - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=http://localhost,http://host.docker.internal"
       - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS"
@@ -37,8 +45,8 @@ services:
       - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
       - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
       - SECRET=${OAUTH_SECRET}
-      - INSECURE_COOKIE=true
-      - LOG_LEVEL=debug
+      - INSECURE_COOKIE=true  # DEV ONLY - set to false with HTTPS in production
+      - LOG_LEVEL=debug  # DEV ONLY - use info in production
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.redirect.entryPoints=web"

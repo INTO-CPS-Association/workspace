@@ -70,7 +70,9 @@ docker compose -f compose.yaml down
 
 ## 🔒 Production Deployments
 
-For production deployments with multiple users, OAuth2 authentication, and the DTaaS web interface:
+For production deployments with multiple users, OAuth2 authentication, and the
+DTaaS web interface:
 
-- See [TRAEFIK.md](TRAEFIK.md) for Traefik reverse proxy integration
-- See [TRAEFIK_SECURE.md](TRAEFIK_SECURE.md) for secure OAuth2-protected deployment with GitLab authentication
+- See [TRAEFIK.md](TRAEFIK.md) for Traefik reverse proxy integration (from PR #8)
+- See [TRAEFIK_SECURE.md](TRAEFIK_SECURE.md) for secure OAuth2-protected
+  deployment with GitLab authentication
