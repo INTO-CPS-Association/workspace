@@ -1,0 +1,61 @@
+---
+name: workspace-traefik
+
+services:
+  traefik:
+    image: traefik:v3.6.4
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entryPoints.web.address=:80"
+      - "--entrypoints.web.forwardedHeaders.insecure=true"
+      - "--entrypoints.web.proxyProtocol.insecure=true"
+      - "--log.level=DEBUG"
+    labels:
+      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=http://localhost,http://host.docker.internal"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
+      - "traefik.http.routers.myservice.rule=Host(`myservice.localhost`)"
+      - "traefik.http.services.myservice.loadbalancer.server.port=80"
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - frontend
+      - users
+
+  user1:
+    image: workspace-nouveau:latest
+    restart: unless-stopped
+    build:
+      context: .
+    environment:
+      - MAIN_USER=user1
+    shm_size: 512m
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.u1.entryPoints=web"
+      - "traefik.http.routers.u1.rule=PathPrefix(`/user1`)"
+    networks:
+      - users
+
+  user2:
+    image: mltooling/ml-workspace-minimal:0.13.2
+    restart: unless-stopped
+    environment:
+      - MAIN_USER=user2
+    shm_size: 512m
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.u2.entryPoints=web"
+      - "traefik.http.routers.u2.rule=PathPrefix(`/user2`)"
+    networks:
+      - users
+
+networks:
+  frontend:
+    name: dtaas-frontend
+  users:
+    name: dtaas-users
