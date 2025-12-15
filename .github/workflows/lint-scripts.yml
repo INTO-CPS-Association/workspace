@@ -57,7 +57,7 @@ jobs:
           # Check if any Python files exist
           if find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | grep -q .; then
             flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-            flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+            flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
           else
             echo "No Python files found to lint"
           fi
@@ -66,11 +66,10 @@ jobs:
         run: |
           # Check if any Python files exist
           if find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | grep -q .; then
-            find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | xargs pylint --exit-zero
+            find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | xargs pylint
           else
             echo "No Python files found to lint"
           fi
-        continue-on-error: true
 
   yaml-lint:
     name: Lint YAML Files
@@ -92,4 +91,3 @@ jobs:
       - name: Run yamllint
         run: |
           yamllint .
-        continue-on-error: true
