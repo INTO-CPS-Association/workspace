@@ -27,10 +27,7 @@ sudo docker compose build
 Using plain `docker` command:
 
 ```ps1
-sudo docker run -it --shm-size=512m \
-  -p 8080:8080\
-  workspace-nouveau:latest
-docker run -d --shm-size=512m \
+sudo docker run -d --shm-size=512m \
   -p 8080:8080\
   -e MAIN_USER=dtaas-user --name workspace  workspace-nouveau:latest
 ```
