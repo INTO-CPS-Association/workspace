@@ -6,12 +6,14 @@ name: Test Traefik Secure Configuration
       - 'compose.traefik.secure.yml'
       - 'Dockerfile'
       - '.env.example'
+      - 'dtaas/**'
       - '.github/workflows/traefik-secure-test.yml'
   pull_request:
     paths:
       - 'compose.traefik.secure.yml'
       - 'Dockerfile'
       - '.env.example'
+      - 'dtaas/**'
       - '.github/workflows/traefik-secure-test.yml'
   workflow_dispatch:
 
@@ -36,6 +38,8 @@ jobs:
           sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
           sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
           sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
+          sed -i 's|username1=.*|username1=user1|g' .env
+          sed -i 's|username2=.*|username2=user2|g' .env
 
       - name: Validate compose.traefik.secure.yml syntax
         run: |
@@ -77,6 +81,8 @@ jobs:
           sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
           sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
           sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
+          sed -i 's|username1=.*|username1=user1|g' .env
+          sed -i 's|username2=.*|username2=user2|g' .env
 
       - name: Build workspace-nouveau image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
@@ -90,7 +96,7 @@ jobs:
 
       - name: Pull required images
         run: |
-          docker pull traefik:v2.10
+          docker pull traefik:v3.2
           docker pull thomseddon/traefik-forward-auth:latest
           docker pull ghcr.io/into-cps-association/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
