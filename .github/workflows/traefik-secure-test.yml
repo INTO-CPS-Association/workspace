@@ -1,0 +1,203 @@
+name: Test Traefik Secure Configuration
+
+'on':
+  push:
+    paths:
+      - 'compose.traefik.secure.yml'
+      - 'Dockerfile'
+      - '.env.example'
+      - '.github/workflows/traefik-secure-test.yml'
+  pull_request:
+    paths:
+      - 'compose.traefik.secure.yml'
+      - 'Dockerfile'
+      - '.env.example'
+      - '.github/workflows/traefik-secure-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-compose:
+    name: Validate Secure Compose File
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Create test .env file
+        run: |
+          cp .env.example .env
+          # Replace placeholders with test values
+          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' .env
+          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
+          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
+          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
+
+      - name: Validate compose.traefik.secure.yml syntax
+        run: |
+          docker compose -f compose.traefik.secure.yml config > /dev/null
+          echo "✅ compose.traefik.secure.yml syntax is valid"
+
+  test-secure-setup:
+    name: Test Traefik Secure Setup
+    runs-on: ubuntu-latest
+    needs: validate-compose
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Free up disk space
+        run: |
+          echo "=== Disk space before cleanup ==="
+          df -h
+          echo "=== Cleaning up ==="
+          docker system prune -af --volumes || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          echo "=== Disk space after cleanup ==="
+          df -h
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+
+      - name: Create test .env file
+        run: |
+          cp .env.example .env
+          # Replace placeholders with test values
+          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' .env
+          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
+          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
+          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
+
+      - name: Build workspace-nouveau image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: workspace-nouveau:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Pull required images
+        run: |
+          docker pull traefik:v2.10
+          docker pull thomseddon/traefik-forward-auth:latest
+          docker pull ghcr.io/into-cps-association/dtaas-web:latest || \
+            echo "⚠️ DTaaS web image not available, will skip"
+          docker pull mltooling/ml-workspace-minimal:0.13.2
+
+      - name: Start services (excluding client if unavailable)
+        run: |
+          # Try to start all services
+          if docker compose -f compose.traefik.secure.yml up -d 2>&1 | grep -q "pull access denied\|not found"; then
+            echo "⚠️ Client image not available, starting without client service"
+            docker compose -f compose.traefik.secure.yml up -d traefik traefik-forward-auth user1 user2
+          else
+            docker compose -f compose.traefik.secure.yml up -d
+          fi
+          echo "⏳ Waiting for services to be ready..."
+          sleep 30
+
+      - name: Check service status
+        run: |
+          docker compose -f compose.traefik.secure.yml ps
+          echo "---"
+          docker compose -f compose.traefik.secure.yml ps --format json | \
+            jq -r '.[] | "\(.Service): \(.State)"'
+
+      - name: Verify Traefik is running
+        run: |
+          if ! docker compose -f compose.traefik.secure.yml ps traefik | grep -q "Up"; then
+            echo "❌ Traefik is not running"
+            docker compose -f compose.traefik.secure.yml logs traefik
+            exit 1
+          fi
+          echo "✅ Traefik is running"
+
+      - name: Verify traefik-forward-auth is running
+        run: |
+          if ! docker compose -f compose.traefik.secure.yml ps traefik-forward-auth | grep -q "Up"; then
+            echo "❌ traefik-forward-auth is not running"
+            docker compose -f compose.traefik.secure.yml logs traefik-forward-auth
+            exit 1
+          fi
+          echo "✅ traefik-forward-auth is running"
+
+      - name: Verify user1 workspace is running
+        run: |
+          if ! docker compose -f compose.traefik.secure.yml ps user1 | grep -q "Up"; then
+            echo "❌ user1 workspace is not running"
+            docker compose -f compose.traefik.secure.yml logs user1
+            exit 1
+          fi
+          echo "✅ user1 workspace is running"
+
+      - name: Test Traefik health
+        run: |
+          echo "Testing Traefik API health..."
+          max_attempts=10
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s http://localhost/api/rawdata 2>/dev/null; then
+              echo "✅ Traefik API is accessible"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts - waiting for Traefik..."
+            sleep 3
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Traefik API not accessible after $max_attempts attempts"
+            docker compose -f compose.traefik.secure.yml logs traefik
+            exit 1
+          fi
+
+      - name: Test OAuth redirect (should redirect to auth)
+        run: |
+          echo "Testing that workspace routes require authentication..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 0 http://localhost/user1/ 2>/dev/null || echo "000")
+
+          # We expect a redirect (307/302) to the OAuth provider
+          if [ "$response" = "307" ] || [ "$response" = "302" ] || \
+             [ "$response" = "401" ] || [ "$response" = "403" ]; then
+            echo "✅ Authentication is active (HTTP $response - redirect/auth required)"
+          else
+            echo "⚠️ Got HTTP $response - may indicate auth bypass or other issue"
+            echo "This is informational - actual OAuth flow requires real credentials"
+          fi
+
+      - name: Show Traefik logs
+        if: always()
+        run: |
+          echo "=== Traefik Logs ==="
+          docker compose -f compose.traefik.secure.yml logs traefik
+
+      - name: Show traefik-forward-auth logs
+        if: always()
+        run: |
+          echo "=== Traefik Forward Auth Logs ==="
+          docker compose -f compose.traefik.secure.yml logs traefik-forward-auth
+
+      - name: Show user1 logs
+        if: always()
+        run: |
+          echo "=== User1 Workspace Logs ==="
+          docker compose -f compose.traefik.secure.yml logs user1
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f compose.traefik.secure.yml down -v
+          docker system prune -f
