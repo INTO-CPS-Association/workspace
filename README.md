@@ -67,3 +67,7 @@ using `docker compose`:
 ```bash
 docker compose -f compose.yaml down
 ```
+
+## :arrows_counterclockwise: Using with Traefik Reverse Proxy
+
+For multi-user deployments with Traefik reverse proxy integration, see [TRAEFIK.md](TRAEFIK.md).
