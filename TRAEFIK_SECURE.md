@@ -124,10 +124,12 @@ Once all services are running, access them through Traefik at `http://localhost`
 
 All endpoints require authentication:
 
-- **VNC Desktop**: `http://localhost/user1/vnc`
+- **VNC Desktop**: `http://localhost/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify`
 - **VS Code**: `http://localhost/user1/tools/vscode`
 - **Jupyter Notebook**: `http://localhost/user1`
 - **Jupyter Lab**: `http://localhost/user1/lab`
+
+👉 Remember to replace `user1` with correct username.
 
 ### User2 Workspace (ml-workspace-minimal)
 
@@ -137,6 +139,8 @@ All endpoints require authentication:
 - **VS Code**: `http://localhost/user2/tools/vscode/`
 - **Jupyter Notebook**: `http://localhost/user2`
 - **Jupyter Lab**: `http://localhost/user2/lab`
+
+👉 Remember to replace `user2` with correct username.
 
 ## 🛑 Stopping Services
 

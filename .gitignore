@@ -66,3 +66,9 @@ docker-compose.override.yml
 *.tar.gz
 *.tgz
 .container-*
+
+# DTaaS config files
+dtaas/*
+!dtaas/client.js.example
+!dtaas/conf.example
+!dtaas/.env.example
