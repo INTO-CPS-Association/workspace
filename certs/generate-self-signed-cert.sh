@@ -30,8 +30,7 @@ openssl req -x509 -nodes -days 365 -newkey rsa:4096 \
     -keyout "${KEY_FILE}" \
     -out "${CERT_FILE}" \
     -subj "/C=US/ST=State/L=City/O=Organization/CN=${DOMAIN}" \
-    -addext "subjectAltName=DNS:${DOMAIN},DNS:*.${DOMAIN},DNS:localhost,DNS:*.localhost" \
-    2>/dev/null
+    -addext "subjectAltName=DNS:${DOMAIN},DNS:*.${DOMAIN},DNS:localhost,DNS:*.localhost"
 
 # Set proper permissions
 chmod 644 "${CERT_FILE}"
