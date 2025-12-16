@@ -11,7 +11,8 @@ services:
       - "8080:8080"
     shm_size: 512m
     volumes:
-      - ./persistent_dir:/workspace
+      - ./persistent_dir/user1:/workspace
+      - ./persistent_dir/common:/workspace/common
     develop:
       watch:
         - path: .

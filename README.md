@@ -11,14 +11,14 @@ working is subject to change.
 Using plain `docker` command:
 
 ```ps1
-sudo docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace-nouveau:latest -f Dockerfile .
 ```
 
 **Or**
 using `docker compose`:
 
 ```ps1
-sudo docker compose build
+docker compose build
 ```
 
 ## :running: Run it
@@ -27,7 +27,7 @@ sudo docker compose build
 Using plain `docker` command:
 
 ```ps1
-sudo docker run -d --shm-size=512m \
+docker run -d --shm-size=512m \
   -p 8080:8080\
   -e MAIN_USER=dtaas-user --name workspace  workspace-nouveau:latest
 ```
@@ -38,7 +38,7 @@ sudo docker run -d --shm-size=512m \
 using `docker compose`:
 
 ```ps1
-sudo docker compose -f compose.yaml up -d
+docker compose -f compose.yml up -d
 ```
 
 ## :technologist: Use Services
@@ -65,7 +65,7 @@ docker rm workspace
 using `docker compose`:
 
 ```bash
-docker compose -f compose.yaml down
+docker compose -f compose.yml down
 ```
 
 ## 🔒 Production Deployments
@@ -73,6 +73,29 @@ docker compose -f compose.yaml down
 For production deployments with multiple users, OAuth2 authentication, and the
 DTaaS web interface:
 
-- See [TRAEFIK.md](TRAEFIK.md) for Traefik reverse proxy integration (from PR #8)
+- See [TRAEFIK.md](TRAEFIK.md) for Traefik reverse proxy integration
 - See [TRAEFIK_SECURE.md](TRAEFIK_SECURE.md) for secure OAuth2-protected
   deployment with GitLab authentication
+
+## Development
+
+### Code Quality
+
+This project enforces strict code quality checks via GitHub Actions:
+
+* **Dockerfile**: Linted with [hadolint](https://github.com/hadolint/hadolint) - all errors must be fixed
+* **Shell scripts**: Checked with [shellcheck](https://www.shellcheck.net/) - all warnings must be addressed
+* **Python scripts**: Linted with [flake8](https://flake8.pycqa.org/) and [pylint](https://pylint.org/) - all errors must be resolved
+* **YAML files**: Validated with [yamllint](https://yamllint.readthedocs.io/) - all issues must be corrected
+* **Markdown files**: Checked with [markdownlint](https://github.com/DavidAnson/markdownlint) - all style violations must be fixed
+
+All quality checks must pass before code can be merged. The workflows will fail if any linting errors are detected.
+
+### Configuration Files
+
+Linting behavior is configured through:
+
+- `.shellcheckrc` - shellcheck configuration
+- `.pylintrc` - pylint configuration
+- `.yamllint.yml` - yamllint configuration
+- `.markdownlint.yaml` - markdownlint configuration
