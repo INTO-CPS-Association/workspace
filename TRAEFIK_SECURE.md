@@ -47,22 +47,27 @@ Users must authenticate with GitLab before accessing any workspace or the DTaaS 
 1. Copy the example environment file:
 
    ```bash
-   cp .env.example .env
+   cp dtaas/.env.example .env
    ```
 
 2. Edit `.env` and fill in your OAuth credentials:
 
    ```bash
-   # Your GitLab instance URL
+   # Your GitLab instance URL (without trailing slash)
+   # Example: https://gitlab.com or https://gitlab.example.com
    OAUTH_URL=https://gitlab.com
 
-   # Application ID from GitLab OAuth app
+   # OAuth Application Client ID
+   # Obtained when creating the OAuth application in GitLab
    OAUTH_CLIENT_ID=your_application_id_here
 
-   # Secret from GitLab OAuth app
+   # OAuth Application Client Secret
+   # Obtained when creating the OAuth application in GitLab
    OAUTH_CLIENT_SECRET=your_secret_here
 
-   # Generate a random secret (e.g., using: openssl rand -base64 32)
+   # Secret key for encrypting OAuth session data
+   # Generate a random string (at least 16 characters)
+   # Example: openssl rand -base64 32
    OAUTH_SECRET=your_random_secret_key_here
    ```
 
@@ -73,6 +78,16 @@ Users must authenticate with GitLab before accessing any workspace or the DTaaS 
    ```
 
    Use the output as your `OAUTH_SECRET` value.
+
+4. (OPTIONAL) Update the USERNAME variables in .env, replacing the defaults with your desired usernames.
+
+   ```bash
+   # Username Configuration
+   # These usernames will be used as path prefixes for user workspaces
+   # Example: http://localhost/user1, http://localhost/user2
+   USERNAME1=user1
+   USERNAME2=user2
+   ```
 
 ## 💪 Build Workspace Image
 
@@ -171,7 +186,7 @@ user3:
   image: workspace-nouveau:latest
   restart: unless-stopped
   environment:
-    - MAIN_USER=user3
+    - MAIN_USER=$(USERNAME3)
   shm_size: 512m
   labels:
     - "traefik.enable=true"
@@ -180,6 +195,17 @@ user3:
     - "traefik.http.routers.u3.middlewares=traefik-forward-auth"
   networks:
     - users
+```
+
+And, add the desired `USERNAME3` variable in `.env`:
+
+```bash
+# Username Configuration
+# These usernames will be used as path prefixes for user workspaces
+# Example: http://localhost/user1, http://localhost/user2
+USERNAME1=user1
+USERNAME2=user2
+USERNAME3=user3
 ```
 
 ### Using a Different OAuth Provider
