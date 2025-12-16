@@ -5,14 +5,12 @@ name: Test Traefik Secure Configuration
     paths:
       - 'compose.traefik.secure.yml'
       - 'Dockerfile'
-      - '.env.example'
       - 'dtaas/**'
       - '.github/workflows/traefik-secure-test.yml'
   pull_request:
     paths:
       - 'compose.traefik.secure.yml'
       - 'Dockerfile'
-      - '.env.example'
       - 'dtaas/**'
       - '.github/workflows/traefik-secure-test.yml'
   workflow_dispatch:
@@ -32,14 +30,14 @@ jobs:
 
       - name: Create test .env file
         run: |
-          cp .env.example .env
+          cp dtaas/.env.example dtaas/.env
           # Replace placeholders with test values
-          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' .env
-          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
-          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
-          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
-          sed -i 's|username1=.*|username1=user1|g' .env
-          sed -i 's|username2=.*|username2=user2|g' .env
+          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' dtaas/.env
+          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' dtaas/.env
+          sed -i 's|USERNAME1=.*|USERNAME1=user1|g' dtaas/.env
+          sed -i 's|USERNAME2=.*|USERNAME2=user2|g' dtaas/.env
 
       - name: Validate compose.traefik.secure.yml syntax
         run: |
@@ -75,14 +73,29 @@ jobs:
 
       - name: Create test .env file
         run: |
-          cp .env.example .env
+          cp dtaas/.env.example dtaas/.env
           # Replace placeholders with test values
-          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' .env
-          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
-          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
-          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
-          sed -i 's|username1=.*|username1=user1|g' .env
-          sed -i 's|username2=.*|username2=user2|g' .env
+          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' dtaas/.env
+          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' dtaas/.env
+          sed -i 's|USERNAME1=.*|USERNAME1=user1|g' dtaas/.env
+          sed -i 's|USERNAME2=.*|USERNAME2=user2|g' dtaas/.env
+
+      - name: Create test config files
+        run: |
+          # Create conf file
+          if [ -f dtaas/conf.example ]; then
+            cp dtaas/conf.example dtaas/conf
+          else
+            echo "rule.0.action=allow" > dtaas/conf
+          fi
+          # Create client.js file
+          if [ -f dtaas/client.js.example ]; then
+            cp dtaas/client.js.example dtaas/client.js
+          else
+            echo "window.env = {};" > dtaas/client.js
+          fi
 
       - name: Build workspace-nouveau image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
@@ -96,9 +109,9 @@ jobs:
 
       - name: Pull required images
         run: |
-          docker pull traefik:v3.2
+          docker pull traefik:v3.6.4
           docker pull thomseddon/traefik-forward-auth:latest
-          docker pull ghcr.io/into-cps-association/dtaas-web:latest || \
+          docker pull intocps/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
 

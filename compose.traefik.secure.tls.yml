@@ -107,7 +107,7 @@ services:
     image: mltooling/ml-workspace-minimal:0.13.2
     restart: unless-stopped
     environment:
-      - MAIN_USER=${USERNAME2}
+      - AUTHENTICATE_VIA_JUPYTER=
       - WORKSPACE_BASE_URL=${USERNAME2}
     shm_size: 512m
     labels:
