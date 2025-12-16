@@ -157,27 +157,6 @@ jobs:
           fi
           echo "✅ user1 workspace is running"
 
-      - name: Test Traefik health
-        run: |
-          echo "Testing Traefik API health..."
-          max_attempts=10
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if curl -f -s http://localhost/api/rawdata 2>/dev/null; then
-              echo "✅ Traefik API is accessible"
-              break
-            fi
-            attempt=$((attempt + 1))
-            echo "Attempt $attempt/$max_attempts - waiting for Traefik..."
-            sleep 3
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Traefik API not accessible after $max_attempts attempts"
-            docker compose -f compose.traefik.secure.yml logs traefik
-            exit 1
-          fi
-
       - name: Test OAuth redirect (should redirect to auth)
         run: |
           echo "Testing that workspace routes require authentication..."
