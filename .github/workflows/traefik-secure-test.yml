@@ -118,8 +118,17 @@ jobs:
         run: |
           docker compose -f compose.traefik.secure.yml ps
           echo "---"
-          docker compose -f compose.traefik.secure.yml ps --format json | \
-            jq -r '.[] | "\(.Service): \(.State)"'
+          services_json=$(docker compose -f compose.traefik.secure.yml ps --format json 2>/dev/null || true)
+          if [ -z "$services_json" ]; then
+            echo "⚠️ 'docker compose ps' returned empty output"
+            exit 0
+          fi
+          # Handle different JSON shapes and avoid indexing strings
+          echo "$services_json" | jq -r '((.[]? // .Services?[] // .services?[]) | if type=="object" then "\(.Service): \(.State)" else tostring end)' || {
+            echo "⚠️ Could not parse 'docker compose ps --format json' output with jq"
+            echo "Raw output:"
+            echo "$services_json"
+          }
 
       - name: Verify Traefik is running
         run: |
