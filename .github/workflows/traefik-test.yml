@@ -2,15 +2,9 @@ name: Test Traefik Configuration
 
 'on':
   push:
-    paths:
-      - 'compose.traefik.yml'
-      - 'Dockerfile'
-      - '.github/workflows/traefik-test.yml'
   pull_request:
-    paths:
-      - 'compose.traefik.yml'
-      - 'Dockerfile'
-      - '.github/workflows/traefik-test.yml'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

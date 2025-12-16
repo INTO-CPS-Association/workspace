@@ -5,7 +5,26 @@ A new workspace image for [DTaaS](https://github.com/INTO-CPS-Association/DTaaS)
 We are still very much in the explorative phase. Everything that is
 working is subject to change.
 
+## 📦 Pre-built Images
+
+Pre-built Docker images are available from:
+
+- **GitHub Container Registry**: `ghcr.io/into-cps-association/workspace:latest`
+- **Docker Hub**: `intocpsassociation/workspace-nouveau:latest`
+
+You can pull the image directly:
+
+```bash
+# From GitHub Container Registry
+docker pull ghcr.io/into-cps-association/workspace:latest
+
+# From Docker Hub
+docker pull intocpsassociation/workspace-nouveau:latest
+```
+
 ## 🦾 Build Workspace Image
+
+If you want to build the image locally instead of using pre-built images:
 
 *Either*  
 Using plain `docker` command:
@@ -70,7 +89,13 @@ docker compose -f compose.yml down
 
 ## :arrows_counterclockwise: Using with Traefik Reverse Proxy
 
-For multi-user deployments with Traefik reverse proxy integration, see [TRAEFIK.md](TRAEFIK.md).
+For multi-user deployments with Traefik reverse proxy integration,
+see [TRAEFIK.md](TRAEFIK.md).
+
+## :package: Publishing
+
+For information about publishing Docker images to registries,
+see [PUBLISHING.md](PUBLISHING.md).
 
 ## Development
 
