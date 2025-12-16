@@ -3,6 +3,7 @@ name: Publish Workspace Docker Image
 'on':
   workflow_run:
     workflows:
+      # the workflow names must match exactly with those in the required workflow files
       - "Dockerfile Lint and Build"
       - "Lint Scripts"
       - "Test Traefik Configuration"
@@ -19,7 +20,6 @@ name: Publish Workspace Docker Image
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   check-prerequisites:
@@ -28,21 +28,53 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
+      actions: read
     outputs:
       should_publish: ${{ steps.check.outputs.should_publish }}
     steps:
-      - name: Check workflow run status
+      - name: Check all prerequisite workflows
         id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Manual trigger - proceeding with publish"
-          elif [ "${{ github.event.workflow_run.conclusion }}" = "success" ]; then
+          # Get the SHA from the triggering workflow
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          REPO="${{ github.repository }}"
+
+          echo "🔍 Checking all prerequisite workflows for SHA: $SHA"
+
+          # Define required workflows
+          # the workflow names must match exactly with those in the required workflow files
+          WORKFLOWS=("Dockerfile Lint and Build" "Lint Scripts" "Test Traefik Configuration")
+          ALL_SUCCESS=true
+
+          for workflow in "${WORKFLOWS[@]}"; do
+            echo "Checking: $workflow"
+
+            # Get the latest run for this workflow on the given SHA
+            STATUS=$(gh api \
+              "/repos/$REPO/actions/workflows" \
+              --jq ".workflows[] | select(.name==\"$workflow\") | .id" \
+              | head -1 | xargs -I {} gh api \
+              "/repos/$REPO/actions/workflows/{}/runs?head_sha=$SHA&per_page=1" \
+              --jq '.workflow_runs[0].conclusion // "not_found"')
+
+            echo "  Status: $STATUS"
+
+            if [ "$STATUS" != "success" ]; then
+              echo "  ❌ $workflow has not succeeded (status: $STATUS)"
+              ALL_SUCCESS=false
+            else
+              echo "  ✅ $workflow succeeded"
+            fi
+          done
+
+          if [ "$ALL_SUCCESS" = true ]; then
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
             echo "✅ All prerequisite workflows succeeded"
           else
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "❌ Prerequisites not met"
+            echo "❌ Not all prerequisites met - skipping publish"
           fi
 
   publish-ghcr:
@@ -61,7 +93,7 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@74a47a18f8f1d088e34894f24de34eed8f39a90d  # v3.4.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -104,7 +136,7 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@74a47a18f8f1d088e34894f24de34eed8f39a90d  # v3.4.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}

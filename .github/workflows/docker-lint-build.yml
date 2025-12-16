@@ -2,17 +2,9 @@ name: Dockerfile Lint and Build
 
 on:
   push:
-    paths:
-      - 'Dockerfile'
-      - 'compose.yml'
-      - 'compose.yaml'
-      - '.github/workflows/docker-lint-build.yml'
   pull_request:
-    paths:
-      - 'Dockerfile'
-      - 'compose.yml'
-      - 'compose.yaml'
-      - '.github/workflows/docker-lint-build.yml'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

@@ -2,22 +2,9 @@ name: Lint Scripts
 
 on:
   push:
-    paths:
-      - '**.sh'
-      - '**.py'
-      - '**.yml'
-      - '**.yaml'
-      - '.shellcheckrc'
-      - '.yamllint'
-      - '.github/workflows/lint-scripts.yml'
   pull_request:
-    paths:
-      - '**.sh'
-      - '**.py'
-      - '**.yml'
-      - '**.yaml'
-      - '.shellcheckrc'
-      - '.yamllint'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
