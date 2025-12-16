@@ -15,6 +15,7 @@ services:
     command:
       - "--api.insecure=true"  # DEV ONLY - disable in production
       - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
       - "--entryPoints.web.address=:80"
       - "--entrypoints.web.forwardedHeaders.insecure=true"  # DEV ONLY
       - "--entrypoints.web.proxyProtocol.insecure=true"  # DEV ONLY
