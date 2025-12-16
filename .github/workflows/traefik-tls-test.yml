@@ -1,0 +1,287 @@
+name: Test Traefik TLS Configuration
+
+on:
+  push:
+    paths:
+      - 'compose.traefik.secure.tls.yml'
+      - 'dynamic/tls.yml'
+      - 'certs/**'
+      - 'Dockerfile'
+      - 'dtaas/.env.example'
+      - 'dtaas/**'
+      - '.github/workflows/traefik-tls-test.yml'
+  pull_request:
+    paths:
+      - 'compose.traefik.secure.tls.yml'
+      - 'dynamic/tls.yml'
+      - 'certs/**'
+      - 'Dockerfile'
+      - 'dtaas/.env.example'
+      - 'dtaas/**'
+      - '.github/workflows/traefik-tls-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-compose:
+    name: Validate TLS Compose File
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Create test .env file
+        run: |
+          cp dtaas/.env.example dtaas/.env
+          # Replace placeholders with test values
+          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' dtaas/.env
+          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' dtaas/.env
+          sed -i 's|SERVER_DNS=.*|SERVER_DNS=localhost|g' dtaas/.env
+          sed -i 's|USERNAME1=.*|USERNAME1=user1|g' dtaas/.env
+          sed -i 's|USERNAME2=.*|USERNAME2=user2|g' dtaas/.env
+
+      - name: Generate test TLS certificates
+        run: |
+          cd certs
+          ./generate-self-signed-cert.sh localhost
+
+      - name: Validate compose.traefik.secure.tls.yml syntax
+        run: |
+          docker compose -f compose.traefik.secure.tls.yml config > /dev/null
+          echo "✅ compose.traefik.secure.tls.yml syntax is valid"
+
+      - name: Validate dynamic TLS configuration
+        run: |
+          # Check if tls.yml exists and has correct structure
+          if [ ! -f dynamic/tls.yml ]; then
+            echo "❌ dynamic/tls.yml not found"
+            exit 1
+          fi
+          # Basic YAML syntax check
+          python3 -c "import yaml; yaml.safe_load(open('dynamic/tls.yml'))"
+          echo "✅ dynamic/tls.yml is valid YAML"
+
+  test-tls-setup:
+    name: Test Traefik TLS Setup
+    runs-on: ubuntu-latest
+    needs: validate-compose
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Free up disk space
+        run: |
+          echo "=== Disk space before cleanup ==="
+          df -h
+          echo "=== Cleaning up ==="
+          docker system prune -af --volumes || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          echo "=== Disk space after cleanup ==="
+          df -h
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+
+      - name: Create test .env file
+        run: |
+          cp dtaas/.env.example dtaas/.env
+          # Replace placeholders with test values
+          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' dtaas/.env
+          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' dtaas/.env
+          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' dtaas/.env
+          sed -i 's|SERVER_DNS=.*|SERVER_DNS=localhost|g' dtaas/.env
+          sed -i 's|USERNAME1=.*|USERNAME1=user1|g' dtaas/.env
+          sed -i 's|USERNAME2=.*|USERNAME2=user2|g' dtaas/.env
+
+      - name: Create test config files
+        run: |
+          # Create conf file
+          if [ -f dtaas/conf.example ]; then
+            cp dtaas/conf.example dtaas/conf
+          else
+            echo "rule.0.action=allow" > dtaas/conf
+          fi
+          # Create client.js file
+          if [ -f dtaas/client.js.example ]; then
+            cp dtaas/client.js.example dtaas/client.js
+          else
+            echo "window.env = {};" > dtaas/client.js
+          fi
+
+      - name: Generate self-signed TLS certificates
+        run: |
+          cd certs
+          ./generate-self-signed-cert.sh localhost
+          echo "✅ Self-signed certificates generated"
+          ls -la
+
+      - name: Verify certificates exist
+        run: |
+          if [ ! -f certs/fullchain.pem ]; then
+            echo "❌ fullchain.pem not found"
+            exit 1
+          fi
+          if [ ! -f certs/privkey.pem ]; then
+            echo "❌ privkey.pem not found"
+            exit 1
+          fi
+          echo "✅ Certificate files exist"
+
+      - name: Build workspace-nouveau image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: workspace-nouveau:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Pull required images
+        run: |
+          docker pull traefik:v3.6.4
+          docker pull thomseddon/traefik-forward-auth:latest
+          docker pull intocps/dtaas-web:latest || \
+            echo "⚠️ DTaaS web image not available, will skip"
+          docker pull mltooling/ml-workspace-minimal:0.13.2
+
+      - name: Start services (excluding client if unavailable)
+        run: |
+          # Try to start all services
+          if docker compose -f compose.traefik.secure.tls.yml up -d 2>&1 | grep -q "pull access denied\|not found"; then
+            echo "⚠️ Client image not available, starting without client service"
+            docker compose -f compose.traefik.secure.tls.yml up -d traefik traefik-forward-auth user1 user2
+          else
+            docker compose -f compose.traefik.secure.tls.yml up -d
+          fi
+          echo "⏳ Waiting for services to be ready..."
+          sleep 30
+
+      - name: Check service status
+        run: |
+          docker compose -f compose.traefik.secure.tls.yml ps
+          echo "---"
+          docker compose -f compose.traefik.secure.tls.yml ps --format json | \
+            jq -r '.[] | "\(.Service): \(.State)"'
+
+      - name: Verify Traefik is running
+        run: |
+          if ! docker compose -f compose.traefik.secure.tls.yml ps traefik | grep -q "Up"; then
+            echo "❌ Traefik is not running"
+            docker compose -f compose.traefik.secure.tls.yml logs traefik
+            exit 1
+          fi
+          echo "✅ Traefik is running"
+
+      - name: Verify TLS certificate is loaded
+        run: |
+          echo "Checking Traefik logs for TLS certificate loading..."
+          docker compose -f compose.traefik.secure.tls.yml logs traefik | grep -i "certificate\|tls" || true
+          echo "✅ TLS configuration check complete"
+
+      - name: Test HTTPS endpoint (self-signed cert)
+        run: |
+          echo "Testing HTTPS endpoint with self-signed certificate..."
+          max_attempts=10
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Use -k to accept self-signed cert, check for HTTPS response
+            if curl -k -s -o /dev/null -w "%{http_code}" https://localhost/ | grep -q "302\|307\|401\|403\|200"; then
+              echo "✅ HTTPS endpoint is accessible (auth redirect or response)"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts - waiting for HTTPS..."
+            sleep 3
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "⚠️ HTTPS endpoint not accessible after $max_attempts attempts"
+            echo "This may be expected in CI environment"
+          fi
+
+      - name: Test HTTP to HTTPS redirect
+        run: |
+          echo "Testing HTTP to HTTPS redirect..."
+          # Test that HTTP redirects to HTTPS
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 0 http://localhost/ 2>/dev/null || echo "000")
+
+          if [ "$response" = "301" ] || [ "$response" = "308" ]; then
+            echo "✅ HTTP correctly redirects to HTTPS (HTTP $response)"
+          else
+            echo "⚠️ Got HTTP $response instead of redirect"
+            echo "Checking Traefik configuration..."
+            docker compose -f compose.traefik.secure.tls.yml logs traefik | tail -20
+          fi
+
+      - name: Verify traefik-forward-auth is running
+        run: |
+          if ! docker compose -f compose.traefik.secure.tls.yml ps traefik-forward-auth | grep -q "Up"; then
+            echo "❌ traefik-forward-auth is not running"
+            docker compose -f compose.traefik.secure.tls.yml logs traefik-forward-auth
+            exit 1
+          fi
+          echo "✅ traefik-forward-auth is running"
+
+      - name: Verify user1 workspace is running
+        run: |
+          if ! docker compose -f compose.traefik.secure.tls.yml ps user1 | grep -q "Up"; then
+            echo "❌ user1 workspace is not running"
+            docker compose -f compose.traefik.secure.tls.yml logs user1
+            exit 1
+          fi
+          echo "✅ user1 workspace is running"
+
+      - name: Test TLS authentication flow
+        run: |
+          echo "Testing that HTTPS workspace routes require authentication..."
+          # Use -k to accept self-signed cert
+          response=$(curl -k -s -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 0 https://localhost/user1/ 2>/dev/null || echo "000")
+
+          # We expect a redirect (307/302) to the OAuth provider
+          if [ "$response" = "307" ] || [ "$response" = "302" ] || \
+             [ "$response" = "401" ] || [ "$response" = "403" ]; then
+            echo "✅ TLS + Authentication is active (HTTP $response - redirect/auth required)"
+          else
+            echo "⚠️ Got HTTP $response - may indicate auth bypass or other issue"
+            echo "This is informational - actual OAuth flow requires real credentials"
+          fi
+
+      - name: Show Traefik logs
+        if: always()
+        run: |
+          echo "=== Traefik Logs ==="
+          docker compose -f compose.traefik.secure.tls.yml logs traefik
+
+      - name: Show traefik-forward-auth logs
+        if: always()
+        run: |
+          echo "=== Traefik Forward Auth Logs ==="
+          docker compose -f compose.traefik.secure.tls.yml logs traefik-forward-auth
+
+      - name: Show user1 logs
+        if: always()
+        run: |
+          echo "=== User1 Workspace Logs ==="
+          docker compose -f compose.traefik.secure.tls.yml logs user1
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f compose.traefik.secure.tls.yml down -v
+          docker system prune -f

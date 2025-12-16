@@ -1,0 +1,7 @@
+rule.onlyu1.action=auth
+rule.onlyu1.rule=PathPrefix(`/user1`)
+rule.onlyu1.whitelist = user1@localhost
+
+rule.onlyu2.action=auth
+rule.onlyu2.rule=PathPrefix(`/user2`)
+rule.onlyu2.whitelist = user2@localhost

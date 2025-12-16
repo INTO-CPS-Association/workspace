@@ -67,3 +67,33 @@ using `docker compose`:
 ```bash
 docker compose -f compose.yaml down
 ```
+
+## 🔐 Production Deployments
+
+For production deployments with multiple users, OAuth2 authentication, and TLS/HTTPS:
+
+### Option 1: Traefik with OAuth2 (HTTP)
+
+See [TRAEFIK_SECURE.md](TRAEFIK_SECURE.md) for setup with:
+- Traefik reverse proxy
+- OAuth2 authentication via GitLab
+- Multi-user workspace deployment
+- Development/testing environment
+
+```bash
+docker compose -f compose.traefik.secure.yml up -d
+```
+
+### Option 2: Traefik with OAuth2 and TLS (HTTPS)
+
+See [TRAEFIK_TLS.md](TRAEFIK_TLS.md) for production-ready setup with:
+- TLS/HTTPS encryption
+- Traefik reverse proxy
+- OAuth2 authentication via GitLab
+- Let's Encrypt or commercial certificates
+- Automatic HTTP→HTTPS redirect
+- Multi-user workspace deployment
+
+```bash
+docker compose -f compose.traefik.secure.tls.yml up -d
+```
