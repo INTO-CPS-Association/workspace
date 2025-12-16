@@ -159,34 +159,22 @@ jobs:
 
       - name: Test Traefik health
         run: |
-          set -euo pipefail
           echo "Testing Traefik API health..."
-          # Try likely endpoints (Traefik dashboard typically on 8080)
-          endpoints=("http://localhost:8080/api/rawdata" "http://127.0.0.1:8080/api/rawdata" "http://localhost/api/rawdata")
-          max_attempts=15
+          max_attempts=10
           attempt=0
-          success=0
-
-          echo "Traefik published ports (if available):"
-          docker compose -f compose.traefik.secure.yml port traefik 8080 || true
-          docker compose -f compose.traefik.secure.yml ps traefik || true
-
           while [ $attempt -lt $max_attempts ]; do
-            for url in "${endpoints[@]}"; do
-              if curl -f -s "$url" >/dev/null 2>&1; then
-                echo "✅ Traefik API is accessible at $url"
-                success=1
-                break 2
-              fi
-            done
+            if curl -f -s http://localhost/api/rawdata 2>/dev/null; then
+              echo "✅ Traefik API is accessible"
+              break
+            fi
             attempt=$((attempt + 1))
             echo "Attempt $attempt/$max_attempts - waiting for Traefik..."
             sleep 3
           done
 
-          if [ $success -ne 1 ]; then
+          if [ $attempt -eq $max_attempts ]; then
             echo "❌ Traefik API not accessible after $max_attempts attempts"
-            docker compose -f compose.traefik.secure.yml logs traefik --tail="200"
+            docker compose -f compose.traefik.secure.yml logs traefik
             exit 1
           fi
 
