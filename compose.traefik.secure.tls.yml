@@ -26,8 +26,9 @@ services:
     labels:
       - "traefik.enable=true"
       # Dashboard
-      - "traefik.http.routers.dashboard.rule=Host(`${SERVER_DNS:-localhost}`) &&
-        (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - >-
+        traefik.http.routers.dashboard.rule=Host(`${SERVER_DNS:-localhost}`)
+        && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
       - "traefik.http.routers.dashboard.entryPoints=websecure"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.service=api@internal"
