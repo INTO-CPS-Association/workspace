@@ -89,7 +89,13 @@ docker compose -f compose.yml down
 
 ## :arrows_counterclockwise: Using with Traefik Reverse Proxy
 
-For multi-user deployments with Traefik reverse proxy integration, see [TRAEFIK.md](TRAEFIK.md).
+For multi-user deployments with Traefik reverse proxy integration,
+see [TRAEFIK.md](TRAEFIK.md).
+
+## :package: Publishing
+
+For information about publishing Docker images to registries,
+see [PUBLISHING.md](PUBLISHING.md).
 
 ## Development
 
