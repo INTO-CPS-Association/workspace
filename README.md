@@ -11,14 +11,14 @@ working is subject to change.
 Using plain `docker` command:
 
 ```ps1
-sudo docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace-nouveau:latest -f Dockerfile .
 ```
 
 **Or**
 using `docker compose`:
 
 ```ps1
-sudo docker compose build
+docker compose build
 ```
 
 ## :running: Run it
@@ -27,7 +27,7 @@ sudo docker compose build
 Using plain `docker` command:
 
 ```ps1
-sudo docker run -d --shm-size=512m \
+docker run -d --shm-size=512m \
   -p 8080:8080\
   -e MAIN_USER=dtaas-user --name workspace  workspace-nouveau:latest
 ```
@@ -38,7 +38,7 @@ sudo docker run -d --shm-size=512m \
 using `docker compose`:
 
 ```ps1
-sudo docker compose -f compose.yaml up -d
+docker compose -f compose.yml up -d
 ```
 
 ## :technologist: Use Services
@@ -65,8 +65,12 @@ docker rm workspace
 using `docker compose`:
 
 ```bash
-docker compose -f compose.yaml down
+docker compose -f compose.yml down
 ```
+
+## :arrows_counterclockwise: Using with Traefik Reverse Proxy
+
+For multi-user deployments with Traefik reverse proxy integration, see [TRAEFIK.md](TRAEFIK.md).
 
 ## Development
 
