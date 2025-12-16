@@ -71,3 +71,26 @@ docker compose -f compose.yml down
 ## :arrows_counterclockwise: Using with Traefik Reverse Proxy
 
 For multi-user deployments with Traefik reverse proxy integration, see [TRAEFIK.md](TRAEFIK.md).
+
+## Development
+
+### Code Quality
+
+This project enforces strict code quality checks via GitHub Actions:
+
+* **Dockerfile**: Linted with [hadolint](https://github.com/hadolint/hadolint) - all errors must be fixed
+* **Shell scripts**: Checked with [shellcheck](https://www.shellcheck.net/) - all warnings must be addressed
+* **Python scripts**: Linted with [flake8](https://flake8.pycqa.org/) and [pylint](https://pylint.org/) - all errors must be resolved
+* **YAML files**: Validated with [yamllint](https://yamllint.readthedocs.io/) - all issues must be corrected
+* **Markdown files**: Checked with [markdownlint](https://github.com/DavidAnson/markdownlint) - all style violations must be fixed
+
+All quality checks must pass before code can be merged. The workflows will fail if any linting errors are detected.
+
+### Configuration Files
+
+Linting behavior is configured through:
+
+- `.shellcheckrc` - shellcheck configuration
+- `.pylintrc` - pylint configuration
+- `.yamllint.yml` - yamllint configuration
+- `.markdownlint.yaml` - markdownlint configuration
