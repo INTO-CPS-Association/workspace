@@ -33,7 +33,14 @@ jobs:
         with:
           dockerfile: Dockerfile
           failure-threshold: error
-          no-fail: true
+
+      - name: Lint Docker Compose files
+        run: |
+          # Find and lint all compose files
+          for file in $(find . -name "compose*.yaml" -o -name "compose*.yml"); do
+            echo "Linting $file"
+            docker compose -f "$file" config --quiet
+          done
 
   build:
     name: Build Docker Image

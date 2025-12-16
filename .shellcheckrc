@@ -5,7 +5,9 @@ enable=all
 
 # Disable specific checks that may not apply to Docker context
 # SC2034: Variable appears unused (often false positives with Docker ENV vars)
-disable=SC2034
+# SC2154: Variables referenced but not assigned (Docker ENV vars are set externally)
+# SC1091: Not following sourced files (runtime-generated files may not exist at check time)
+disable=SC2034,SC2154,SC1091
 
 # Set shell dialect
 shell=bash
