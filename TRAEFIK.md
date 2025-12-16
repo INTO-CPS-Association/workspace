@@ -21,7 +21,25 @@ The `compose.traefik.yml` file sets up:
 
 Traefik routes requests to different workspace instances based on URL path prefixes.
 
-## 💪 Build Workspace Image
+## 💪 Get Workspace Image
+
+You can either use a pre-built image or build it locally.
+
+### Option 1: Use Pre-built Image (Recommended)
+
+Pull the latest image from GitHub Container Registry or Docker Hub:
+
+```bash
+# From GitHub Container Registry
+docker pull ghcr.io/into-cps-association/workspace:latest
+docker tag ghcr.io/into-cps-association/workspace:latest workspace-nouveau:latest
+
+# Or from Docker Hub
+docker pull intocpsassociation/workspace-nouveau:latest
+docker tag intocpsassociation/workspace-nouveau:latest workspace-nouveau:latest
+```
+
+### Option 2: Build Locally
 
 Before starting the services, build the workspace-nouveau image:
 
