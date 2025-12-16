@@ -38,7 +38,7 @@ docker run -d --shm-size=512m \
 using `docker compose`:
 
 ```ps1
-docker compose -f compose.yaml up -d
+docker compose -f compose.yml up -d
 ```
 
 ## :technologist: Use Services
@@ -65,7 +65,7 @@ docker rm workspace
 using `docker compose`:
 
 ```bash
-docker compose -f compose.yaml down
+docker compose -f compose.yml down
 ```
 
 ## :arrows_counterclockwise: Using with Traefik Reverse Proxy

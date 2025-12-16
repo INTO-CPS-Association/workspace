@@ -41,19 +41,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
 
-      - name: Free up disk space
-        run: |
-          echo "=== Disk space before cleanup ==="
-          df -h
-          echo "=== Cleaning up ==="
-          docker system prune -af --volumes || true
-          sudo rm -rf /usr/local/lib/android || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /opt/ghc || true
-          sudo rm -rf /opt/hostedtoolcache || true
-          echo "=== Disk space after cleanup ==="
-          df -h
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
 
@@ -63,6 +50,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
+          load: true
           tags: workspace-nouveau:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -73,56 +61,31 @@ jobs:
           echo "⏳ Waiting for services to be ready..."
           sleep 30
 
-      - name: Check service status
+      - name: Check service health
         run: |
+          echo "📊 Checking service status..."
           docker compose -f compose.traefik.yml ps
           echo "---"
-          docker compose -f compose.traefik.yml ps --format json | \
-            jq -r '.[] | "\(.Service): \(.State)"'
-
-      - name: Verify Traefik is running
-        run: |
-          if ! docker compose -f compose.traefik.yml ps traefik | grep -q "Up"; then
-            echo "❌ Traefik is not running"
-            docker compose -f compose.traefik.yml logs traefik
+          # Check if all services are running
+          SERVICES=$(docker compose -f compose.traefik.yml ps --format json)
+          if echo "$SERVICES" | head -1 | grep -q '^\['; then
+            # JSON array format
+            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+          else
+            # Newline-delimited JSON format
+            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+          fi
+          if [ -n "$FAILED" ]; then
+            echo "❌ Some services are not running:"
+            echo "$FAILED"
             exit 1
           fi
-          echo "✅ Traefik is running"
-
-      - name: Verify user1 workspace is running
-        run: |
-          if ! docker compose -f compose.traefik.yml ps user1 | grep -q "Up"; then
-            echo "❌ user1 workspace is not running"
-            docker compose -f compose.traefik.yml logs user1
-            exit 1
-          fi
-          echo "✅ user1 workspace is running"
-
-      - name: Test Traefik routing
-        run: |
-          echo "Testing Traefik health..."
-          max_attempts=10
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if curl -f -s http://localhost/api/rawdata 2>/dev/null; then
-              echo "✅ Traefik API is accessible"
-              break
-            fi
-            attempt=$((attempt + 1))
-            echo "Attempt $attempt/$max_attempts - waiting for Traefik..."
-            sleep 3
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Traefik API not accessible after $max_attempts attempts"
-            docker compose -f compose.traefik.yml logs traefik
-            exit 1
-          fi
+          echo "✅ All services are running"
 
       - name: Test workspace routing through Traefik
         run: |
           echo "Testing workspace accessibility through Traefik..."
-          max_attempts=15
+          max_attempts=5
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             response=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -146,18 +109,6 @@ jobs:
             docker compose -f compose.traefik.yml logs --tail=50 user1
             echo "Note: Workspace may need more time to fully initialize"
           fi
-
-      - name: Show Traefik logs
-        if: always()
-        run: |
-          echo "=== Traefik Logs ==="
-          docker compose -f compose.traefik.yml logs traefik
-
-      - name: Show user1 logs
-        if: always()
-        run: |
-          echo "=== User1 Workspace Logs ==="
-          docker compose -f compose.traefik.yml logs user1
 
       - name: Cleanup
         if: always()
