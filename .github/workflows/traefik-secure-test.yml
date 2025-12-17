@@ -33,13 +33,6 @@ jobs:
       - name: Create test .env file
         run: |
           cp ./dtaas/.env.example .env
-          # Replace placeholders with test values
-          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' .env
-          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
-          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
-          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
-          sed -i 's|username1=.*|username1=user1|g' .env
-          sed -i 's|username2=.*|username2=user2|g' .env
 
       - name: Validate compose.traefik.secure.yml syntax
         run: |
@@ -76,13 +69,6 @@ jobs:
       - name: Create test .env file
         run: |
           cp ./dtaas/.env.example .env
-          # Replace placeholders with test values
-          sed -i 's|OAUTH_URL=.*|OAUTH_URL=https://gitlab.com|g' .env
-          sed -i 's|OAUTH_CLIENT_ID=.*|OAUTH_CLIENT_ID=test_client_id|g' .env
-          sed -i 's|OAUTH_CLIENT_SECRET=.*|OAUTH_CLIENT_SECRET=test_secret|g' .env
-          sed -i 's|OAUTH_SECRET=.*|OAUTH_SECRET=test_oauth_secret_key_12345|g' .env
-          sed -i 's|username1=.*|username1=user1|g' .env
-          sed -i 's|username2=.*|username2=user2|g' .env
 
       - name: Build workspace-nouveau image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
@@ -90,6 +76,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
+          load: true
           tags: workspace-nouveau:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -102,60 +89,33 @@ jobs:
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
 
-      - name: Start services (excluding client if unavailable)
+      - name: Start services
         run: |
-          # Try to start all services
-          if docker compose -f compose.traefik.secure.yml up -d 2>&1 | grep -q "pull access denied\|not found"; then
-            echo "⚠️ Client image not available, starting without client service"
-            docker compose -f compose.traefik.secure.yml up -d traefik traefik-forward-auth user1 user2
-          else
-            docker compose -f compose.traefik.secure.yml up -d
-          fi
+          docker compose -f compose.traefik.secure.yml up -d
           echo "⏳ Waiting for services to be ready..."
           sleep 30
 
-      - name: Check service status
+      - name: Check service health
         run: |
+          echo "📊 Checking service status..."
           docker compose -f compose.traefik.secure.yml ps
           echo "---"
-          services_json=$(docker compose -f compose.traefik.secure.yml ps --format json 2>/dev/null || true)
-          if [ -z "$services_json" ]; then
-            echo "⚠️ 'docker compose ps' returned empty output"
-            exit 0
+          # Check if all services are running
+          SERVICES=$(docker compose -f compose.traefik.secure.yml ps --format json)
+          if echo "$SERVICES" | head -1 | grep -q '^\['; then
+            # JSON array format
+            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+          else
+            # Newline-delimited JSON format
+            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
           fi
-          # Handle different JSON shapes and avoid indexing strings
-          echo "$services_json" | jq -r '((.[]? // .Services?[] // .services?[]) | if type=="object" then "\(.Service): \(.State)" else tostring end)' || {
-            echo "⚠️ Could not parse 'docker compose ps --format json' output with jq"
-            echo "Raw output:"
-            echo "$services_json"
-          }
-
-      - name: Verify Traefik is running
-        run: |
-          if ! docker compose -f compose.traefik.secure.yml ps traefik | grep -q "Up"; then
-            echo "❌ Traefik is not running"
-            docker compose -f compose.traefik.secure.yml logs traefik
+          if [ -n "$FAILED" ]; then
+            echo "❌ Some services are not running:"
+            echo "$FAILED"
+            docker compose -f compose.traefik.secure.yml logs
             exit 1
           fi
-          echo "✅ Traefik is running"
-
-      - name: Verify traefik-forward-auth is running
-        run: |
-          if ! docker compose -f compose.traefik.secure.yml ps traefik-forward-auth | grep -q "Up"; then
-            echo "❌ traefik-forward-auth is not running"
-            docker compose -f compose.traefik.secure.yml logs traefik-forward-auth
-            exit 1
-          fi
-          echo "✅ traefik-forward-auth is running"
-
-      - name: Verify user1 workspace is running
-        run: |
-          if ! docker compose -f compose.traefik.secure.yml ps user1 | grep -q "Up"; then
-            echo "❌ user1 workspace is not running"
-            docker compose -f compose.traefik.secure.yml logs user1
-            exit 1
-          fi
-          echo "✅ user1 workspace is running"
+          echo "✅ All services are running"
 
       - name: Test OAuth redirect (should redirect to auth)
         run: |
@@ -171,24 +131,6 @@ jobs:
             echo "⚠️ Got HTTP $response - may indicate auth bypass or other issue"
             echo "This is informational - actual OAuth flow requires real credentials"
           fi
-
-      - name: Show Traefik logs
-        if: always()
-        run: |
-          echo "=== Traefik Logs ==="
-          docker compose -f compose.traefik.secure.yml logs traefik
-
-      - name: Show traefik-forward-auth logs
-        if: always()
-        run: |
-          echo "=== Traefik Forward Auth Logs ==="
-          docker compose -f compose.traefik.secure.yml logs traefik-forward-auth
-
-      - name: Show user1 logs
-        if: always()
-        run: |
-          echo "=== User1 Workspace Logs ==="
-          docker compose -f compose.traefik.secure.yml logs user1
 
       - name: Cleanup
         if: always()
