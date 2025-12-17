@@ -11,6 +11,7 @@ jupyter_server_port = int(os.getenv("JUPYTER_SERVER_PORT"))
 # http connection config
 c.ServerApp.ip = "0.0.0.0"
 c.ServerApp.port = jupyter_server_port
+c.ServerApp.root_dir = "/workspace"
 c.ServerApp.allow_root = True
 c.ServerApp.port_retries = 0
 c.ServerApp.quit_button = False

@@ -118,10 +118,10 @@ Before starting the services, prepare the DTaaS configuration files from their e
    cp dtaas/client.js.example dtaas/client.js
    ```
 
-3. (OPTIONAL) Edit `dtaas/client.js` to configure the DTaaS client
+3. Edit `dtaas/client.js` to configure the DTaaS client
    with your OAuth credentials and URL settings.
 
-4. (OPTIONAL) Edit `dtaas/conf` to customize the traefik-forward-auth
+4. Update the usernames in `dtaas/conf` to customize the traefik-forward-auth
    rules for your deployment.
 
 ## :rocket: Start Services

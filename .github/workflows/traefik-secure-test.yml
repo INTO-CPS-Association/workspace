@@ -5,14 +5,12 @@ name: Test Traefik Secure Configuration
     paths:
       - 'compose.traefik.secure.yml'
       - 'Dockerfile'
-      - '.env.example'
       - 'dtaas/**'
       - '.github/workflows/traefik-secure-test.yml'
   pull_request:
     paths:
       - 'compose.traefik.secure.yml'
       - 'Dockerfile'
-      - '.env.example'
       - 'dtaas/**'
       - '.github/workflows/traefik-secure-test.yml'
   workflow_dispatch:
@@ -30,13 +28,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
 
-      - name: Create test .env file
-        run: |
-          cp ./dtaas/.env.example .env
-
       - name: Validate compose.traefik.secure.yml syntax
         run: |
-          docker compose -f compose.traefik.secure.yml config > /dev/null
+          cp ./dtaas/.env.example ./dtaas/.env
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env config > /dev/null
           echo "✅ compose.traefik.secure.yml syntax is valid"
 
   test-secure-setup:
@@ -66,10 +61,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
 
-      - name: Create test .env file
-        run: |
-          cp ./dtaas/.env.example .env
-
       - name: Build workspace-nouveau image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
         with:
@@ -89,30 +80,12 @@ jobs:
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
 
-      - name: Prepare DTaaS configuration files
+      - name: Create DTaaS configuration files
         run: |
           set -e
-          mkdir -p ./dtaas
-
-          # Prepare DTaaS conf directory
-          if [ ! -e "./dtaas/conf" ]; then
-            if [ -e "./dtaas/conf.example" ]; then
-              cp -r ./dtaas/conf.example ./dtaas/conf
-            else
-              echo "❌ Expected ./dtaas/conf or ./dtaas/conf.example to exist for volume mount"
-              exit 1
-            fi
-          fi
-
-          # Prepare DTaaS client.js file
-          if [ ! -e "./dtaas/client.js" ]; then
-            if [ -e "./dtaas/client.js.example" ]; then
-              cp ./dtaas/client.js.example ./dtaas/client.js
-            else
-              echo "❌ Expected ./dtaas/client.js or ./dtaas/client.js.example to exist for volume mount"
-              exit 1
-            fi
-          fi
+          cp ./dtaas/.env.example ./dtaas/.env
+          cp ./dtaas/conf.example ./dtaas/conf
+          cp ./dtaas/client.js.example ./dtaas/client.js
 
       - name: Start services
         run: |
