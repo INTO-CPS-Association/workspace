@@ -6,8 +6,7 @@ in the DTaaS installation.
 
 ## ❓ Prerequisites
 
-✅ Docker Engine v27 or later  
-✅ Docker Compose v2.x  
+✅ Docker Engine v27 or later
 ✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
 ✅ Port 80 available on your host machine  
 ✅ GitLab OAuth Application configured (see setup below)
@@ -36,7 +35,7 @@ Users must authenticate with GitLab before accessing any workspace or the DTaaS 
    - **For organization**: Admin Area → Applications
 3. Create a new application with these settings:
    - **Name**: DTaaS Workspace
-   - **Redirect URI**: `http://localhost/_oauth` (for local) or `https://your-domain.com/_oauth` (for production)
+   - **Redirect URI**: `http://localhost/_oauth`
    - **Scopes**: Select `read_user`
    - **Confidential**: Yes (checked)
 4. Click "Save application"
@@ -108,7 +107,7 @@ docker build -t workspace-nouveau:latest -f Dockerfile .
 To start all services (Traefik, auth, client, and workspaces):
 
 ```bash
-docker compose -f compose.traefik.secure.yml up -d
+docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
 ```
 
 This will:
@@ -162,7 +161,7 @@ All endpoints require authentication:
 To stop all services:
 
 ```bash
-docker compose -f compose.traefik.secure.yml down
+docker compose -f compose.traefik.secure.yml --env-file dtaas/.env down
 ```
 
 ## ⚙️ Network Configuration

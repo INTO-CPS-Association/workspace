@@ -83,7 +83,7 @@ jobs:
 
       - name: Pull required images
         run: |
-          docker pull traefik:v3.2
+          docker pull traefik:v3.6.4
           docker pull thomseddon/traefik-forward-auth:latest
           docker pull ghcr.io/into-cps-association/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
