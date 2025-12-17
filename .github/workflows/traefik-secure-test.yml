@@ -85,9 +85,34 @@ jobs:
         run: |
           docker pull traefik:v3.6.4
           docker pull thomseddon/traefik-forward-auth:latest
-          docker pull ghcr.io/into-cps-association/dtaas-web:latest || \
+          docker pull intocps/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
+
+      - name: Prepare DTaaS configuration files
+        run: |
+          set -e
+          mkdir -p ./dtaas
+
+          # Prepare DTaaS conf directory
+          if [ ! -e "./dtaas/conf" ]; then
+            if [ -e "./dtaas/conf.example" ]; then
+              cp -r ./dtaas/conf.example ./dtaas/conf
+            else
+              echo "❌ Expected ./dtaas/conf or ./dtaas/conf.example to exist for volume mount"
+              exit 1
+            fi
+          fi
+
+          # Prepare DTaaS client.js file
+          if [ ! -e "./dtaas/client.js" ]; then
+            if [ -e "./dtaas/client.js.example" ]; then
+              cp ./dtaas/client.js.example ./dtaas/client.js
+            else
+              echo "❌ Expected ./dtaas/client.js or ./dtaas/client.js.example to exist for volume mount"
+              exit 1
+            fi
+          fi
 
       - name: Start services
         run: |
