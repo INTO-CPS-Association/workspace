@@ -67,6 +67,12 @@ docker-compose.override.yml
 *.tgz
 .container-*
 
+# DTaaS config files
+dtaas/*
+!dtaas/client.js.example
+!dtaas/conf.example
+!dtaas/.env.example
+
 # ignore user files
 persistent_dir/**
 !persistent_dir/.gitkeep
