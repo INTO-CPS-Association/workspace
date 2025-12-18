@@ -46,10 +46,10 @@ Users must authenticate with GitLab before accessing any workspace or the DTaaS 
 1. Copy the example environment file:
 
    ```bash
-   cp dtaas/.env.example .env
+   cp dtaas/.env.example dtaas/.env
    ```
 
-2. Edit `.env` and fill in your OAuth credentials:
+2. Edit `dtaas/.env` and fill in your OAuth credentials:
 
    ```bash
    # Your GitLab instance URL (without trailing slash)
@@ -101,6 +101,28 @@ Or use the standard build command:
 ```bash
 docker build -t workspace-nouveau:latest -f Dockerfile .
 ```
+
+## 📁 Prepare Configuration Files
+
+Before starting the services, prepare the DTaaS configuration files from their examples:
+
+1. Copy the traefik-forward-auth configuration file:
+
+   ```bash
+   cp dtaas/conf.example dtaas/conf
+   ```
+
+2. Copy the DTaaS client configuration file:
+
+   ```bash
+   cp dtaas/client.js.example dtaas/client.js
+   ```
+
+3. Edit `dtaas/client.js` to configure the DTaaS client
+   with your OAuth credentials and URL settings.
+
+4. Update the usernames in `dtaas/conf` to customize the traefik-forward-auth
+   rules for your deployment.
 
 ## :rocket: Start Services
 
@@ -185,7 +207,7 @@ user3:
   image: workspace-nouveau:latest
   restart: unless-stopped
   environment:
-    - MAIN_USER=$(USERNAME3)
+    - MAIN_USER=${USERNAME3}
   shm_size: 512m
   labels:
     - "traefik.enable=true"
