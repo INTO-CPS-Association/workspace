@@ -64,15 +64,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Create test environment file
+      - name: Create test .env file
         run: |
-          cat > .env << EOF
-          OAUTH_URL=https://gitlab.com
-          OAUTH_CLIENT_ID=test_client_id
-          OAUTH_CLIENT_SECRET=test_client_secret
-          OAUTH_SECRET=$(openssl rand -hex 16)
-          SERVER_DNS=localhost
-          EOF
+          cp ./dtaas/.env.example .env
+          sed -i 's/yourdomain.com/localhost/g' .env
 
       - name: Start Traefik and workspace services (HTTP)
         run: |
@@ -166,15 +161,10 @@ jobs:
             exit 1
           fi
 
-      - name: Create test environment file
+      - name: Create test .env file
         run: |
-          cat > .env << EOF
-          OAUTH_URL=https://gitlab.com
-          OAUTH_CLIENT_ID=test_client_id
-          OAUTH_CLIENT_SECRET=test_client_secret
-          OAUTH_SECRET=$(openssl rand -hex 16)
-          SERVER_DNS=localhost
-          EOF
+          cp ./dtaas/.env.example .env
+          sed -i 's/yourdomain.com/localhost/g' .env
 
       - name: Start Traefik and workspace services (TLS)
         run: |
