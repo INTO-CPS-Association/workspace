@@ -49,19 +49,11 @@ chmod 644 ./certs/fullchain.pem
 chmod 600 ./certs/privkey.pem
 ```
 
-### Option 2: Self-Signed Certificates (Testing Only)
+### Option 2: Self-Signed Certificates (Testing Only, Local Only)
 
-For development and testing, generate self-signed certificates:
-
-```bash
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout certs/privkey.pem \
-  -out certs/fullchain.pem \
-  -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
-
-chmod 644 certs/fullchain.pem
-chmod 600 certs/privkey.pem
-```
+For local development and testing, generate self-signed certificates.
+See `certs/README.md`, section "Certificate Generation" subsection
+"For Testing/Development" for the steps.
 
 ⚠️ **Note**: Self-signed certificates will show security warnings in browsers
 and should only be used for testing.
@@ -108,6 +100,15 @@ Generate a random secret for `OAUTH_SECRET`:
 
 ```bash
 openssl rand -hex 16
+```
+
+## 💻 (Local Domain Redirection)
+
+If you are testing and/or developing locally, ensure that
+`yourdomain.com` points to your local machine by adding the
+following line to `/etc/hosts`:
+```bash
+127.0.0.1 yourdomain.com
 ```
 
 ## 💪 Build Workspace Image

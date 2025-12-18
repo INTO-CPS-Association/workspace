@@ -24,13 +24,45 @@ Obtain certificates from a Certificate Authority (CA) like:
 
 ### For Testing/Development
 
-Generate self-signed certificates:
+Generate self-signed certificates, inject them into a local
+version of the forward auth image, and update the compose file
+to use the local image.
+Disregard this directory's usual requirement of the presence of
+the private key and full certificate chain.
+
+(Ensure that your `/env/hosts` file point your domain to 127.0.0.1)
+
+#### ***Generate certificates***
+From within the `certs/` folder, replacing every instance of
+`foo.com` with your domain:
 
 ```bash
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout certs/privkey.pem \
-  -out certs/fullchain.pem \
-  -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+chmod 774 mkcert-v1.4.4-linux-amd64
+sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
+whereis mkcert
+mkcert -install
+mkcert "foo.com" "localhost" "127.0.0.1" "::1"
+mkcert "foo.com" "*.foo.com" "localhost" "127.0.0.1" "::1"
+cp ~/.local/share/mkcert/rootCA.pem rootCA.crt
+```
+
+#### ***Build forward auth image with your certificate***
+From within `certs/`:
+
+```bash
+docker buildx build -t traefik-forward-auth-local:latest .
+```
+
+#### ***Update forward auth image name in compose file***
+Update the `traefik-forward-auth` service definition in the
+`compose.traefik.secure.tls.yml` file by replacing the line
+```yaml
+image: thomseddon/traefik-forward-auth:2
+```
+with
+```yaml
+image: traefik-forward-auth-local:latest
 ```
 
 ## Security Notes
