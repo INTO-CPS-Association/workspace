@@ -89,14 +89,14 @@ jobs:
 
       - name: Start services
         run: |
-          docker compose -f compose.traefik.secure.yml up -d
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
           echo "⏳ Waiting for services to be ready..."
           sleep 30
 
       - name: Check service health
         run: |
           echo "📊 Checking service status..."
-          docker compose -f compose.traefik.secure.yml ps
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env ps
           echo "---"
           # Check if all services are running
           SERVICES=$(docker compose -f compose.traefik.secure.yml ps --format json)
@@ -110,7 +110,7 @@ jobs:
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
             echo "$FAILED"
-            docker compose -f compose.traefik.secure.yml logs
+            docker compose -f compose.traefik.secure.yml --env-file dtaas/.env logs
             exit 1
           fi
           echo "✅ All services are running"
@@ -133,5 +133,5 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          docker compose -f compose.traefik.secure.yml down -v
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env down -v
           docker system prune -f

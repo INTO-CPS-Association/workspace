@@ -39,7 +39,7 @@ function start_vscode_server {
     --port "${CODE_SERVER_PORT}" \
     --disable-telemetry \
     --disable-update-check \
-    --user-data-dir "${persistent_dir}/.vscode-server" \
+    --user-data-dir "${HOME}/.vscode-server" \
     "${persistent_dir}" &
     DTAAS_PROCS['vscode']=$!
 }
