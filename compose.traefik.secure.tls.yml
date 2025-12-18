@@ -70,15 +70,15 @@ services:
     build:
       context: .
     environment:
-      - MAIN_USER=user1
+      - MAIN_USER=${USERNAME1}
     volumes:
-      - ./persistent_dir/user1:/workspace
+      - ./persistent_dir/${USERNAME1}:/workspace
       - ./persistent_dir/common:/workspace/common
     shm_size: 512m
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u1.entryPoints=websecure"
-      - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/user1`)"
+      - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME1}`)"
       - "traefik.http.routers.u1.tls=true"
       - "traefik.http.routers.u1.middlewares=traefik-forward-auth"
     networks:
@@ -89,15 +89,15 @@ services:
     restart: unless-stopped
     environment:
       - AUTHENTICATE_VIA_JUPYTER=
-      - WORKSPACE_BASE_URL=user2
+      - WORKSPACE_BASE_URL=${USERNAME2}
     volumes:
-      - ./persistent_dir/user2:/workspace
+      - ./persistent_dir/${USERNAME2}:/workspace
       - ./persistent_dir/common:/workspace/common
     shm_size: "512m"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u2.entryPoints=websecure"
-      - "traefik.http.routers.u2.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/user2`)"
+      - "traefik.http.routers.u2.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME2}`)"
       - "traefik.http.routers.u2.tls=true"
       - "traefik.http.routers.u2.middlewares=traefik-forward-auth"
     networks:

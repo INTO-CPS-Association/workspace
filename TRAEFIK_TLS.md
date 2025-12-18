@@ -83,20 +83,40 @@ need to configure an OAuth2 application with your provider.
 
 ### Environment Variables
 
+Copy the the environment example file into the root of this directory:
+
+```bash
+sp ./dtaas/.env.example .env
+```
+
+Replace the placeholders with the values you got from your
+OAuth2 provider, a 32 character secret and your domain name.
+
 Create a `.env` file in the project root with your OAuth2 credentials:
 
 ```bash
-# OAuth2 Configuration (GitLab example)
+# Your GitLab instance URL (without trailing slash)
+# Example: https://gitlab.com or https://gitlab.example.com
 OAUTH_URL=https://gitlab.com
+
+# OAuth Application Client ID
+# Obtained when creating the OAuth application in GitLab
 OAUTH_CLIENT_ID=your_client_id_here
+
+# OAuth Application Client Secret
+# Obtained when creating the OAuth application in GitLab
 OAUTH_CLIENT_SECRET=your_client_secret_here
-OAUTH_SECRET=random_32_character_secret_here
+
+# Secret key for encrypting OAuth session data
+# Generate a random string (at least 16 characters)
+# Example: openssl rand -base64 32
+OAUTH_SECRET=your_random_secret_key_here
 
 # Server Configuration
 SERVER_DNS=yourdomain.com
 ```
 
-Generate a random secret for `OAUTH_SECRET`:
+The 32 character long secret for `OAUTH_SECRET` can be generated with:
 
 ```bash
 openssl rand -hex 16
