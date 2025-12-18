@@ -99,7 +99,7 @@ jobs:
           docker compose -f compose.traefik.secure.yml --env-file dtaas/.env ps
           echo "---"
           # Check if all services are running
-          SERVICES=$(docker compose -f compose.traefik.secure.yml ps --format json)
+          SERVICES=$(docker compose -f compose.traefik.secure.yml --env-file dtaas/.env ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
             # JSON array format
             FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
