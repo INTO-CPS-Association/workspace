@@ -68,15 +68,20 @@ docker-compose.override.yml
 .container-*
 
 # DTaaS config files
-dtaas/*
-!dtaas/client.js.example
-!dtaas/conf.example
-!dtaas/.env.example
+dtaas/config/*
+!dtaas/config/client.js.example
+!dtaas/config/conf.example
+!dtaas/config/.env.example
 
 # ignore user files
-persistent_dir/**
-!persistent_dir/.gitkeep
-!persistent_dir/**/.gitkeep
+dtaas/files/**
+!dtaas/files/.gitkeep
+!dtaas/files/**/.gitkeep
+
+# ignore certs
+dtaas/certs/**
+!dtaas/certs/Dockerfile
+!dtaas/certs/README.md
 
 # temp files for workspace
 .workspace
