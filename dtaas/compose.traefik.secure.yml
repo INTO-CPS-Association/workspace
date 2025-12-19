@@ -1,12 +1,8 @@
-name: workspace-traefik-secure
+# ⚠️ DEVELOPMENT ONLY - INSECURE CONFIGURATION ⚠️
+# This configuration uses HTTP (not HTTPS) and insecure flags for development/testing.
+# For production deployments with TLS/HTTPS, use compose.traefik.secure.tls.yml instead.
 
-# WARNING: This configuration includes insecure settings for DEVELOPMENT/TESTING only
-# For production use, review TRAEFIK_SECURE.md security recommendations:
-# - Enable HTTPS/TLS with proper certificates
-# - Remove --api.insecure=true
-# - Remove forwardedHeaders.insecure and proxyProtocol.insecure
-# - Set INSECURE_COOKIE=false in traefik-forward-auth
-# - Change log level from DEBUG to INFO or WARN
+name: workspace-traefik-secure
 
 services:
   traefik:
