@@ -134,7 +134,7 @@ jobs:
             response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null || echo "000")
             echo "Attempt $((attempt + 1))/$max_attempts - HTTP response: $response"
             # We expect 302 (redirect to OAuth) or 200 if auth middleware is not fully configured
-            if [ "$response" = "200" ] || [ "$response" = "302" ]; then
+            if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
               echo "✅ Traefik is responding correctly"
               break
             fi
@@ -149,6 +149,7 @@ jobs:
               echo "⚠️ Unexpected response code: $response"
               docker compose -f compose.traefik.secure.yml --env-file dtaas/.env logs traefik
               docker compose -f compose.traefik.secure.yml --env-file dtaas/.env logs traefik-forward-auth
+              exit 1
           fi
 
       - name: Cleanup (HTTP)
@@ -258,7 +259,7 @@ jobs:
             echo "Attempt $((attempt + 1))/$max_attempts - HTTPS response: $response"
 
             # We expect 302 (redirect to OAuth) or 200
-            if [ "$response" = "200" ] || [ "$response" = "302" ]; then
+            if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
               echo "✅ HTTPS is working correctly"
               break
             fi
@@ -273,6 +274,7 @@ jobs:
             echo "⚠️ HTTPS connectivity issues, checking logs..."
             docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env logs traefik
             docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env logs traefik-forward-auth
+            exit 1
           fi
 
       - name: Test HTTP to HTTPS redirect
