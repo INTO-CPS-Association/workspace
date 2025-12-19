@@ -100,7 +100,7 @@ jobs:
         run: |
           docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
           echo "⏳ Waiting for services to be ready..."
-          sleep 30
+          sleep 90
 
       - name: Check service health (HTTP)
         run: |
@@ -126,16 +126,29 @@ jobs:
 
       - name: Test service accessibility (HTTP)
         run: |
-          echo "Testing service accessibility..."
-          # Test if services respond (will get auth redirect)
-          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null || echo "000")
-          echo "HTTP response code: $response"
-          # We expect 302 (redirect to OAuth) or 200 if auth middleware is not fully configured
-          if [ "$response" = "200" ] || [ "$response" = "302" ]; then
-            echo "✅ Traefik is responding correctly"
-          else
-            echo "⚠️ Unexpected response code: $response"
-            docker compose -f compose.traefik.secure.yml logs traefik
+          echo "Testing HTTP connectivity..."
+          max_attempts=5
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Test if services respond (will get auth redirect)
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null || echo "000")
+            echo "Attempt $((attempt + 1))/$max_attempts - HTTP response: $response"
+            # We expect 302 (redirect to OAuth) or 200 if auth middleware is not fully configured
+            if [ "$response" = "200" ] || [ "$response" = "302" ]; then
+              echo "✅ Traefik is responding correctly"
+              break
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -lt $max_attempts ]; then
+              sleep 15
+            fi
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+              echo "⚠️ Unexpected response code: $response"
+              docker compose -f compose.traefik.secure.yml --env-file dtaas/.env logs traefik
+              docker compose -f compose.traefik.secure.yml --env-file dtaas/.env logs traefik-forward-auth
           fi
 
       - name: Cleanup (HTTP)
@@ -209,7 +222,7 @@ jobs:
         run: |
           docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env up -d
           echo "⏳ Waiting for services to be ready..."
-          sleep 30
+          sleep 90
 
       - name: Check service health (TLS)
         run: |
@@ -252,13 +265,14 @@ jobs:
 
             attempt=$((attempt + 1))
             if [ $attempt -lt $max_attempts ]; then
-              sleep 5
+              sleep 15
             fi
           done
 
           if [ $attempt -eq $max_attempts ]; then
             echo "⚠️ HTTPS connectivity issues, checking logs..."
             docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env logs traefik
+            docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env logs traefik-forward-auth
           fi
 
       - name: Test HTTP to HTTPS redirect

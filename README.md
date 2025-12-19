@@ -105,6 +105,17 @@ This workspace supports multiple deployment configurations depending on your nee
 
 Choose the configuration that best matches your deployment requirements.
 
+## 📊 Deployment Comparison
+
+| Feature | compose.yml | compose.traefik.yml | compose.traefik.secure.yml | compose.traefik.secure.tls.yml |
+| ------- | ----------- | ------------------- | -------------------------- | ------------------------------ |
+| Reverse Proxy | ❌ | ✅ | ✅ | ✅ |
+| Multi-user | ❌ | ✅ | ✅ | ✅ |
+| OAuth2 Auth | ❌ | ❌ | ✅ | ✅ |
+| TLS/HTTPS | ❌ | ❌ | ❌ | ✅ |
+| Production Ready | ❌ | ❌ | ❌ | ✅ |
+| Use Case | Local dev | Multi-user dev | Secure dev/test | Production |
+
 ## Development
 
 ### Code Quality
