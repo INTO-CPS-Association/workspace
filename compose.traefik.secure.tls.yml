@@ -38,7 +38,7 @@ services:
       - users
 
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:2
+    image: thomseddon/traefik-forward-auth:2.2.0
     restart: unless-stopped
     environment:
       - LOG_LEVEL=info

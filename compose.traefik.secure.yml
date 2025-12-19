@@ -31,7 +31,7 @@ services:
       - users
 
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:latest
+    image: thomseddon/traefik-forward-auth:2.2.0
     restart: unless-stopped
     volumes:
       - ./dtaas/conf:/conf
