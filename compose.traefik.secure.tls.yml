@@ -1,17 +1,14 @@
-name: workspace-traefik-secure-tls
-
 services:
   traefik:
     image: traefik:v3.6.4
     restart: unless-stopped
-    command:
-      - "--log.level=INFO"
-      - "--api.dashboard=true"
+    command: 
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
       - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
       - "--entryPoints.web.address=:80"
-      - "--entryPoints.websecure.address=:443"
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web-secure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
       - "--providers.file.directory=/etc/traefik/dynamic"
@@ -20,49 +17,26 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./dynamic/tls.yml:/etc/traefik/dynamic/tls.yml:ro
-      - ./certs:/etc/traefik-certs:ro
-    labels:
-      - "traefik.enable=true"
-      # Dashboard
-      - >-
-        traefik.http.routers.dashboard.rule=Host(`${SERVER_DNS:-localhost}`)
-        && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
-      - "traefik.http.routers.dashboard.entryPoints=websecure"
-      - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=traefik-forward-auth"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./dynamic/tls.yml:/etc/traefik/dynamic/tls.yml"
+      - "./certs:/etc/traefik-certs"
     networks:
       - frontend
       - users
 
-  traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:2
+  client:
+    image: intocps/dtaas-web:latest
     restart: unless-stopped
-    environment:
-      - LOG_LEVEL=info
-      - DEFAULT_PROVIDER=generic-oauth
-      - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
-      - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=${OAUTH_URL}/oauth/token
-      - PROVIDERS_GENERIC_OAUTH_USER_URL=${OAUTH_URL}/api/v4/user
-      - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
-      - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
-      - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user openid profile email
-      - SECRET=${OAUTH_SECRET}
-      - AUTH_HOST=${SERVER_DNS:-localhost}
-      - COOKIE_DOMAIN=${SERVER_DNS:-localhost}
+    volumes:
+      - "./dtaas/client.js:/dtaas/client/build/env.js"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik-forward-auth.entryPoints=websecure"
-      - "traefik.http.routers.traefik-forward-auth.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/_oauth`)"
-      - "traefik.http.routers.traefik-forward-auth.tls=true"
-      - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
-      - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
-      - "traefik.http.services.traefik-forward-auth.loadbalancer.server.port=4181"
+      - "traefik.http.routers.client.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/`)"
+      - "traefik.http.routers.client.tls=true"
+      - "traefik.http.routers.client.middlewares=traefik-forward-auth"
+      - "traefik.http.services.client.loadbalancer.server.port=4000"
     networks:
       - frontend
-      - users
 
   user1:
     image: workspace-nouveau:latest
@@ -72,35 +46,60 @@ services:
     environment:
       - MAIN_USER=${USERNAME1}
     volumes:
-      - ./persistent_dir/${USERNAME1}:/workspace
-      - ./persistent_dir/common:/workspace/common
-    shm_size: 512m
+      - "./persistent_dir/common:/workspace/common"
+      - "./persistent_dir/${USERNAME1}:/workspace"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.u1.entryPoints=websecure"
       - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME1}`)"
       - "traefik.http.routers.u1.tls=true"
       - "traefik.http.routers.u1.middlewares=traefik-forward-auth"
     networks:
       - users
-
+  
   user2:
     image: mltooling/ml-workspace-minimal:0.13.2
     restart: unless-stopped
+    volumes:
+      - "./persistent_dir/common:/workspace/common"
+      - "./persistent_dir/${USERNAME2}:/workspace"
     environment:
       - AUTHENTICATE_VIA_JUPYTER=
       - WORKSPACE_BASE_URL=${USERNAME2}
-    volumes:
-      - ./persistent_dir/${USERNAME2}:/workspace
-      - ./persistent_dir/common:/workspace/common
-    shm_size: "512m"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.u2.entryPoints=websecure"
       - "traefik.http.routers.u2.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME2}`)"
       - "traefik.http.routers.u2.tls=true"
       - "traefik.http.routers.u2.middlewares=traefik-forward-auth"
     networks:
+      - users
+
+
+  traefik-forward-auth:
+    image: thomseddon/traefik-forward-auth:latest
+    restart: unless-stopped
+    volumes:
+      - "./dtaas/conf:/conf"
+    environment:
+      - LOG_LEVEL=trace
+      - DEFAULT_PROVIDER=generic-oauth
+      - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
+      - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=${OAUTH_URL}/oauth/token
+      - PROVIDERS_GENERIC_OAUTH_USER_URL=${OAUTH_URL}/api/v4/user
+      - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
+      - SECRET= "${OAUTH_SECRET}"
+      - CONFIG=/conf
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redirect.entryPoints=web-secure"
+      - "traefik.http.routers.redirect.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/_oauth`)"
+      - "traefik.http.routers.redirect.middlewares=traefik-forward-auth"
+      - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
+      - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
+      - "traefik.http.services.traefik-forward-auth.loadbalancer.server.port=4181"
+    networks:
+      - frontend
       - users
 
 networks:

@@ -22,71 +22,8 @@ The `compose.traefik.secure.yml` file sets up:
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
-All services (except the OAuth callback) are protected by OAuth2 authentication.
-Users must authenticate with GitLab before accessing any workspace or the DTaaS web interface.
-
-## 🔐 OAuth2 Setup with GitLab
-
-### Step 1: Create GitLab OAuth Application
-
-1. Log in to your GitLab instance (gitlab.com or your self-hosted instance)
-2. Navigate to:
-   - **For personal use**: Settings → Applications
-   - **For organization**: Admin Area → Applications
-3. Create a new application with these settings:
-   - **Name**: DTaaS Workspace
-   - **Redirect URI**: `http://localhost/_oauth`
-   - **Scopes**: Select `read_user`
-   - **Confidential**: Yes (checked)
-4. Click "Save application"
-5. Copy the **Application ID** and **Secret** - you'll need these in the next step
-
-### Step 2: Configure Environment Variables
-
-1. Copy the example environment file:
-
-   ```bash
-   cp dtaas/.env.example .env
-   ```
-
-2. Edit `.env` and fill in your OAuth credentials:
-
-   ```bash
-   # Your GitLab instance URL (without trailing slash)
-   # Example: https://gitlab.com or https://gitlab.example.com
-   OAUTH_URL=https://gitlab.com
-
-   # OAuth Application Client ID
-   # Obtained when creating the OAuth application in GitLab
-   OAUTH_CLIENT_ID=your_application_id_here
-
-   # OAuth Application Client Secret
-   # Obtained when creating the OAuth application in GitLab
-   OAUTH_CLIENT_SECRET=your_secret_here
-
-   # Secret key for encrypting OAuth session data
-   # Generate a random string (at least 16 characters)
-   # Example: openssl rand -base64 32
-   OAUTH_SECRET=your_random_secret_key_here
-   ```
-
-3. Generate a secure random secret:
-
-   ```bash
-   openssl rand -base64 32
-   ```
-
-   Use the output as your `OAUTH_SECRET` value.
-
-4. (OPTIONAL) Update the USERNAME variables in .env, replacing the defaults with your desired usernames.
-
-   ```bash
-   # Username Configuration
-   # These usernames will be used as path prefixes for user workspaces
-   # Example: http://localhost/user1, http://localhost/user2
-   USERNAME1=user1
-   USERNAME2=user2
-   ```
+Please see [Configuration](CONFIGURATION.md) for information on
+configuring the application setup specified in the compose file.
 
 ## 💪 Build Workspace Image
 
@@ -185,7 +122,7 @@ user3:
   image: workspace-nouveau:latest
   restart: unless-stopped
   environment:
-    - MAIN_USER=$(USERNAME3)
+    - MAIN_USER=${USERNAME3}
   shm_size: 512m
   labels:
     - "traefik.enable=true"

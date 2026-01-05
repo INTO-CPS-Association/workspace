@@ -41,7 +41,7 @@ site/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-
+.vscode-server
 # yarn cache
 .yarn
 
@@ -77,3 +77,6 @@ dtaas/*
 persistent_dir/**
 !persistent_dir/.gitkeep
 !persistent_dir/**/.gitkeep
+
+# temp files for workspace
+.workspace
