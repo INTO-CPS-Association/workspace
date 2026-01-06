@@ -6,7 +6,6 @@ for multi-user deployments in the DTaaS installation.
 ## ❓ Prerequisites
 
 ✅ Docker Engine v27 or later
-✅ Docker Compose v2.x
 ✅ Sufficient system resources (at least 1GB RAM per workspace instance)
 ✅ Port 80 available on your host machine
 

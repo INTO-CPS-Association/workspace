@@ -41,7 +41,7 @@ site/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-
+.vscode-server
 # yarn cache
 .yarn
 
@@ -67,7 +67,16 @@ docker-compose.override.yml
 *.tgz
 .container-*
 
+# DTaaS config files
+dtaas/*
+!dtaas/client.js.example
+!dtaas/conf.example
+!dtaas/.env.example
+
 # ignore user files
 persistent_dir/**
 !persistent_dir/.gitkeep
 !persistent_dir/**/.gitkeep
+
+# temp files for workspace
+.workspace

@@ -33,11 +33,14 @@ function start_jupyter {
 }
 
 function start_vscode_server {
+    local persistent_dir="$1"
     code-server \
     --auth none \
     --port "${CODE_SERVER_PORT}" \
     --disable-telemetry \
-    --disable-update-check &
+    --disable-update-check \
+    --user-data-dir "${HOME}/.vscode-server" \
+    "${persistent_dir}" &
     DTAAS_PROCS['vscode']=$!
 }
 
@@ -49,7 +52,7 @@ fi
 
 start_nginx
 start_jupyter
-start_vscode_server
+start_vscode_server "${PERSISTENT_DIR}"
 
 # Monitor and resurrect DTaaS services.
 sleep 3
@@ -77,7 +80,7 @@ do
                 ;;
             vscode)
                 echo "[INFO] Restarting VS Code server"
-                start_vscode_server
+                start_vscode_server "${PERSISTENT_DIR}"
                 ;;
             *)
                 echo "[WARNING] An unknown service '${process}' unexpectededly monitored by the custom_startup script was reported to have exitted. This is most irregular - check if something is adding processes to the custom_startup scripts list of monitored subprocesses."

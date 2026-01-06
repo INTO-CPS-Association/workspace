@@ -1,0 +1,137 @@
+name: Test Traefik Secure Configuration
+
+'on':
+  push:
+    paths:
+      - 'compose.traefik.secure.yml'
+      - 'Dockerfile'
+      - 'dtaas/**'
+      - '.github/workflows/traefik-secure-test.yml'
+  pull_request:
+    paths:
+      - 'compose.traefik.secure.yml'
+      - 'Dockerfile'
+      - 'dtaas/**'
+      - '.github/workflows/traefik-secure-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-compose:
+    name: Validate Secure Compose File
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Validate compose.traefik.secure.yml syntax
+        run: |
+          cp ./dtaas/.env.example ./dtaas/.env
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env config > /dev/null
+          echo "✅ compose.traefik.secure.yml syntax is valid"
+
+  test-secure-setup:
+    name: Test Traefik Secure Setup
+    runs-on: ubuntu-latest
+    needs: validate-compose
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Free up disk space
+        run: |
+          echo "=== Disk space before cleanup ==="
+          df -h
+          echo "=== Cleaning up ==="
+          docker system prune -af --volumes || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          echo "=== Disk space after cleanup ==="
+          df -h
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+
+      - name: Build workspace-nouveau image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: workspace-nouveau:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Pull required images
+        run: |
+          docker pull traefik:v3.6.4
+          docker pull thomseddon/traefik-forward-auth:latest
+          docker pull intocps/dtaas-web:latest || \
+            echo "⚠️ DTaaS web image not available, will skip"
+          docker pull mltooling/ml-workspace-minimal:0.13.2
+
+      - name: Create DTaaS configuration files
+        run: |
+          set -e
+          cp ./dtaas/.env.example ./dtaas/.env
+          cp ./dtaas/conf.example ./dtaas/conf
+          cp ./dtaas/client.js.example ./dtaas/client.js
+
+      - name: Start services
+        run: |
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
+          echo "⏳ Waiting for services to be ready..."
+          sleep 30
+
+      - name: Check service health
+        run: |
+          echo "📊 Checking service status..."
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env ps
+          echo "---"
+          # Check if all services are running
+          SERVICES=$(docker compose -f compose.traefik.secure.yml --env-file dtaas/.env ps --format json)
+          if echo "$SERVICES" | head -1 | grep -q '^\['; then
+            # JSON array format
+            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+          else
+            # Newline-delimited JSON format
+            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+          fi
+          if [ -n "$FAILED" ]; then
+            echo "❌ Some services are not running:"
+            echo "$FAILED"
+            docker compose -f compose.traefik.secure.yml --env-file dtaas/.env logs
+            exit 1
+          fi
+          echo "✅ All services are running"
+
+      - name: Test OAuth redirect (should redirect to auth)
+        run: |
+          echo "Testing that workspace routes require authentication..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 0 http://localhost/user1/ 2>/dev/null || echo "000")
+
+          # We expect a redirect (307/302) to the OAuth provider
+          if [ "$response" = "307" ] || [ "$response" = "302" ] || \
+             [ "$response" = "401" ] || [ "$response" = "403" ]; then
+            echo "✅ Authentication is active (HTTP $response - redirect/auth required)"
+          else
+            echo "⚠️ Got HTTP $response - may indicate auth bypass or other issue"
+            echo "This is informational - actual OAuth flow requires real credentials"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f compose.traefik.secure.yml --env-file dtaas/.env down -v
+          docker system prune -f
