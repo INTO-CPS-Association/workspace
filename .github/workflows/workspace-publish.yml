@@ -146,7 +146,7 @@ jobs:
         # v5.7.0
         uses: docker/metadata-action@902fa8ec726e2677f061cb3a39c51f46f1c19ae1
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/workspace-nouveau
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/workspace
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix={{branch}}-
@@ -176,7 +176,7 @@ jobs:
           - name: ghcr
             image: ghcr.io/${{ github.repository }}
           - name: dockerhub
-            image: intocpsassociation/workspace-nouveau
+            image: intocpsassociation/workspace
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
@@ -193,8 +193,8 @@ jobs:
         run: |
           echo "📥 Pulling image: ${{ matrix.registry.image }}:latest"
           docker pull ${{ matrix.registry.image }}:latest
-          docker tag ${{ matrix.registry.image }}:latest workspace-nouveau:latest
-          docker images workspace-nouveau:latest
+          docker tag ${{ matrix.registry.image }}:latest workspace:latest
+          docker images workspace:latest
 
       - name: Start Traefik and workspace services
         run: |
