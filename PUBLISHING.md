@@ -5,11 +5,11 @@ and what configuration is required.
 
 ## Overview
 
-The workspace-nouveau Docker image is automatically published to two container
+The workspace Docker image is automatically published to two container
 registries when all quality checks pass:
 
 - **GitHub Container Registry (GHCR)**: `ghcr.io/into-cps-association/workspace`
-- **Docker Hub**: `intocpsassociation/workspace-nouveau`
+- **Docker Hub**: `intocpsassociation/workspace`
 
 ## Workflow Trigger
 
@@ -44,7 +44,7 @@ configure these secrets in GitHub repository settings
      1. Log in to [Docker Hub](https://hub.docker.com)
      2. Go to Account Settings → Security → Access Tokens
      3. Click "New Access Token"
-     4. Give it a descriptive name (e.g., "GitHub Actions - workspace-nouveau")
+     4. Give it a descriptive name (e.g., "GitHub Actions - workspace")
      5. Set permissions to "Read & Write"
      6. Copy the generated token (shown only once)
 
@@ -54,7 +54,7 @@ Create a repository on Docker Hub to receive the published images:
 
 1. Log in to Docker Hub
 2. Click "Create Repository"
-3. Set repository name: `workspace-nouveau`
+3. Set repository name: `workspace`
 4. Set visibility: Public (recommended) or Private
 5. Add description: "Containerized virtual desktop environment with KasmVNC,
    Firefox, Jupyter, and VS Code Server for DTaaS"
@@ -115,7 +115,7 @@ Users can pull and use the published images without cloning this repository:
 docker pull ghcr.io/into-cps-association/workspace:latest
 
 # From Docker Hub
-docker pull intocpsassociation/workspace-nouveau:latest
+docker pull intocpsassociation/workspace:latest
 ```
 
 See [README.md](README.md) and [TRAEFIK.md](TRAEFIK.md) for complete usage

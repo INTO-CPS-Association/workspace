@@ -1,7 +1,7 @@
 FROM kasmweb/core-ubuntu-noble:1.18.0 AS configure
 USER root
 
-LABEL org.opencontainers.image.title="workspace-nouveau" \
+LABEL org.opencontainers.image.title="workspace" \
       org.opencontainers.image.description="A containerized virtual desktop environment with KasmVNC, Firefox, Jupyter, and VS Code Server for DTaaS" \
       org.opencontainers.image.vendor="INTO-CPS Association" \
       org.opencontainers.image.authors="INTO-CPS Association" \

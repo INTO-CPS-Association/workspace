@@ -51,7 +51,7 @@ The persistence configuration is defined in `compose.yml:14-15`.
 **Local single-user workspace** (see `compose.yml:1-20` for configuration):
 ```bash
 # Build the image
-docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile .
 
 # Run with Docker Compose
 docker compose up -d
@@ -60,7 +60,7 @@ docker compose up -d
 docker run -d --shm-size=512m -p 8080:8080 \
   -e MAIN_USER=dtaas-user \
   --name workspace \
-  workspace-nouveau:latest
+  workspace:latest
 ```
 
 ### Manual Testing After Changes
