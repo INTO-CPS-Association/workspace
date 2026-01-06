@@ -5,7 +5,9 @@
 
 set -e
 
-source /tmp/.docker_set_envs
+DOCKER_SET_ENVS="/tmp/.docker_set_envs"
+
+source "${DOCKER_SET_ENVS}"
 
 if [[ ${DEBUG_ALL:-0} == 1 ]]; then
     export KASM_DEBUG=1
@@ -48,17 +50,19 @@ if [[ -z "${MAIN_USER}" ]]; then
     exit 1
 fi
 
-export HOME=/home/${MAIN_USER}
+cat "${DOCKER_SET_ENVS}" > "${HOME}/.bashrc.new"
+cat "${HOME}/.bashrc" > "${HOME}/.bashrc.new"
+mv "${HOME}/.bashrc.new" "${HOME}/.bashrc"
+chmod 775 "${HOME}/.bashrc"
+chown 1000:0 "${HOME}/.bashrc"
+
+export HOME="/home/${MAIN_USER}"
 
 if [[ "${CURRENT_USER}" != "${MAIN_USER}" ]]; then
     convert_current_user_to_main_user
     do_user_dependent_configurations
 fi
 
-su - "${MAIN_USER}"
-
-cd "${HOME}"
-
 echo "Continuing KASM script chain: '$*'"
 echo -e "------------- END OF DTAAS SHIM SCRIPT --------------\n"
-exec "$@"
+exec su - "${MAIN_USER}" -c "cd ${HOME}; exec $*"
