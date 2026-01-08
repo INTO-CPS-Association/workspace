@@ -191,7 +191,7 @@ jobs:
       - name: Pull published image
         run: |
           IMAGE="${{ matrix.registry.image }}"
-          
+
           # Convert repository name to lowercase for GHCR compatibility
           if [[ "${{ matrix.registry.name }}" == "ghcr" ]]; then
             IMAGE="${IMAGE@L}"  # Bash 4+ lowercase expansion
