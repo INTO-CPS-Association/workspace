@@ -173,7 +173,7 @@ jobs:
       matrix:
         registry:
           - name: ghcr
-            image: ghcr.io/${{ github.repository }}
+            image: ghcr.io/${{ echo github.repository | tr '[:upper:]' '[:lower:]' }}
           - name: dockerhub
             image: intocpsassociation/workspace
     steps:
