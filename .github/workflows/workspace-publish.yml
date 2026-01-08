@@ -173,7 +173,7 @@ jobs:
       matrix:
         registry:
           - name: ghcr
-            image: ghcr.io/${{ github.repository }}
+            image: ghcr.io/${{ echo github.repository | tr '[:upper:]' '[:lower:]' }}
           - name: dockerhub
             image: intocpsassociation/workspace
     steps:
@@ -190,9 +190,16 @@ jobs:
 
       - name: Pull published image
         run: |
-          echo "📥 Pulling image: ${{ matrix.registry.image }}:latest"
-          docker pull ${{ matrix.registry.image }}:latest
-          docker tag ${{ matrix.registry.image }}:latest workspace:latest
+          IMAGE="${{ matrix.registry.image }}"
+          
+          # Convert repository name to lowercase for GHCR compatibility
+          if [[ "${{ matrix.registry.name }}" == "ghcr" ]]; then
+            IMAGE="${IMAGE@L}"  # Bash 4+ lowercase expansion
+          fi
+
+          echo "📥 Pulling image: ${IMAGE}:latest"
+          docker pull "${IMAGE}:latest"
+          docker tag "${IMAGE}:latest" workspace:latest
           docker images workspace:latest
 
       - name: Start Traefik and workspace services
