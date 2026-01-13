@@ -5,13 +5,32 @@ A new workspace image for [DTaaS](https://github.com/INTO-CPS-Association/DTaaS)
 We are still very much in the explorative phase. Everything that is
 working is subject to change.
 
+## 📦 Pre-built Images
+
+Pre-built Docker images are available from:
+
+- **GitHub Container Registry**: `ghcr.io/into-cps-association/workspace:latest`
+- **Docker Hub**: `intocpsassociation/workspace:latest`
+
+You can pull the image directly:
+
+```bash
+# From GitHub Container Registry
+docker pull ghcr.io/into-cps-association/workspace:latest
+
+# From Docker Hub
+docker pull intocpsassociation/workspace:latest
+```
+
 ## 🦾 Build Workspace Image
+
+If you want to build the image locally instead of using pre-built images:
 
 *Either*  
 Using plain `docker` command:
 
 ```ps1
-docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile .
 ```
 
 **Or**
@@ -29,7 +48,7 @@ Using plain `docker` command:
 ```ps1
 docker run -d --shm-size=512m \
   -p 8080:8080\
-  -e MAIN_USER=dtaas-user --name workspace  workspace-nouveau:latest
+  -e MAIN_USER=dtaas-user --name workspace  workspace:latest
 ```
 
 :point_right: You can change the **MAIN_USER** variable to any other username
@@ -115,6 +134,11 @@ Choose the configuration that best matches your deployment requirements.
 | TLS/HTTPS | ❌ | ❌ | ❌ | ✅ |
 | Production Ready | ❌ | ❌ | ❌ | ✅ |
 | Use Case | Local dev | Multi-user dev | Secure dev/test | Production |
+
+## :package: Publishing
+
+For information about publishing Docker images to registries,
+see [PUBLISHING.md](PUBLISHING.md).
 
 ## Development
 

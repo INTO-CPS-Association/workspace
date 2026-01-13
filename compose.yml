@@ -1,8 +1,8 @@
-name: workspace-nouveau
+name: workspace
 
 services:
   workspace:
-    image: workspace-nouveau:latest
+    image: workspace:latest
     build:
       context: .
     environment:

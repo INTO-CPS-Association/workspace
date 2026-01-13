@@ -77,7 +77,7 @@ services:
       - frontend
 
   user1:
-    image: workspace-nouveau:latest
+    image: workspace:latest
     restart: unless-stopped
     build:
       context: .
