@@ -34,7 +34,7 @@ jobs:
   test-traefik-secure:
     name: Test Traefik Secure Setup
     runs-on: ubuntu-latest
-    needs: validate-secure-compose
+    needs: validate-compose
     permissions:
       contents: read
     steps:

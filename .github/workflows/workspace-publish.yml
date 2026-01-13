@@ -7,7 +7,7 @@ name: Publish Workspace Docker Image
       - "Dockerfile Lint and Build"
       - "Lint Scripts"
       - "Test Traefik Configuration"
-      - "Test Traefik Secure Configuration"
+      - "Test Traefik OAuth2 and TLS Configuration"
     types:
       - completed
     branches:
@@ -46,7 +46,7 @@ jobs:
 
           # Define required workflows
           # the workflow names must match exactly with those in the required workflow files
-          WORKFLOWS=("Dockerfile Lint and Build" "Lint Scripts" "Test Traefik Configuration" "Test Traefik Secure Configuration")
+          WORKFLOWS=("Dockerfile Lint and Build" "Lint Scripts" "Test Traefik Configuration" "Test Traefik OAuth2 and TLS Configuration")
           ALL_SUCCESS=true
 
           for workflow in "${WORKFLOWS[@]}"; do
@@ -173,7 +173,7 @@ jobs:
       matrix:
         registry:
           - name: ghcr
-            image: ghcr.io/${{ echo github.repository | tr '[:upper:]' '[:lower:]' }}
+            image: ghcr.io/${{ github.repository }}
           - name: dockerhub
             image: intocpsassociation/workspace
     steps:
