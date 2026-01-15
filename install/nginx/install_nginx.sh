@@ -15,6 +15,6 @@ echo -e "Package: *\nPin: origin nginx.org\nPin: release o=nginx\nPin-Priority: 
 
 apt-get update && apt-get install -y nginx
 
-mkdir -p ${HOME}/.nginx/logs
-mkdir -p ${HOME}/.nginx/temp
-chown -R 1000:0 ${HOME}/.nginx 
+mkdir -p "${HOME}/.nginx/logs"
+mkdir -p "${HOME}/.nginx/temp"
+chown -R 1000:0 "${HOME}/.nginx"
