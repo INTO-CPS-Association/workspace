@@ -50,12 +50,6 @@ if [[ -z "${MAIN_USER}" ]]; then
     exit 1
 fi
 
-cat "${DOCKER_SET_ENVS}" > "${HOME}/.bashrc.new"
-cat "${HOME}/.bashrc" > "${HOME}/.bashrc.new"
-mv "${HOME}/.bashrc.new" "${HOME}/.bashrc"
-chmod 775 "${HOME}/.bashrc"
-chown 1000:0 "${HOME}/.bashrc"
-
 export HOME="/home/${MAIN_USER}"
 
 if [[ "${CURRENT_USER}" != "${MAIN_USER}" ]]; then
@@ -65,4 +59,4 @@ fi
 
 echo "Continuing KASM script chain: '$*'"
 echo -e "------------- END OF DTAAS SHIM SCRIPT --------------\n"
-exec su - "${MAIN_USER}" -c "cd ${HOME}; exec $*"
+exec su -m "${MAIN_USER}" -c "cd ${HOME}; exec $*"
