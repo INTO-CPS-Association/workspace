@@ -9,6 +9,15 @@ from urllib.parse import quote, unquote
 
 NGINX_FILE = "/etc/nginx/nginx.conf"
 
+main_user = os.getenv("MAIN_USER")
+call(
+    "sed -i 's@{MAIN_USER}@"
+    + main_user
+    + "@g' "
+    + NGINX_FILE,
+    shell=True
+)
+
 # Replace base url placeholders with actual base url -> should
 decoded_base_url = unquote("/" + os.getenv("MAIN_USER", ""))
 call(
