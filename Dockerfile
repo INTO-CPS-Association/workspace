@@ -1,16 +1,6 @@
 FROM kasmweb/core-ubuntu-noble:1.18.0 AS configure
 USER root
 
-LABEL org.opencontainers.image.title="workspace" \
-      org.opencontainers.image.description="A containerized virtual desktop environment with KasmVNC, Firefox, Jupyter, and VS Code Server for DTaaS" \
-      org.opencontainers.image.vendor="INTO-CPS Association" \
-      org.opencontainers.image.authors="INTO-CPS Association" \
-      org.opencontainers.image.url="https://github.com/INTO-CPS-Association/workspace" \
-      org.opencontainers.image.source="https://github.com/INTO-CPS-Association/workspace" \
-      org.opencontainers.image.documentation="https://github.com/INTO-CPS-Association/workspace/blob/main/README.md" \
-      org.opencontainers.image.licenses="GPL-3.0" \
-      org.opencontainers.image.version="1.0.0"
-
 ENV CODE_SERVER_PORT=8054 \
     HOME=/home/kasm-default-profile \
     INST_DIR=${STARTUPDIR}/install \
@@ -55,6 +45,16 @@ RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}'
 
 FROM scratch AS deploy
 COPY --from=configure / /
+
+LABEL org.opencontainers.image.title="workspace" \
+      org.opencontainers.image.description="A containerized virtual desktop environment with KasmVNC, Firefox, Jupyter, and VS Code Server for DTaaS" \
+      org.opencontainers.image.vendor="INTO-CPS Association" \
+      org.opencontainers.image.authors="INTO-CPS Association" \
+      org.opencontainers.image.url="https://github.com/INTO-CPS-Association/workspace" \
+      org.opencontainers.image.source="https://github.com/INTO-CPS-Association/workspace" \
+      org.opencontainers.image.documentation="https://github.com/INTO-CPS-Association/workspace/blob/main/README.md" \
+      org.opencontainers.image.licenses="GPL-3.0" \
+      org.opencontainers.image.version="1.0.0"
 
 EXPOSE 8080
 
