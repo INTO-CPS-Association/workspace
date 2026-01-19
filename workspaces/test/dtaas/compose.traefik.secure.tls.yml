@@ -72,8 +72,8 @@ services:
     environment:
       - MAIN_USER=${USERNAME1}
     volumes:
-      - ./persistent_dir/${USERNAME1}:/workspace
-      - ./persistent_dir/common:/workspace/common
+      - ./files/${USERNAME1}:/workspace
+      - ./files/common:/workspace/common
     shm_size: 512m
     labels:
       - "traefik.enable=true"
@@ -91,8 +91,8 @@ services:
       - AUTHENTICATE_VIA_JUPYTER=
       - WORKSPACE_BASE_URL=${USERNAME2}
     volumes:
-      - ./persistent_dir/${USERNAME2}:/workspace
-      - ./persistent_dir/common:/workspace/common
+      - ./files/${USERNAME2}:/workspace
+      - ./files/common:/workspace/common
     shm_size: "512m"
     labels:
       - "traefik.enable=true"

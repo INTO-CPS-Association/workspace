@@ -1,0 +1,19 @@
+name: workspace
+
+services:
+  workspace:
+    image: workspace:latest
+    build:
+      context: .
+    environment:
+      - MAIN_USER=dtaas-user
+    ports:
+      - "8080:8080"
+    shm_size: 512m
+    volumes:
+      - ./files/user1:/workspace
+      - ./files/common:/workspace/common
+    develop:
+      watch:
+        - path: .
+          action: rebuild
