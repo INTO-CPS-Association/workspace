@@ -175,7 +175,7 @@ jobs:
           - name: ghcr
             image: ghcr.io/${{ github.repository }}
           - name: dockerhub
-            image: intocpsassociation/workspace
+            image: ${{ secrets.DOCKERHUB_SCOPE }}/workspace
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1
