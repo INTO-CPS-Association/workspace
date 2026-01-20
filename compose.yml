@@ -7,15 +7,20 @@ services:
       context: .
     environment:
       - MAIN_USER=dtaas-user
+      - USER_STORE_ENDPOINT=${USER_STORE_ENDPOINT}
+      - COMMON_STORE_ENDPOINT=${COMMON_STORE_ENDPOINT}
+      - USER_STORE_KEY_ID=${USER_STORE_KEY_ID}
+      - USER_STORE_SECRET_KEY=${USER_STORE_SECRET_KEY}
+      - COMMON_STORE_KEY_ID=${COMMON_STORE_KEY_ID}
+      - COMMON_STORE_SECRET_KEY=${COMMON_STORE_SECRET_KEY}
+      - USER_BUCKET=${USER_BUCKET}
+      - COMMON_BUCKET=${COMMON_BUCKET}
     ports:
       - "8080:8080"
     shm_size: 512m
-    volumes:
-      - ./persistent_dir/user1:/workspace
-      - ./persistent_dir/common:/workspace/common
     develop:
       watch:
         - path: .
           action: rebuild
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:host-gateway" # For access to local host persistent storage when testing locally

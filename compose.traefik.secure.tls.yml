@@ -45,9 +45,14 @@ services:
       context: .
     environment:
       - MAIN_USER=${USERNAME1}
-    volumes:
-      - "./persistent_dir/common:/workspace/common"
-      - "./persistent_dir/${USERNAME1}:/workspace"
+      - USER_STORE_ENDPOINT=${USER_STORE_ENDPOINT}
+      - COMMON_STORE_ENDPOINT=${COMMON_STORE_ENDPOINT}
+      - USER_STORE_KEY_ID=${USER_STORE_KEY_ID}
+      - USER_STORE_SECRET_KEY=${USER_STORE_SECRET_KEY}
+      - COMMON_STORE_KEY_ID=${COMMON_STORE_KEY_ID}
+      - COMMON_STORE_SECRET_KEY=${COMMON_STORE_SECRET_KEY}
+      - USER_BUCKET=${USER_BUCKET}
+      - COMMON_BUCKET=${COMMON_BUCKET}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME1}`)"
