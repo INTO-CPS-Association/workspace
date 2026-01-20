@@ -48,6 +48,10 @@ RUN chown 1000:0 ${HOME} && \
 RUN mkdir ${PERSISTENT_DIR} && \
     chmod a+rwx ${PERSISTENT_DIR}
 
+RUN mkdir -p /www/Downloads && \
+    chown -R 1000:0 /www && \
+    chmod -R 775 /www
+
 RUN adduser "$(id -un 1000)" sudo && \
     passwd -d "$(id -un 1000)"
 

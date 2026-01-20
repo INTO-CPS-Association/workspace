@@ -22,7 +22,7 @@ The `compose.traefik.secure.tls.yml` file provides a production-ready setup with
 - **OAuth2 authentication** via traefik-forward-auth
 - **Multiple workspace instances** (user1, user2) behind authentication
 - **Secure communication** with TLS certificates
-- **user1** workspace using the workspace-nouveau image
+- **user1** workspace using the workspace image
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - **Two Docker networks**: `dtaas-frontend` and `dtaas-users`
 
@@ -74,7 +74,7 @@ following line to `/etc/hosts`:
 
 ## 💪 Build Workspace Image
 
-Before starting the services, build the workspace-nouveau image:
+Before starting the services, build the workspace image:
 
 ```bash
 docker compose -f compose.traefik.secure.tls.yml  --env-file dtaas/.env build user1
@@ -83,7 +83,7 @@ docker compose -f compose.traefik.secure.tls.yml  --env-file dtaas/.env build us
 Or use the standard build command:
 
 ```bash
-docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile .
 ```
 
 ## :rocket: Start Services
@@ -106,7 +106,7 @@ This will:
 
 Once all services are running, access the workspaces through Traefik with HTTPS:
 
-### User1 Workspace (workspace-nouveau)
+### User1 Workspace (workspace)
 
 - **VNC Desktop**: `https://yourdomain.com/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify`
 - **VS Code**: `https://yourdomain.com/user1/tools/vscode`
@@ -165,7 +165,7 @@ To add additional workspace instances, add a new service in `compose.traefik.sec
 
 ```yaml
 user3:
-  image: workspace-nouveau:latest
+  image: workspace:latest
   restart: unless-stopped
   environment:
     - MAIN_USER=user3

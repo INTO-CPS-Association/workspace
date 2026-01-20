@@ -18,7 +18,7 @@ The `compose.traefik.secure.yml` file sets up:
 - **Traefik** reverse proxy on port 80
 - **traefik-forward-auth** for OAuth2 authentication with GitLab
 - **client** - DTaaS web interface
-- **user1** workspace using the workspace-nouveau image
+- **user1** workspace using the workspace image
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
@@ -27,7 +27,7 @@ configuring the application setup specified in the compose file.
 
 ## 💪 Build Workspace Image
 
-Before starting the services, build the workspace-nouveau image:
+Before starting the services, build the workspace image:
 
 ```bash
 docker compose -f compose.traefik.secure.yml build user1
@@ -36,7 +36,7 @@ docker compose -f compose.traefik.secure.yml build user1
 Or use the standard build command:
 
 ```bash
-docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile .
 ```
 
 ## :rocket: Start Services
@@ -71,7 +71,7 @@ Once all services are running, access them through Traefik at `http://localhost`
 - **URL**: `http://localhost/`
 - Access to the main DTaaS web interface (requires authentication)
 
-### User1 Workspace (workspace-nouveau)
+### User1 Workspace (workspace)
 
 All endpoints require authentication:
 
@@ -119,7 +119,7 @@ To add additional workspace instances, add a new service in `compose.traefik.sec
 
 ```yaml
 user3:
-  image: workspace-nouveau:latest
+  image: workspace:latest
   restart: unless-stopped
   environment:
     - MAIN_USER=${USERNAME3}
