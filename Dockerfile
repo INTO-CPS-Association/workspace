@@ -16,6 +16,7 @@ ENV CODE_SERVER_PORT=8054 \
     INST_DIR=${STARTUPDIR}/install \
     JUPYTER_SERVER_PORT=8090 \
     PERSISTENT_DIR=/workspace \
+    PERSISTENT_COMMON_DIR_NAME=common \
     VNCOPTIONS="${VNCOPTIONS} -disableBasicAuth" \
     KASM_SVC_AUDIO=0 \
     KASM_SVC_AUDIO_INPUT=0 \
@@ -41,12 +42,14 @@ COPY ./startup/ ${STARTUPDIR}
 COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 COPY ./config/jupyter/jupyter_notebook_config.py /etc/jupyter/
 
+RUN mkdir -p ${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME} && \
+    chown -R 1000:0 ${PERSISTENT_DIR} && \
+    chmod -R ug=rwx ${PERSISTENT_DIR}
+
 RUN chown 1000:0 ${HOME} && \
+    ln -s ${PERSISTENT_DIR} ${HOME}/Desktop${PERSISTENT_DIR} && \
     "${STARTUPDIR}"/set_user_permission.sh ${HOME} && \
     rm -Rf ${INST_DIR}
-
-RUN mkdir ${PERSISTENT_DIR} && \
-    chmod a+rwx ${PERSISTENT_DIR}
 
 RUN mkdir -p /www/Downloads && \
     chown -R 1000:0 /www && \
