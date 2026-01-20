@@ -33,6 +33,7 @@ RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/nginx/install_nginx.sh && \
     bash ${INST_DIR}/vscode/install_vscode_server.sh && \
     bash ${INST_DIR}/jupyter/install_jupyter.sh && \
+    bash ${INST_DIR}/minio/install_minio.sh && \
     bash ${INST_DIR}/dtaas_cleanup.sh
 
 COPY ./startup/ ${STARTUPDIR}
