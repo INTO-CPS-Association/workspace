@@ -6,10 +6,12 @@ Here is a mapping of the sections needed for the configuration files.
 
 - `compose.traefik.yml`: [user directories](#-create-user-directories)
 - `compose.traefik.secure.yml`: [user directories](#-create-user-directories),
-  [server OAuth2](#server-oauth2-setup), [client OAuth2](#client-oauth2-setup),
+  [Keycloak Setup](#-keycloak-authentication-setup-recommended), 
+  [client OAuth2](#client-oauth2-setup),
   [env file](#configure-environment-variables)
 - `compose.traefik.secure.tls.yml`:  [user directories](#-create-user-directories),
-  [server OAuth2](#server-oauth2-setup), [client OAuth2](#client-oauth2-setup),
+  [Keycloak Setup](#-keycloak-authentication-setup-recommended),
+  [client OAuth2](#client-oauth2-setup),
   [traefik forward auth](#traefik-forward-auth-configuration),
   [env file](#configure-environment-variables)
 
@@ -20,9 +22,29 @@ Copy existing `user1` directory and paste as two new directories
 with usernames selected for your case. These usernames are mentioned as
 `USERNAME1` and `USERNAME2` in the docker compose files.
 
-## 🔑 OAuth2 Configuration with GitLab
+## 🔑 Authentication Setup
 
-### Server OAuth2 Setup
+### 🎯 Keycloak Authentication Setup (Recommended)
+
+The default configuration for `compose.traefik.secure.yml` now uses **Keycloak** 
+for authentication via OIDC (OpenID Connect). Keycloak provides a robust, 
+enterprise-grade identity and access management solution.
+
+**For detailed Keycloak setup instructions, see [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md)**
+
+Quick overview:
+1. Start services with `docker compose -f compose.traefik.secure.yml up -d`
+2. Access Keycloak at `http://localhost/auth`
+3. Create a realm and OIDC client
+4. Create users in Keycloak
+5. Update `.env` with client credentials
+
+### 🔄 GitLab OAuth2 Configuration (Legacy/Alternative)
+
+If you prefer to use GitLab instead of Keycloak, you can modify the 
+`traefik-forward-auth` service configuration in the compose file.
+
+#### Server OAuth2 Setup
 
 This setup uses traefik-forward-auth with OAuth2 for authentication. You'll
 need to configure an OAuth2 application with your provider.
@@ -67,7 +89,29 @@ and `REACT_APP_AUTH_AUTHORITY` with URL of your GitLab instance, for example
    cp dtaas/.env.example dtaas/.env
    ```
 
-2. Edit `dtaas/.env` and fill in your OAuth credentials:
+2. **For Keycloak (default)**, edit `dtaas/.env` and fill in your Keycloak credentials:
+
+   ```bash
+   # Keycloak Admin Credentials
+   KEYCLOAK_ADMIN=admin
+   KEYCLOAK_ADMIN_PASSWORD=changeme
+
+   # Keycloak Realm
+   KEYCLOAK_REALM=dtaas
+
+   # Keycloak Client Credentials (obtain from Keycloak after creating client)
+   KEYCLOAK_CLIENT_ID=dtaas-workspace
+   KEYCLOAK_CLIENT_SECRET=your_client_secret_here
+
+   # Keycloak Issuer URL
+   KEYCLOAK_ISSUER_URL=http://keycloak:8080/auth/realms/dtaas
+
+   # Secret key for encrypting OAuth session data
+   # Generate a random string (at least 16 characters)
+   OAUTH_SECRET=$(openssl rand -base64 32)
+   ```
+
+   **For GitLab OAuth (alternative)**, edit `dtaas/.env`:
 
    ```bash
    # Your GitLab instance URL (without trailing slash)

@@ -30,6 +30,29 @@ services:
       - frontend
       - users
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    restart: unless-stopped
+    command:
+      - "start-dev"  # DEV ONLY - use 'start' with proper config in production
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      - KC_HOSTNAME=${SERVER_DNS:-localhost}
+      - KC_HOSTNAME_STRICT=false
+      - KC_HTTP_ENABLED=true  # DEV ONLY - use HTTPS in production
+      - KC_PROXY_HEADERS=xforwarded  # Enable proxy headers for Traefik
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.entryPoints=web"
+      - "traefik.http.routers.keycloak.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/auth`)"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    networks:
+      - frontend
+      - users
+
   traefik-forward-auth:
     image: thomseddon/traefik-forward-auth:2
     restart: unless-stopped
@@ -37,22 +60,19 @@ services:
       - ./dtaas/conf:/conf
     environment:
       - LOG_LEVEL=trace
-      - DEFAULT_PROVIDER=generic-oauth
-      - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
-      - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=${OAUTH_URL}/oauth/token
-      - PROVIDERS_GENERIC_OAUTH_USER_URL=${OAUTH_URL}/api/v4/user
-      - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
-      - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
-      - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
-      - SECRET= ${OAUTH_SECRET}
+      - DEFAULT_PROVIDER=oidc
+      - PROVIDERS_OIDC_ISSUER_URL=${KEYCLOAK_ISSUER_URL:-http://keycloak:8080/auth/realms/${KEYCLOAK_REALM:-dtaas}}
+      - PROVIDERS_OIDC_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - PROVIDERS_OIDC_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - SECRET=${OAUTH_SECRET}
       - INSECURE_COOKIE=true  # DEV ONLY - set to false with HTTPS in production
       - CONFIG=/conf
       - AUTH_HOST=${SERVER_DNS:-localhost}
       - COOKIE_DOMAIN=${SERVER_DNS:-localhost}
+      - URL_PATH=/_oauth
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.redirect.entryPoints=web"
-      # - "traefik.http.routers.redirect.rule=PathPrefix(`/_oauth`)"
       - "traefik.http.routers.redirect.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/_oauth`)"
       - "traefik.http.routers.redirect.middlewares=traefik-forward-auth"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
@@ -61,6 +81,8 @@ services:
     networks:
       - frontend
       - users
+    depends_on:
+      - keycloak
 
   client:
     image: intocps/dtaas-web:latest
@@ -77,7 +99,7 @@ services:
       - frontend
 
   user1:
-    image: workspace:latest
+    image: workspace-nouveau:latest
     restart: unless-stopped
     build:
       context: .
@@ -118,3 +140,6 @@ networks:
     name: dtaas-frontend
   users:
     name: dtaas-users
+volumes:
+  keycloak-data:
+    driver: local
