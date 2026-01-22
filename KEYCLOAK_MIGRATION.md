@@ -21,7 +21,7 @@ A new `keycloak` service has been added to the compose file:
 ```yaml
 keycloak:
   image: quay.io/keycloak/keycloak:26.0.7
-  # Accessible at http://localhost/auth
+  # Accessible at http://foo.com/auth
   # Provides OIDC authentication
 ```
 
@@ -113,7 +113,7 @@ OAUTH_CLIENT_SECRET=...
 
 ```bash
 OAUTH_SECRET=...  # Still used for session encryption
-SERVER_DNS=localhost
+SERVER_DNS=foo.com
 USERNAME1=user1
 USERNAME2=user2
 ```
@@ -194,12 +194,12 @@ After deploying the changes:
 
 2. **Verify Keycloak is accessible:**
    ```bash
-   curl -I http://localhost/auth
+   curl -I http://foo.com/auth
    # Should return 200 OK
    ```
 
 3. **Test authentication flow:**
-   - Navigate to `http://localhost/`
+   - Navigate to `http://foo.com/`
    - Should redirect to Keycloak login
    - Login with created user
    - Should redirect back to application

@@ -62,7 +62,7 @@ This will:
 After starting the services, you need to configure Keycloak. See [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) for detailed instructions.
 
 Quick steps:
-1. Access Keycloak at `http://localhost/auth`
+1. Access Keycloak at `http://foo.com/auth`
 2. Login with admin credentials from `.env`
 3. Create a realm named `dtaas` (or match your `KEYCLOAK_REALM`)
 4. Create an OIDC client named `dtaas-workspace`

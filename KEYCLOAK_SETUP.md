@@ -49,7 +49,7 @@ KEYCLOAK_CLIENT_ID=dtaas-workspace
 KEYCLOAK_CLIENT_SECRET=<will-be-generated>
 
 # Server Configuration
-SERVER_DNS=localhost
+SERVER_DNS=foo.com
 
 # Generate a secure secret for OAuth sessions
 OAUTH_SECRET=$(openssl rand -base64 32)
@@ -72,7 +72,7 @@ docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
 
 #### Access Keycloak Admin Console
 
-1. Navigate to `http://localhost/auth`
+1. Navigate to `http://foo.com/auth`
 2. Click on "Administration Console"
 3. Login with credentials from your `.env` file (default: admin/admin)
 
@@ -98,12 +98,12 @@ docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
    - Click "Next"
 
 5. **Login settings**:
-   - **Root URL**: `http://localhost`
+   - **Root URL**: `http://foo.com`
    - **Valid redirect URIs**: 
-     - `http://localhost/_oauth/*`
-     - `http://localhost/*`
-   - **Valid post logout redirect URIs**: `http://localhost/*`
-   - **Web origins**: `http://localhost`
+     - `http://foo.com/_oauth/*`
+     - `http://foo.com/*`
+   - **Valid post logout redirect URIs**: `http://foo.com/*`
+   - **Web origins**: `http://foo.com`
    - Click "Save"
 
 6. **Get the Client Secret**:

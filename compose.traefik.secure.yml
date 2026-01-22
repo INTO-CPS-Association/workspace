@@ -35,6 +35,7 @@ services:
     restart: unless-stopped
     command:
       - "start-dev"  # DEV ONLY - use 'start' with proper config in production
+      - "--http-relative-path=/auth"
     environment:
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -42,8 +43,15 @@ services:
       - KC_HOSTNAME_STRICT=false
       - KC_HTTP_ENABLED=true  # DEV ONLY - use HTTPS in production
       - KC_PROXY_HEADERS=xforwarded  # Enable proxy headers for Traefik
+      - KC_HTTP_RELATIVE_PATH=/auth
     volumes:
       - keycloak-data:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.keycloak.entryPoints=web"
@@ -82,7 +90,8 @@ services:
       - frontend
       - users
     depends_on:
-      - keycloak
+      keycloak:
+        condition: service_healthy
 
   client:
     image: intocps/dtaas-web:latest
@@ -99,7 +108,7 @@ services:
       - frontend
 
   user1:
-    image: workspace-nouveau:latest
+    image: workspace:latest
     restart: unless-stopped
     build:
       context: .

@@ -8,7 +8,7 @@ The `compose.traefik.secure.yml` has been updated to use **Keycloak** for authen
 
 ### 1. New Keycloak Service
 - **Image**: `quay.io/keycloak/keycloak:26.0.7`
-- **Access**: `http://localhost/auth`
+- **Access**: `http://foo.com/auth`
 - **Purpose**: OIDC-based identity provider
 - **Storage**: Persistent volume `keycloak-data`
 
@@ -42,17 +42,17 @@ docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
 ```
 
 ### Step 3: Setup Keycloak (First Time Only)
-1. Go to `http://localhost/auth`
+1. Go to `http://foo.com/auth`
 2. Login with admin credentials
 3. Create realm: `dtaas`
 4. Create client: `dtaas-workspace` (OIDC, confidential)
-5. Set redirect URIs: `http://localhost/_oauth/*`
+5. Set redirect URIs: `http://foo.com/_oauth/*`
 6. Copy client secret to `.env`
 7. Create users in Keycloak
 8. Restart services
 
 ### Step 4: Test
-Navigate to `http://localhost/` and login with Keycloak user.
+Navigate to `http://foo.com/` and login with Keycloak user.
 
 ## Key Benefits
 
