@@ -1,6 +1,6 @@
 # Keycloak Setup Guide for DTaaS
 
-This guide explains how to configure Keycloak for authentication in the DTaaS workspace deployment using `compose.traefik.secure.yml`.
+This guide explains how to configure Keycloak for authentication in the DTaaS workspace deployment using `compose.traefik.secure.tls.yml`.
 
 ## Overview
 
@@ -64,15 +64,15 @@ USERNAME2=user2
 Build and start all services:
 
 ```bash
-docker compose -f compose.traefik.secure.yml build
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
+docker compose -f compose.traefik.secure.tls.yml build
+docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env up -d
 ```
 
 ### 3. Configure Keycloak
 
 #### Access Keycloak Admin Console
 
-1. Navigate to `http://foo.com/auth`
+1. Navigate to `https://foo.com/auth`
 2. Click on "Administration Console"
 3. Login with credentials from your `.env` file (default: admin/admin)
 
@@ -98,12 +98,12 @@ docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
    - Click "Next"
 
 5. **Login settings**:
-   - **Root URL**: `http://foo.com`
+   - **Root URL**: `https://foo.com`
    - **Valid redirect URIs**: 
-     - `http://foo.com/_oauth/*`
-     - `http://foo.com/*`
-   - **Valid post logout redirect URIs**: `http://foo.com/*`
-   - **Web origins**: `http://foo.com`
+     - `https://foo.com/_oauth/*`
+     - `https://foo.com/*`
+   - **Valid post logout redirect URIs**: `https://foo.com/*`
+   - **Web origins**: `https://foo.com`
    - Click "Save"
 
 6. **Get the Client Secret**:
@@ -136,8 +136,8 @@ docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
 After configuring Keycloak, restart the services to apply the new client secret:
 
 ```bash
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env down
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
+docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env down
+docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env up -d
 ```
 
 ### 5. Test Authentication
@@ -180,7 +180,7 @@ To use an external Keycloak instance (recommended for production):
    KEYCLOAK_ISSUER_URL=https://keycloak.example.com/auth/realms/dtaas
    ```
 
-2. Remove the `keycloak` service from `compose.traefik.secure.yml` (optional):
+2. Remove the `keycloak` service from `compose.traefik.secure.tls.yml` (optional):
    - Comment out or delete the entire `keycloak` service section
    - Remove `keycloak` from `depends_on` in `traefik-forward-auth`
    - Remove the `keycloak-data` volume

@@ -2,13 +2,13 @@
 
 ## Summary of Changes
 
-The `compose.traefik.secure.yml` has been updated to use **Keycloak** for authentication instead of GitLab OAuth.
+The `compose.traefik.secure.tls.yml` has been updated to use **Keycloak** for authentication instead of GitLab OAuth.
 
 ## What's New
 
 ### 1. New Keycloak Service
 - **Image**: `quay.io/keycloak/keycloak:26.0.7`
-- **Access**: `http://foo.com/auth`
+- **Access**: `https://foo.com/auth`
 - **Purpose**: OIDC-based identity provider
 - **Storage**: Persistent volume `keycloak-data`
 
@@ -25,7 +25,7 @@ User → Traefik → Forward Auth → Keycloak (OIDC) → Protected Service
 | `KEYCLOAK_REALM` | Realm name | `dtaas` |
 | `KEYCLOAK_CLIENT_ID` | OIDC client ID | `dtaas-workspace` |
 | `KEYCLOAK_CLIENT_SECRET` | OIDC client secret | `<from-keycloak>` |
-| `KEYCLOAK_ISSUER_URL` | OIDC issuer URL | `http://keycloak:8080/auth/realms/dtaas` |
+| `KEYCLOAK_ISSUER_URL` | OIDC issuer URL | `https://foo.com/auth/realms/dtaas` |
 
 ## Quick Setup
 
@@ -37,22 +37,22 @@ cp dtaas/.env.example dtaas/.env
 
 ### Step 2: Start Services
 ```bash
-docker compose -f compose.traefik.secure.yml build
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
+docker compose -f compose.traefik.secure.tls.yml build
+docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env up -d
 ```
 
 ### Step 3: Setup Keycloak (First Time Only)
-1. Go to `http://foo.com/auth`
+1. Go to `https://foo.com/auth`
 2. Login with admin credentials
 3. Create realm: `dtaas`
 4. Create client: `dtaas-workspace` (OIDC, confidential)
-5. Set redirect URIs: `http://foo.com/_oauth/*`
+5. Set redirect URIs: `https://foo.com/_oauth/*`
 6. Copy client secret to `.env`
 7. Create users in Keycloak
 8. Restart services
 
 ### Step 4: Test
-Navigate to `http://foo.com/` and login with Keycloak user.
+Navigate to `https://foo.com/` and login with Keycloak user.
 
 ## Key Benefits
 
@@ -67,7 +67,7 @@ Navigate to `http://foo.com/` and login with Keycloak user.
 ### Use External Keycloak
 Just change `KEYCLOAK_ISSUER_URL` in `.env`:
 ```bash
-KEYCLOAK_ISSUER_URL=https://keycloak.company.com/auth/realms/dtaas
+KEYCLOAK_ISSUER_URL=https://foo.com/auth/realms/dtaas
 ```
 
 ### Revert to GitLab OAuth
@@ -93,17 +93,17 @@ environment:
 
 ### Cannot access Keycloak
 ```bash
-docker compose -f compose.traefik.secure.yml logs keycloak
+docker compose -f compose.traefik.secure.tls.yml logs keycloak
 ```
 
 ### Authentication issues
 ```bash
-docker compose -f compose.traefik.secure.yml logs traefik-forward-auth
+docker compose -f compose.traefik.secure.tls.yml logs traefik-forward-auth
 ```
 
 ### Check all services
 ```bash
-docker compose -f compose.traefik.secure.yml ps
+docker compose -f compose.traefik.secure.tls.yml ps
 ```
 
 ## Production Checklist
