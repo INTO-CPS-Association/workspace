@@ -1,0 +1,99 @@
+name: workspace
+
+services:
+  workspace:
+    image: workspace:latest
+    depends_on:
+      minio-server-setup:
+        condition: service_completed_successfully
+    build:
+      context: .
+    environment:
+      - MAIN_USER=${USERNAME1}
+      - USER_STORE_ENDPOINT=http://minio-server:9000
+      - COMMON_STORE_ENDPOINT=http://minio-server:9000
+      - USER_STORE_KEY_ID=${USER_1_STORE_KEY_ID}
+      - USER_STORE_SECRET_KEY=${USER_1_STORE_SECRET_KEY}
+      - COMMON_STORE_KEY_ID=${USER_1_STORE_KEY_ID}
+      - COMMON_STORE_SECRET_KEY=${USER_1_STORE_SECRET_KEY}
+      - USER_BUCKET=${USER_1_BUCKET}
+      - COMMON_BUCKET=${COMMON_BUCKET}
+    ports:
+      - "8080:8080"
+    shm_size: 512m
+    links:
+      - minio-server:minio-server
+    develop:
+      watch:
+        - path: .
+          action: rebuild
+
+  minio-server:
+    image: minio/minio:latest
+    container_name: minio-server
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+  
+  minio-server-setup:
+    image: minio/mc:latest
+    container_name: minio-server-setup
+    depends_on:
+      minio-server:
+        condition: service_healthy
+      script-generator:
+        condition: service_completed_successfully
+    entrypoint: > 
+      /bin/sh -c "
+      /tmp/syssec/initial-setup.sh &&
+      /tmp/syssec/setup-common-bucket.sh &&
+      /tmp/syssec/setup-user1-bucket.sh &&
+      /tmp/syssec/setup-user1.sh
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - setup-scripts:/tmp/syssec
+    links:
+      - minio-server:minio-server
+
+  script-generator:
+    image: bash:latest
+    container_name: script-generator
+    command: >
+      /usr/local/bin/bash -c "
+      apk add --no-cache coreutils &&
+      apk add --no-cache sed &&
+      cp /tmp/input/initial-setup.sh /output/initial-setup.sh &&
+      cp /tmp/input/setup-bucket.sh /output/setup-common-bucket.sh &&
+      cp /tmp/input/setup-bucket.sh /output/setup-user1-bucket.sh &&
+      cp /tmp/input/setup-user.sh /output/setup-user1.sh &&
+      cp /tmp/input/user-policy.json /output/${USER_1_STORE_KEY_ID}.json &&
+      sed -i 's|{MINIO_ROOT_USER}|${MINIO_ROOT_USER}|g' /output/initial-setup.sh &&
+      sed -i 's|{MINIO_ROOT_PASSWORD}|${MINIO_ROOT_PASSWORD}|g' /output/initial-setup.sh &&
+      sed -i 's|{BUCKET_NAME}|${USER_1_BUCKET}|g' /output/setup-user1-bucket.sh &&
+      sed -i 's|{BUCKET_NAME}|${COMMON_BUCKET}|g' /output/setup-common-bucket.sh &&
+      sed -i 's|{USER_STORE_KEY_ID}|${USER_1_STORE_KEY_ID}|g' /output/setup-user1.sh &&
+      sed -i 's|{USER_STORE_SECRET_KEY}|${USER_1_STORE_SECRET_KEY}|g' /output/setup-user1.sh &&
+      sed -i 's|{USER_BUCKET}|${USER_1_BUCKET}|g' /output/${USER_1_STORE_KEY_ID}.json &&
+      sed -i 's|{COMMON_BUCKET}|${COMMON_BUCKET}|g' /output/${USER_1_STORE_KEY_ID}.json &&
+      chmod +x /output/*
+      "
+    volumes:
+      - ./syssec:/tmp/input:ro
+      - setup-scripts:/output
+
+volumes:
+  setup-scripts:

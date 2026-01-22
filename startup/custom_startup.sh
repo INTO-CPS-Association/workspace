@@ -29,15 +29,13 @@ function set_persistent_storage_aliases {
         dtaas-user-storage \
         ${USER_STORE_ENDPOINT} \
         ${USER_STORE_KEY_ID} \
-        ${USER_STORE_SECRET_KEY} \
-        --api S3v4
+        ${USER_STORE_SECRET_KEY}
 
     mc alias set \
         dtaas-common-storage \
         ${COMMON_STORE_ENDPOINT} \
         ${COMMON_STORE_KEY_ID} \
-        ${COMMON_STORE_SECRET_KEY} \
-        --api S3v4
+        ${COMMON_STORE_SECRET_KEY}
 }
 
 function populate_persistent_directories {
