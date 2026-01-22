@@ -9,8 +9,6 @@ if [[ ${DTAAS_DEBUG:-0} == 1 ]]; then
     set -x
 fi
 
-STARTUPDIR="${STARTUPDIR:-/dockerstartup}"
-PERSISTENT_DIR="${PERSISTENT_DIR:-/workspace}"
 if [[ -z "${HOME:-}" ]]; then
     HOME="/home/${MAIN_USER}"
 fi
@@ -19,20 +17,9 @@ mkdir -p "${HOME}/Desktop" || true
 
 function cleanup {
     trap - SIGINT SIGTERM SIGQUIT SIGHUP ERR
-    
-    # Kill nginx process group if it exists
-    if [[ -n "${DTAAS_PROCS['nginx']:-}" ]]; then
-        kill -- -"${DTAAS_PROCS['nginx']}" 2>/dev/null || true
-    fi
-    
-    # Kill all background jobs
-    local job_pids
-    job_pids="$(jobs -p)"
-    if [[ -n "$job_pids" ]]; then
-        kill -- $job_pids 2>/dev/null || true
-    fi
-    
-    exit 0
+    kill -- -"${DTAAS_PROCS['nginx']}"
+    kill -- "$(jobs -p)"
+    exit 0# Takes all subprocesses with it if this dies.
 }
 
 # Takes all subprocesses with it if this dies.
@@ -40,36 +27,6 @@ trap cleanup SIGINT SIGTERM SIGQUIT SIGHUP ERR
 
 declare -A DTAAS_PROCS
 declare -a RESTART_QUEUE
-
-function set_persistent_storage_aliases {
-    echo "Setting MinIO aliases for persistent storage."
-
-    mc alias set \
-        dtaas-user-storage \
-        ${USER_STORE_ENDPOINT} \
-        ${USER_STORE_KEY_ID} \
-        ${USER_STORE_SECRET_KEY}
-
-    mc alias set \
-        dtaas-common-storage \
-        ${COMMON_STORE_ENDPOINT} \
-        ${COMMON_STORE_KEY_ID} \
-        ${COMMON_STORE_SECRET_KEY}
-}
-
-function populate_persistent_directories {
-    echo "Populating user persistent storage directory ${PERSISTENT_DIR}."
-    mc cp \
-        --recursive \
-        dtaas-user-storage/${USER_BUCKET}/ \
-        ${PERSISTENT_DIR}/
-    
-    echo "Populating common persistent storage directory ${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME}."
-    mc cp \
-        --recursive \
-        dtaas-common-storage/${COMMON_BUCKET}/ \
-        ${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME}/
-}
 
 function start_nginx {
     setsid nginx -g 'daemon off;' &
@@ -103,31 +60,14 @@ else
 fi
 
 function start_user_storage_sync {
-    mc mirror \
-        --watch \
-        --remove \
-        --overwrite \
-        --exclude "${PERSISTENT_COMMON_DIR_NAME}/*" \
-        "${PERSISTENT_DIR}/" \
-        "dtaas-user-storage/${USER_BUCKET}/" &
+    #TODO
     DTAAS_PROCS['user_storage_sync']=$!
 }
 
 function start_common_storage_sync {
-    mc mirror \
-        --watch \
-        --remove \
-        --overwrite \
-        "${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME}/" \
-        "dtaas-common-storage/${COMMON_BUCKET}/" &
+    #TODO
     DTAAS_PROCS['common_storage_sync']=$!
 }
-
-set_persistent_storage_aliases
-populate_persistent_directories
-
-# Note: Desktop symlinks are now created by mount_minio.sh to avoid conflicts
-# The workspace symlink is no longer needed since individual bucket shortcuts exist
 
 start_nginx
 start_jupyter
