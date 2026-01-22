@@ -9,10 +9,29 @@ if [[ ${DTAAS_DEBUG:-0} == 1 ]]; then
     set -x
 fi
 
+STARTUPDIR="${STARTUPDIR:-/dockerstartup}"
+PERSISTENT_DIR="${PERSISTENT_DIR:-/workspace}"
+if [[ -z "${HOME:-}" ]]; then
+    HOME="/home/${MAIN_USER}"
+fi
+
+mkdir -p "${HOME}/Desktop" || true
+
 function cleanup {
     trap - SIGINT SIGTERM SIGQUIT SIGHUP ERR
-    kill -- -"${DTAAS_PROCS['nginx']}"
-    kill -- "$(jobs -p)"
+    
+    # Kill nginx process group if it exists
+    if [[ -n "${DTAAS_PROCS['nginx']:-}" ]]; then
+        kill -- -"${DTAAS_PROCS['nginx']}" 2>/dev/null || true
+    fi
+    
+    # Kill all background jobs
+    local job_pids
+    job_pids="$(jobs -p)"
+    if [[ -n "$job_pids" ]]; then
+        kill -- $job_pids 2>/dev/null || true
+    fi
+    
     exit 0
 }
 
@@ -74,6 +93,15 @@ function start_vscode_server {
     DTAAS_PROCS['vscode']=$!
 }
 
+# Mount MinIO buckets before starting services
+# Note: mount_minio.sh creates Desktop shortcuts for 'common' and user-specific buckets
+if [[ -f "${STARTUPDIR}/mount_minio.sh" ]]; then
+    echo "[INFO] Mounting MinIO buckets with policy-based access control"
+    bash "${STARTUPDIR}/mount_minio.sh"
+else
+    echo "[WARNING] mount_minio.sh not found, skipping MinIO bucket mounting"
+fi
+
 function start_user_storage_sync {
     mc mirror \
         --watch \
@@ -97,6 +125,9 @@ function start_common_storage_sync {
 
 set_persistent_storage_aliases
 populate_persistent_directories
+
+# Note: Desktop symlinks are now created by mount_minio.sh to avoid conflicts
+# The workspace symlink is no longer needed since individual bucket shortcuts exist
 
 start_nginx
 start_jupyter

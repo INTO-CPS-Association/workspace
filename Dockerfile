@@ -37,6 +37,12 @@ RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/minio/install_minio.sh && \
     bash ${INST_DIR}/dtaas_cleanup.sh
 
+# Install s3fs-fuse for mounting MinIO buckets
+RUN apt-get update && \
+    apt-get install -y s3fs curl jq && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY ./startup/ ${STARTUPDIR}
 
 COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
@@ -50,6 +56,9 @@ RUN chown 1000:0 ${HOME} && \
     ln -s ${PERSISTENT_DIR} ${HOME}/Desktop${PERSISTENT_DIR} && \
     "${STARTUPDIR}"/set_user_permission.sh ${HOME} && \
     rm -Rf ${INST_DIR}
+
+# Make mount script executable
+RUN chmod +x ${STARTUPDIR}/mount_minio.sh
 
 RUN mkdir -p /www/Downloads && \
     chown -R 1000:0 /www && \
