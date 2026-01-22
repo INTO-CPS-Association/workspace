@@ -9,12 +9,6 @@ if [[ ${DTAAS_DEBUG:-0} == 1 ]]; then
     set -x
 fi
 
-if [[ -z "${HOME:-}" ]]; then
-    HOME="/home/${MAIN_USER}"
-fi
-
-mkdir -p "${HOME}/Desktop" || true
-
 function cleanup {
     trap - SIGINT SIGTERM SIGQUIT SIGHUP ERR
     kill -- -"${DTAAS_PROCS['nginx']}"

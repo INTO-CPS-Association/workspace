@@ -50,7 +50,7 @@ RUN chown 1000:0 ${HOME} && \
     ln -s ${PERSISTENT_DIR} ${HOME}/Desktop${PERSISTENT_DIR} && \
     "${STARTUPDIR}"/set_user_permission.sh ${HOME} && \
     rm -Rf ${INST_DIR}
-    
+
 RUN mkdir -p /www/Downloads && \
     chown -R 1000:0 /www && \
     chmod -R 775 /www
