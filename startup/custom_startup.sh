@@ -9,10 +9,29 @@ if [[ ${DTAAS_DEBUG:-0} == 1 ]]; then
     set -x
 fi
 
+STARTUPDIR="${STARTUPDIR:-/dockerstartup}"
+PERSISTENT_DIR="${PERSISTENT_DIR:-/workspace}"
+if [[ -z "${HOME:-}" ]]; then
+    HOME="/home/${MAIN_USER}"
+fi
+
+mkdir -p "${HOME}/Desktop" || true
+
 function cleanup {
     trap - SIGINT SIGTERM SIGQUIT SIGHUP ERR
-    kill -- -"${DTAAS_PROCS['nginx']}"
-    kill -- "$(jobs -p)"
+    
+    # Kill nginx process group if it exists
+    if [[ -n "${DTAAS_PROCS['nginx']:-}" ]]; then
+        kill -- -"${DTAAS_PROCS['nginx']}" 2>/dev/null || true
+    fi
+    
+    # Kill all background jobs
+    local job_pids
+    job_pids="$(jobs -p)"
+    if [[ -n "$job_pids" ]]; then
+        kill -- $job_pids 2>/dev/null || true
+    fi
+    
     exit 0
 }
 
@@ -44,11 +63,17 @@ function start_vscode_server {
     DTAAS_PROCS['vscode']=$!
 }
 
-# Links the persistent dir to its subdirectory in home. Can only happen after
-# KASM has setup the main user home directories.
-if [[ ! -h "${HOME}"/Desktop/workspace ]]; then
-    ln -s "${PERSISTENT_DIR}" "${HOME}"/Desktop/workspace
+# Mount MinIO buckets before starting services
+# Note: mount_minio.sh creates Desktop shortcuts for 'common' and user-specific buckets
+if [[ -f "${STARTUPDIR}/mount_minio.sh" ]]; then
+    echo "[INFO] Mounting MinIO buckets with policy-based access control"
+    bash "${STARTUPDIR}/mount_minio.sh"
+else
+    echo "[WARNING] mount_minio.sh not found, skipping MinIO bucket mounting"
 fi
+
+# Note: Desktop symlinks are now created by mount_minio.sh to avoid conflicts
+# The workspace symlink is no longer needed since individual bucket shortcuts exist
 
 start_nginx
 start_jupyter

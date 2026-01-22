@@ -1,0 +1,251 @@
+name: workspace-secure
+
+services:
+  # PostgreSQL for Keycloak
+  postgres:
+    image: postgres:16-alpine
+    container_name: workspace-postgres
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-keycloak_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - workspace-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak - Identity and Access Management
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: workspace-keycloak
+    command:
+      - start-dev
+      - --import-realm
+      - --hostname-url=http://localhost:8180
+      - --hostname-admin-url=http://localhost:8180
+      - --hostname-strict=false
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-keycloak_password}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KEYCLOAK_FRONTEND_URL: "http://localhost:8180"
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - keycloak_data:/opt/keycloak/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - workspace-network
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\r\nhost: http://localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # MinIO - Object Storage
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: workspace-minio
+    command: server /data --console-address ":9001"
+    extra_hosts:
+      - "localhost:127.0.0.1"
+      - "host.docker.internal:host-gateway"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_IDENTITY_OPENID_CONFIG_URL: "http://host.docker.internal:8180/realms/workspace/.well-known/openid-configuration"
+      MINIO_IDENTITY_OPENID_CLIENT_ID: "minio"
+      MINIO_IDENTITY_OPENID_CLIENT_SECRET: ${MINIO_OIDC_SECRET:-minio-client-secret}
+      MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
+      MINIO_IDENTITY_OPENID_SCOPES: "openid,profile,email"
+      MINIO_IDENTITY_OPENID_REDIRECT_URI: "http://localhost:9001/oauth_callback"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - workspace-network
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO Client for initialization
+  minio-init:
+    image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+    container_name: workspace-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - workspace-network
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
+      /usr/bin/mc mb --ignore-existing myminio/common;
+      /usr/bin/mc mb --ignore-existing myminio/user1;
+      /usr/bin/mc mb --ignore-existing myminio/user2;
+      /usr/bin/mc admin policy create myminio common-read /policies/common-read-policy.json;
+      /usr/bin/mc admin policy create myminio common-write /policies/common-write-policy.json;
+      /usr/bin/mc admin policy create myminio user-full-access /policies/user-full-access.json;
+      /usr/bin/mc mirror --overwrite /seed/common myminio/common;
+      /usr/bin/mc mirror --overwrite /seed/user1 myminio/user1;
+      /usr/bin/mc mirror --overwrite /seed/user2 myminio/user2;
+      exit 0;
+      "
+    volumes:
+      - ./minio/policies:/policies:ro
+      - ./persistent_dir:/seed:ro
+
+  # PEP/PDP Proxy Service
+  authz-proxy:
+    build:
+      context: ./authz-proxy
+      dockerfile: Dockerfile
+    container_name: workspace-authz-proxy
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: workspace
+      KEYCLOAK_CLIENT_ID: authz-proxy
+      KEYCLOAK_CLIENT_SECRET: ${AUTHZ_PROXY_SECRET:-authz-proxy-secret}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      POLICY_DECISION_CACHE_TTL: 300
+    ports:
+      - "8300:8081"
+    networks:
+      - workspace-network
+    depends_on:
+      - keycloak
+      - minio
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Workspace Service (Modified)
+  workspace-user1:
+    image: workspace:latest
+    build:
+      context: .
+    container_name: workspace-user1
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    environment:
+      - MAIN_USER=${USER1_USERNAME:-user1}
+      - BASE_PATH=
+      - JUPYTER_SERVER_PORT=8888
+      - CODE_SERVER_PORT=8444
+      - NO_VNC_PORT=6901
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=workspace
+      - KEYCLOAK_CLIENT_ID=minio
+      - KEYCLOAK_CLIENT_SECRET=minio-client-secret
+      - KEYCLOAK_USERNAME=${USER1_USERNAME:-user1}
+      - KEYCLOAK_PASSWORD=${USER1_PASSWORD:-user1password}
+      - AUTHZ_PROXY_URL=http://authz-proxy:8081
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - MINIO_BUCKET=${USER1_USERNAME:-user1}
+      - MINIO_COMMON_BUCKET=common
+    ports:
+      - "8100:8080"
+    shm_size: 512m
+    volumes:
+      - workspace_user1_home:/home/kasm-default-profile
+      - ./scripts/sync-minio.sh:/usr/local/bin/sync-minio.sh:ro
+    networks:
+      - workspace-network
+    depends_on:
+      - authz-proxy
+      - minio
+
+  workspace-user2:
+    image: workspace:latest
+    build:
+      context: .
+    container_name: workspace-user2
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    environment:
+      - MAIN_USER=${USER2_USERNAME:-user2}
+      - BASE_PATH=
+      - JUPYTER_SERVER_PORT=8888
+      - CODE_SERVER_PORT=8444
+      - NO_VNC_PORT=6901
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=workspace
+      - KEYCLOAK_CLIENT_ID=minio
+      - KEYCLOAK_CLIENT_SECRET=minio-client-secret
+      - KEYCLOAK_USERNAME=${USER2_USERNAME:-user2}
+      - KEYCLOAK_PASSWORD=${USER2_PASSWORD:-user2password}
+      - AUTHZ_PROXY_URL=http://authz-proxy:8081
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - MINIO_BUCKET=${USER2_USERNAME:-user2}
+      - MINIO_COMMON_BUCKET=common
+    ports:
+      - "8200:8080"
+    shm_size: 512m
+    volumes:
+      - workspace_user2_home:/home/kasm-default-profile
+      - ./scripts/sync-minio.sh:/usr/local/bin/sync-minio.sh:ro
+    networks:
+      - workspace-network
+    depends_on:
+      - authz-proxy
+      - minio
+
+volumes:
+  postgres_data:
+    driver: local
+  keycloak_data:
+    driver: local
+  minio_data:
+    driver: local
+  workspace_user1_home:
+    driver: local
+  workspace_user2_home:
+    driver: local
+
+networks:
+  workspace-network:
+    driver: bridge

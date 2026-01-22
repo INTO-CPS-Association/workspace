@@ -1,0 +1,224 @@
+{
+  "realm": "workspace",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Administrator with full access to all resources"
+      },
+      {
+        "name": "user",
+        "description": "Regular user with access to their own workspace"
+      },
+      {
+        "name": "common-reader",
+        "description": "Can read files from common shared space"
+      },
+      {
+        "name": "common-writer",
+        "description": "Can read and write files to common shared space"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "workspace-users",
+      "path": "/workspace-users",
+      "realmRoles": ["user", "common-reader"]
+    },
+    {
+      "name": "workspace-contributors",
+      "path": "/workspace-contributors",
+      "realmRoles": ["user", "common-writer"]
+    },
+    {
+      "name": "workspace-admins",
+      "path": "/workspace-admins",
+      "realmRoles": ["admin", "common-writer"]
+    }
+  ],
+  "users": [
+    {
+      "username": "user1",
+      "enabled": true,
+      "email": "user1@workspace.local",
+      "firstName": "User",
+      "lastName": "One",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user1password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "common-writer"],
+      "groups": ["/workspace-contributors"],
+      "attributes": {
+        "minio_bucket": ["user1"],
+        "workspace_path": ["/workspace/user1"],
+        "policy": ["common-write,user-full-access"]
+      }
+    },
+    {
+      "username": "user2",
+      "enabled": true,
+      "email": "user2@workspace.local",
+      "firstName": "User",
+      "lastName": "Two",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user2password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "common-reader"],
+      "groups": ["/workspace-users"],
+      "attributes": {
+        "minio_bucket": ["user2"],
+        "workspace_path": ["/workspace/user2"],
+        "policy": ["common-read,user-full-access"]
+      }
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@workspace.local",
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "adminpassword",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin", "common-writer"],
+      "groups": ["/workspace-admins"],
+      "attributes": {
+        "policy": ["consoleAdmin,readwrite"]
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "minio",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "minio-client-secret",
+      "redirectUris": [
+        "http://localhost:9001/*",
+        "http://localhost:9001/oauth_callback"
+      ],
+      "webOrigins": ["+"],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "attributes": {
+        "access.token.lifespan": "3600",
+        "client.session.idle.timeout": "3600",
+        "client.session.max.lifespan": "36000"
+      },
+      "protocolMappers": [
+        {
+          "name": "minio-policy-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "policy",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "policy",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "preferred_username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "audience-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "minio",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "authz-proxy",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "authz-proxy-secret",
+      "authorizationServicesEnabled": true,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "redirectUris": ["http://localhost:8300/*"],
+      "webOrigins": ["+"]
+    },
+    {
+      "clientId": "workspace-frontend",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "redirectUris": [
+        "http://localhost:8100/*",
+        "http://localhost:8200/*"
+      ],
+      "webOrigins": ["+"],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true
+    }
+  ]
+}

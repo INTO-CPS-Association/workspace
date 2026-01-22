@@ -1,0 +1,234 @@
+services:
+  # Traefik Reverse Proxy
+  traefik:
+    image: traefik:v3.2
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+      - "--ping=true"
+    ports:
+      - "80:80"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    networks:
+      - workspace-network
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL Database for Keycloak
+  postgres:
+    image: postgres:16-alpine
+    container_name: workspace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - workspace-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: workspace-keycloak
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_db_password
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY: edge
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: "/keycloak"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command:
+      - start
+      - --import-realm
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    networks:
+      - workspace-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=PathPrefix(`/keycloak`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: workspace-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # Remove BROWSER_REDIRECT_URL to allow direct access on port 9001
+      # MINIO_BROWSER_REDIRECT_URL: "http://localhost/minio"
+      MINIO_IDENTITY_OPENID_CONFIG_URL: "http://localhost/keycloak/realms/workspace/.well-known/openid-configuration"
+      MINIO_IDENTITY_OPENID_CLIENT_ID: "minio"
+      MINIO_IDENTITY_OPENID_CLIENT_SECRET: "minio-client-secret"
+      MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
+      MINIO_IDENTITY_OPENID_SCOPES: "openid,profile,email"
+    ports:
+      - "9001:9001"  # Direct access to console
+      - "9000:9000"  # Direct access to API
+    volumes:
+      - minio_data:/data
+    networks:
+      - workspace-network
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      # MinIO API
+      - "traefik.http.routers.minio-api.rule=PathPrefix(`/minio-api`)"
+      - "traefik.http.routers.minio-api.entrypoints=web"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+      - "traefik.http.middlewares.minio-api-stripprefix.stripprefix.prefixes=/minio-api"
+      - "traefik.http.routers.minio-api.middlewares=minio-api-stripprefix"
+      # MinIO Console - accessible via Traefik at /minio (limited functionality)
+      - "traefik.http.routers.minio-console.rule=PathPrefix(`/minio`)"
+      - "traefik.http.routers.minio-console.entrypoints=web"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO Policy Initialization
+  minio-init:
+    image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+    container_name: workspace-minio-init
+    volumes:
+      - ./scripts/init-minio-policies.sh:/init-minio-policies.sh:ro
+    entrypoint: ["/bin/sh", "/init-minio-policies.sh"]
+    networks:
+      - workspace-network
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # Authorization Proxy (PEP/PDP)
+  authz-proxy:
+    build:
+      context: ./authz-proxy
+      dockerfile: Dockerfile
+    container_name: workspace-authz-proxy
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_URL: "http://keycloak:8080"
+      KEYCLOAK_REALM: "workspace"
+      KEYCLOAK_CLIENT_ID: "authz-proxy"
+      KEYCLOAK_CLIENT_SECRET: "authz-proxy-secret"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      LOG_LEVEL: "INFO"
+    networks:
+      - workspace-network
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authz.rule=PathPrefix(`/authz`)"
+      - "traefik.http.routers.authz.entrypoints=web"
+      - "traefik.http.services.authz.loadbalancer.server.port=8081"
+      - "traefik.http.middlewares.authz-stripprefix.stripprefix.prefixes=/authz"
+      - "traefik.http.routers.authz.middlewares=authz-stripprefix"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8081/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # User1 Workspace
+  user1-workspace:
+    image: workspace:latest
+    container_name: workspace-user1
+    restart: unless-stopped
+    environment:
+      MAIN_USER: user1
+      VNC_PW: user1password
+      BASE_PATH: /user1
+    shm_size: 512m
+    volumes:
+      - ./persistent_dir/user1:/workspace/user1:rw
+      - ./persistent_dir/common:/workspace/common:ro  # Read-only for user1 (common-reader)
+    networks:
+      - workspace-network
+    depends_on:
+      authz-proxy:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user1.rule=PathPrefix(`/user1`)"
+      - "traefik.http.routers.user1.entrypoints=web"
+      - "traefik.http.services.user1.loadbalancer.server.port=8080"
+
+  # User2 Workspace
+  user2-workspace:
+    image: workspace:latest
+    container_name: workspace-user2
+    restart: unless-stopped
+    environment:
+      MAIN_USER: user2
+      VNC_PW: user2password
+      BASE_PATH: /user2
+    shm_size: 512m
+    volumes:
+      - ./persistent_dir/user2:/workspace/user2:rw
+      - ./persistent_dir/common:/workspace/common:rw  # Read-write for user2 (common-writer)
+    networks:
+      - workspace-network
+    depends_on:
+      authz-proxy:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user2.rule=PathPrefix(`/user2`)"
+      - "traefik.http.routers.user2.entrypoints=web"
+      - "traefik.http.services.user2.loadbalancer.server.port=8080"
+
+volumes:
+  postgres_data:
+    name: workspace-postgres-data
+  minio_data:
+    name: workspace-minio-data
+
+networks:
+  workspace-network:
+    name: workspace-network
+    driver: bridge

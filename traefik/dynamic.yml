@@ -1,0 +1,83 @@
+http:
+  routers:
+    keycloak:
+      rule: "PathPrefix(`/keycloak`)"
+      service: keycloak
+      entryPoints:
+        - web
+
+    minio-console:
+      rule: "PathPrefix(`/minio`)"
+      service: minio-console
+      entryPoints:
+        - web
+
+    minio-api:
+      rule: "PathPrefix(`/minio-api`)"
+      service: minio-api
+      middlewares:
+        - minio-api-stripprefix
+      entryPoints:
+        - web
+
+    authz:
+      rule: "PathPrefix(`/authz`)"
+      service: authz
+      middlewares:
+        - authz-stripprefix
+      entryPoints:
+        - web
+
+    user1:
+      rule: "PathPrefix(`/user1`)"
+      service: user1
+      entryPoints:
+        - web
+
+    user2:
+      rule: "PathPrefix(`/user2`)"
+      service: user2
+      entryPoints:
+        - web
+
+  services:
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: "http://workspace-keycloak:8080"
+
+    minio-console:
+      loadBalancer:
+        servers:
+          - url: "http://workspace-minio:9001"
+
+    minio-api:
+      loadBalancer:
+        servers:
+          - url: "http://workspace-minio:9000"
+
+    authz:
+      loadBalancer:
+        servers:
+          - url: "http://workspace-authz-proxy:8081"
+
+    user1:
+      loadBalancer:
+        servers:
+          - url: "http://workspace-user1:8080"
+
+    user2:
+      loadBalancer:
+        servers:
+          - url: "http://workspace-user2:8080"
+
+  middlewares:
+    minio-api-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/minio-api"
+
+    authz-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/authz"
