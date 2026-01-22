@@ -41,6 +41,36 @@ trap cleanup SIGINT SIGTERM SIGQUIT SIGHUP ERR
 declare -A DTAAS_PROCS
 declare -a RESTART_QUEUE
 
+function set_persistent_storage_aliases {
+    echo "Setting MinIO aliases for persistent storage."
+
+    mc alias set \
+        dtaas-user-storage \
+        ${USER_STORE_ENDPOINT} \
+        ${USER_STORE_KEY_ID} \
+        ${USER_STORE_SECRET_KEY}
+
+    mc alias set \
+        dtaas-common-storage \
+        ${COMMON_STORE_ENDPOINT} \
+        ${COMMON_STORE_KEY_ID} \
+        ${COMMON_STORE_SECRET_KEY}
+}
+
+function populate_persistent_directories {
+    echo "Populating user persistent storage directory ${PERSISTENT_DIR}."
+    mc cp \
+        --recursive \
+        dtaas-user-storage/${USER_BUCKET}/ \
+        ${PERSISTENT_DIR}/
+    
+    echo "Populating common persistent storage directory ${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME}."
+    mc cp \
+        --recursive \
+        dtaas-common-storage/${COMMON_BUCKET}/ \
+        ${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME}/
+}
+
 function start_nginx {
     setsid nginx -g 'daemon off;' &
     DTAAS_PROCS['nginx']=$!
@@ -72,12 +102,38 @@ else
     echo "[WARNING] mount_minio.sh not found, skipping MinIO bucket mounting"
 fi
 
+function start_user_storage_sync {
+    mc mirror \
+        --watch \
+        --remove \
+        --overwrite \
+        --exclude "${PERSISTENT_COMMON_DIR_NAME}/*" \
+        "${PERSISTENT_DIR}/" \
+        "dtaas-user-storage/${USER_BUCKET}/" &
+    DTAAS_PROCS['user_storage_sync']=$!
+}
+
+function start_common_storage_sync {
+    mc mirror \
+        --watch \
+        --remove \
+        --overwrite \
+        "${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME}/" \
+        "dtaas-common-storage/${COMMON_BUCKET}/" &
+    DTAAS_PROCS['common_storage_sync']=$!
+}
+
+set_persistent_storage_aliases
+populate_persistent_directories
+
 # Note: Desktop symlinks are now created by mount_minio.sh to avoid conflicts
 # The workspace symlink is no longer needed since individual bucket shortcuts exist
 
 start_nginx
 start_jupyter
 start_vscode_server "${PERSISTENT_DIR}"
+start_user_storage_sync
+start_common_storage_sync
 
 # Monitor and resurrect DTaaS services.
 sleep 3
@@ -106,6 +162,14 @@ do
             vscode)
                 echo "[INFO] Restarting VS Code server"
                 start_vscode_server "${PERSISTENT_DIR}"
+                ;;
+            user_storage_sync)
+                echo "[INFO] Restarting sync of ${PERSISTENT_DIR} to persistent user storage"
+                start_user_storage_sync
+                ;;
+            common_storage_sync)
+                echo "[INFO] Restarting sync of ${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME} to persistent common storage"
+                start_common_storage_sync
                 ;;
             *)
                 echo "[WARNING] An unknown service '${process}' unexpectededly monitored by the custom_startup script was reported to have exitted. This is most irregular - check if something is adding processes to the custom_startup scripts list of monitored subprocesses."

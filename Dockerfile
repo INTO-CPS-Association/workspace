@@ -16,6 +16,7 @@ ENV CODE_SERVER_PORT=8054 \
     INST_DIR=${STARTUPDIR}/install \
     JUPYTER_SERVER_PORT=8090 \
     PERSISTENT_DIR=/workspace \
+    PERSISTENT_COMMON_DIR_NAME=common \
     VNCOPTIONS="${VNCOPTIONS} -disableBasicAuth" \
     KASM_SVC_AUDIO=0 \
     KASM_SVC_AUDIO_INPUT=0 \
@@ -33,6 +34,7 @@ RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/nginx/install_nginx.sh && \
     bash ${INST_DIR}/vscode/install_vscode_server.sh && \
     bash ${INST_DIR}/jupyter/install_jupyter.sh && \
+    bash ${INST_DIR}/minio/install_minio.sh && \
     bash ${INST_DIR}/dtaas_cleanup.sh
 
 # Install s3fs-fuse for mounting MinIO buckets
@@ -46,19 +48,21 @@ COPY ./startup/ ${STARTUPDIR}
 COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 COPY ./config/jupyter/jupyter_notebook_config.py /etc/jupyter/
 
+RUN mkdir -p ${PERSISTENT_DIR}/${PERSISTENT_COMMON_DIR_NAME} && \
+    chown -R 1000:0 ${PERSISTENT_DIR} && \
+    chmod -R ug=rwx ${PERSISTENT_DIR}
+
 RUN chown 1000:0 ${HOME} && \
+    ln -s ${PERSISTENT_DIR} ${HOME}/Desktop${PERSISTENT_DIR} && \
     "${STARTUPDIR}"/set_user_permission.sh ${HOME} && \
     rm -Rf ${INST_DIR}
 
 # Make mount script executable
 RUN chmod +x ${STARTUPDIR}/mount_minio.sh
 
-RUN mkdir ${PERSISTENT_DIR} && \
-    chmod a+rwx ${PERSISTENT_DIR}
-
-# Create workspace directories for MinIO bucket mounts
-RUN mkdir -p /workspace/common && \
-    chmod 755 /workspace/common
+RUN mkdir -p /www/Downloads && \
+    chown -R 1000:0 /www && \
+    chmod -R 775 /www
 
 RUN adduser "$(id -un 1000)" sudo && \
     passwd -d "$(id -un 1000)"

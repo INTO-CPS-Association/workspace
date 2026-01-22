@@ -80,3 +80,4 @@ persistent_dir/**
 
 # temp files for workspace
 .workspace
+minio-data/*

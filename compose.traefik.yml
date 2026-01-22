@@ -29,9 +29,14 @@ services:
       context: .
     environment:
       - MAIN_USER=user1
-    volumes:
-      - ./persistent_dir/user1:/workspace
-      - ./persistent_dir/common:/workspace/common
+      - USER_STORE_ENDPOINT=${USER_STORE_ENDPOINT}
+      - COMMON_STORE_ENDPOINT=${COMMON_STORE_ENDPOINT}
+      - USER_STORE_KEY_ID=${USER_STORE_KEY_ID}
+      - USER_STORE_SECRET_KEY=${USER_STORE_SECRET_KEY}
+      - COMMON_STORE_KEY_ID=${COMMON_STORE_KEY_ID}
+      - COMMON_STORE_SECRET_KEY=${COMMON_STORE_SECRET_KEY}
+      - USER_BUCKET=${USER_BUCKET}
+      - COMMON_BUCKET=${COMMON_BUCKET}
     shm_size: 512m
     labels:
       - "traefik.enable=true"
