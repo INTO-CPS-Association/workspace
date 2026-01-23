@@ -51,8 +51,15 @@ fi
 export HOME="/home/${MAIN_USER}"
 
 if [[ "${CURRENT_USER}" != "${MAIN_USER}" ]]; then
+    if [[ -d "${PERSISTENT_DIR}/${CURRENT_USER}" ]]; then
+        mv "${PERSISTENT_DIR}/${CURRENT_USER}" "${PERSISTENT_DIR}/${MAIN_USER}"
+    fi
     convert_current_user_to_main_user
     do_user_dependent_configurations
+fi
+
+if [[ ! -d "${PERSISTENT_DIR}/${MAIN_USER}" ]]; then
+    mkdir -p "${PERSISTENT_DIR}/${MAIN_USER}"
 fi
 
 echo "Continuing KASM script chain: '$*'"

@@ -8,10 +8,6 @@ fi
 
 echo "[INFO] Mounting MinIO buckets with Keycloak policy enforcement"
 
-# Create mount points
-mkdir -p /workspace/common
-mkdir -p "/workspace/${MAIN_USER}"
-
 # Get Keycloak token for this user
 get_keycloak_token() {
     local response
