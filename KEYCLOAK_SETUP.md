@@ -117,7 +117,7 @@ docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env up -d
 2. Click "Create new user"
 3. Fill in user details:
    - **Username**: `user1` (or your desired username)
-   - **Email**: user's email
+   - **Email**: user's email (optional)
    - **First name** and **Last name**: optional
    - ✅ Email verified: ON (optional, for testing)
 4. Click "Create"
@@ -142,7 +142,7 @@ docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env up -d
 
 ### 5. Test Authentication
 
-1. Navigate to `http://localhost/`
+1. Navigate to `https://foo.com/`
 2. You should be redirected to Keycloak login
 3. Login with one of the users you created
 4. You should be redirected back to the DTaaS interface
