@@ -145,7 +145,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
-          images: ${{ secrets.DOCKERHUB_SCOPE }}/workspace
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/workspace
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix={{branch}}-
@@ -175,7 +175,7 @@ jobs:
           - name: ghcr
             image: ghcr.io/${{ github.repository }}
           - name: dockerhub
-            image: ${{ secrets.DOCKERHUB_SCOPE }}/workspace
+            image: intocpsassociation/workspace
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1

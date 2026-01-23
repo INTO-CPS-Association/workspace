@@ -35,6 +35,12 @@ RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/jupyter/install_jupyter.sh && \
     bash ${INST_DIR}/dtaas_cleanup.sh
 
+# Install s3fs-fuse for mounting MinIO buckets
+RUN apt-get update && \
+    apt-get install -y s3fs curl jq && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY ./startup/ ${STARTUPDIR}
 
 COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
@@ -44,12 +50,15 @@ RUN chown 1000:0 ${HOME} && \
     "${STARTUPDIR}"/set_user_permission.sh ${HOME} && \
     rm -Rf ${INST_DIR}
 
+# Make mount script executable
+RUN chmod +x ${STARTUPDIR}/mount_minio.sh
+
 RUN mkdir ${PERSISTENT_DIR} && \
     chmod a+rwx ${PERSISTENT_DIR}
 
-RUN mkdir -p /www/Downloads && \
-    chown -R 1000:0 /www && \
-    chmod -R 775 /www
+# Create workspace directories for MinIO bucket mounts
+RUN mkdir -p /workspace/common && \
+    chmod 755 /workspace/common
 
 RUN adduser "$(id -un 1000)" sudo && \
     passwd -d "$(id -un 1000)"
