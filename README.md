@@ -1,4 +1,4 @@
-# Workspace Nouveau
+# Workspace
 
 A new workspace image for [DTaaS](https://github.com/INTO-CPS-Association/DTaaS).
 

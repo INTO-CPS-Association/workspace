@@ -15,7 +15,7 @@ name: Publish Workspace Docker Image
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag for the image (e.g., 1.0.0)'
+        description: 'Version tag for the image (e.g., 0.1.0)'
         required: false
         default: 'latest'
 
