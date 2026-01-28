@@ -29,7 +29,7 @@ services:
       context: .
       dockerfile: ../Dockerfile.ubuntu.noble.gnome
     environment:
-      - MAIN_USER=${USERNAME1}
+      - MAIN_USER=${USERNAME1:-user1}
     volumes:
       - ./files/user1:/workspace
       - ./files/common:/workspace/common
@@ -46,7 +46,7 @@ services:
     restart: unless-stopped
     environment:
       - AUTHENTICATE_VIA_JUPYTER=
-      - WORKSPACE_BASE_URL=user2
+      - WORKSPACE_BASE_URL=${USERNAME2:-user2}
     volumes:
       - ./files/user2:/workspace
       - ./files/common:/workspace/common
