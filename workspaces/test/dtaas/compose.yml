@@ -1,18 +1,18 @@
-name: workspace
-
 services:
   workspace:
     image: workspace:latest
+    container_name: workspace
     build:
-      context: .
+      context: ../../
+      dockerfile: Dockerfile.ubuntu.noble.gnome
     environment:
-      - MAIN_USER=dtaas-user
+      - MAIN_USER=${USERNAME1:-user1}
     ports:
       - "8080:8080"
     shm_size: 512m
     volumes:
-      - ./persistent_dir/user1:/workspace
-      - ./persistent_dir/common:/workspace/common
+      - ./files/user1:/workspace
+      - ./files/common:/workspace/common
     develop:
       watch:
         - path: .

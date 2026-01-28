@@ -17,7 +17,7 @@ ENV CODE_SERVER_PORT=8054 \
 
 WORKDIR $HOME
 
-COPY ./install/ ${INST_DIR}
+COPY ./src/install/ ${INST_DIR}
 
 RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/nginx/install_nginx.sh && \
@@ -25,10 +25,10 @@ RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
     bash ${INST_DIR}/jupyter/install_jupyter.sh && \
     bash ${INST_DIR}/dtaas_cleanup.sh
 
-COPY ./startup/ ${STARTUPDIR}
+COPY ./src/startup/ ${STARTUPDIR}
 
-COPY ./config/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
-COPY ./config/jupyter/jupyter_notebook_config.py /etc/jupyter/
+COPY ./src/resources/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
+COPY ./src/resources/jupyter/jupyter_notebook_config.py /etc/jupyter/
 
 RUN chown 1000:0 ${HOME} && \
     "${STARTUPDIR}"/set_user_permission.sh ${HOME} && \

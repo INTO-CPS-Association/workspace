@@ -67,16 +67,21 @@ docker-compose.override.yml
 *.tgz
 .container-*
 
-# DTaaS config files
-dtaas/*
-!dtaas/client.js.example
-!dtaas/conf.example
-!dtaas/.env.example
+# keep only example files in DTaaS config
+workspaces/test/dtaas/config/*
+!workspaces/test/dtaas/config/client.js.example
+!workspaces/test/dtaas/config/conf.example
+!workspaces/test/dtaas/config/.env.example
 
-# ignore user files
-persistent_dir/**
-!persistent_dir/.gitkeep
-!persistent_dir/**/.gitkeep
+# ignore DTaaS user files
+workspaces/test/dtaas/files/**
+!workspaces/test/dtaas/files/.gitkeep
+!workspaces/test/dtaas/files/**/.gitkeep
+
+# ignore DTaaS certs but keep explanation and custom forward-auth docker file
+workspaces/test/dtaas/certs/**
+!workspaces/test/dtaas/certs/Dockerfile
+!workspaces/test/dtaas/certs/README.md
 
 # temp files for workspace
 .workspace
