@@ -31,11 +31,12 @@ services:
       - users
 
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:latest
+    image: thomseddon/traefik-forward-auth:2
     restart: unless-stopped
     volumes:
       - ./dtaas/conf:/conf
     environment:
+      - LOG_LEVEL=trace
       - DEFAULT_PROVIDER=generic-oauth
       - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
       - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=${OAUTH_URL}/oauth/token
@@ -43,14 +44,16 @@ services:
       - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
       - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
       - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
-      - SECRET=${OAUTH_SECRET}
+      - SECRET= ${OAUTH_SECRET}
       - INSECURE_COOKIE=true  # DEV ONLY - set to false with HTTPS in production
       - CONFIG=/conf
-      - LOG_LEVEL=debug  # DEV ONLY - use info in production
+      - AUTH_HOST=${SERVER_DNS:-localhost}
+      - COOKIE_DOMAIN=${SERVER_DNS:-localhost}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.redirect.entryPoints=web"
-      - "traefik.http.routers.redirect.rule=PathPrefix(`/_oauth`)"
+      # - "traefik.http.routers.redirect.rule=PathPrefix(`/_oauth`)"
+      - "traefik.http.routers.redirect.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/_oauth`)"
       - "traefik.http.routers.redirect.middlewares=traefik-forward-auth"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
@@ -69,12 +72,12 @@ services:
       - "traefik.http.routers.client.entryPoints=web"
       - "traefik.http.services.client.loadbalancer.server.port=4000"
       - "traefik.http.routers.client.middlewares=traefik-forward-auth"
-      - "traefik.http.routers.client.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.client.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/`)"
     networks:
       - frontend
 
   user1:
-    image: workspace-nouveau:latest
+    image: workspace:latest
     restart: unless-stopped
     build:
       context: .
@@ -87,7 +90,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u1.entryPoints=web"
-      - "traefik.http.routers.u1.rule=PathPrefix(`/${USERNAME1}`)"
+      - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME1}`)"
       - "traefik.http.routers.u1.middlewares=traefik-forward-auth"
     networks:
       - users
@@ -105,7 +108,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u2.entryPoints=web"
-      - "traefik.http.routers.u2.rule=PathPrefix(`/${USERNAME2}`)"
+      - "traefik.http.routers.u2.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME2}`)"
       - "traefik.http.routers.u2.middlewares=traefik-forward-auth"
     networks:
       - users

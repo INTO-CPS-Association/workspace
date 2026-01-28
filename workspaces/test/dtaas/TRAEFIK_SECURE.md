@@ -18,79 +18,16 @@ The `compose.traefik.secure.yml` file sets up:
 - **Traefik** reverse proxy on port 80
 - **traefik-forward-auth** for OAuth2 authentication with GitLab
 - **client** - DTaaS web interface
-- **user1** workspace using the workspace-nouveau image
+- **user1** workspace using the workspace image
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
-All services (except the OAuth callback) are protected by OAuth2 authentication.
-Users must authenticate with GitLab before accessing any workspace or the DTaaS web interface.
-
-## 🔐 OAuth2 Setup with GitLab
-
-### Step 1: Create GitLab OAuth Application
-
-1. Log in to your GitLab instance (gitlab.com or your self-hosted instance)
-2. Navigate to:
-   - **For personal use**: Settings → Applications
-   - **For organization**: Admin Area → Applications
-3. Create a new application with these settings:
-   - **Name**: DTaaS Workspace
-   - **Redirect URI**: `http://localhost/_oauth`
-   - **Scopes**: Select `read_user`
-   - **Confidential**: Yes (checked)
-4. Click "Save application"
-5. Copy the **Application ID** and **Secret** - you'll need these in the next step
-
-### Step 2: Configure Environment Variables
-
-1. Copy the example environment file:
-
-   ```bash
-   cp dtaas/.env.example dtaas/.env
-   ```
-
-2. Edit `dtaas/.env` and fill in your OAuth credentials:
-
-   ```bash
-   # Your GitLab instance URL (without trailing slash)
-   # Example: https://gitlab.com or https://gitlab.example.com
-   OAUTH_URL=https://gitlab.com
-
-   # OAuth Application Client ID
-   # Obtained when creating the OAuth application in GitLab
-   OAUTH_CLIENT_ID=your_application_id_here
-
-   # OAuth Application Client Secret
-   # Obtained when creating the OAuth application in GitLab
-   OAUTH_CLIENT_SECRET=your_secret_here
-
-   # Secret key for encrypting OAuth session data
-   # Generate a random string (at least 16 characters)
-   # Example: openssl rand -base64 32
-   OAUTH_SECRET=your_random_secret_key_here
-   ```
-
-3. Generate a secure random secret:
-
-   ```bash
-   openssl rand -base64 32
-   ```
-
-   Use the output as your `OAUTH_SECRET` value.
-
-4. (OPTIONAL) Update the USERNAME variables in .env, replacing the defaults with your desired usernames.
-
-   ```bash
-   # Username Configuration
-   # These usernames will be used as path prefixes for user workspaces
-   # Example: http://localhost/user1, http://localhost/user2
-   USERNAME1=user1
-   USERNAME2=user2
-   ```
+Please see [Configuration](CONFIGURATION.md) for information on
+configuring the application setup specified in the compose file.
 
 ## 💪 Build Workspace Image
 
-Before starting the services, build the workspace-nouveau image:
+Before starting the services, build the workspace image:
 
 ```bash
 docker compose -f compose.traefik.secure.yml build user1
@@ -99,30 +36,8 @@ docker compose -f compose.traefik.secure.yml build user1
 Or use the standard build command:
 
 ```bash
-docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile .
 ```
-
-## 📁 Prepare Configuration Files
-
-Before starting the services, prepare the DTaaS configuration files from their examples:
-
-1. Copy the traefik-forward-auth configuration file:
-
-   ```bash
-   cp dtaas/conf.example dtaas/conf
-   ```
-
-2. Copy the DTaaS client configuration file:
-
-   ```bash
-   cp dtaas/client.js.example dtaas/client.js
-   ```
-
-3. Edit `dtaas/client.js` to configure the DTaaS client
-   with your OAuth credentials and URL settings.
-
-4. Update the usernames in `dtaas/conf` to customize the traefik-forward-auth
-   rules for your deployment.
 
 ## :rocket: Start Services
 
@@ -156,7 +71,7 @@ Once all services are running, access them through Traefik at `http://localhost`
 - **URL**: `http://localhost/`
 - Access to the main DTaaS web interface (requires authentication)
 
-### User1 Workspace (workspace-nouveau)
+### User1 Workspace (workspace)
 
 All endpoints require authentication:
 
@@ -204,7 +119,7 @@ To add additional workspace instances, add a new service in `compose.traefik.sec
 
 ```yaml
 user3:
-  image: workspace-nouveau:latest
+  image: workspace:latest
   restart: unless-stopped
   environment:
     - MAIN_USER=${USERNAME3}

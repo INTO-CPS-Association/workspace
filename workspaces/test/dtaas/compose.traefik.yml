@@ -23,7 +23,7 @@ services:
       - users
 
   user1:
-    image: workspace-nouveau:latest
+    image: workspace:latest
     restart: unless-stopped
     build:
       context: .
