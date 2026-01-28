@@ -6,7 +6,7 @@ in the DTaaS installation.
 
 ## ❓ Prerequisites
 
-✅ Docker Engine v27 or later
+✅ Docker Engine v27 or later  
 ✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
 ✅ Port 80 available on your host machine  
 ✅ GitLab OAuth Application configured (see setup below)
@@ -22,7 +22,7 @@ The `compose.traefik.secure.yml` file sets up:
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
-Please see [Configuration](CONFIGURATION.md) for information on
+Please see [CONFIGURATION.md](./CONFIGURATION.md) for information on
 configuring the application setup specified in the compose file.
 
 ## 💪 Build Workspace Image
@@ -36,7 +36,7 @@ docker compose -f compose.traefik.secure.yml build user1
 Or use the standard build command:
 
 ```bash
-docker build -t workspace:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
 ```
 
 ## :rocket: Start Services
@@ -44,7 +44,7 @@ docker build -t workspace:latest -f Dockerfile .
 To start all services (Traefik, auth, client, and workspaces):
 
 ```bash
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
+docker compose -f compose.traefik.secure.yml --env-file config/.env up -d
 ```
 
 This will:
@@ -80,7 +80,7 @@ All endpoints require authentication:
 - **Jupyter Notebook**: `http://localhost/user1`
 - **Jupyter Lab**: `http://localhost/user1/lab`
 
-👉 Remember to replace `user1` with correct username.
+👉 Remember to replace `user1` with the your username for user 1.
 
 ### User2 Workspace (ml-workspace-minimal)
 
@@ -91,25 +91,15 @@ All endpoints require authentication:
 - **Jupyter Notebook**: `http://localhost/user2`
 - **Jupyter Lab**: `http://localhost/user2/lab`
 
-👉 Remember to replace `user2` with correct username.
+👉 Remember to replace `user2` wwith the your username for user 2.
 
 ## 🛑 Stopping Services
 
 To stop all services:
 
 ```bash
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env down
+docker compose -f compose.traefik.secure.yml --env-file config/.env down
 ```
-
-## ⚙️ Network Configuration
-
-The setup uses two Docker networks:
-
-- **dtaas-frontend**: Used by Traefik, traefik-forward-auth, and the client
-  for external communication
-- **dtaas-users**: Shared network for workspace instances and Traefik
-
-This separation allows for better network isolation and security.
 
 ## 🔧 Customization
 
@@ -118,22 +108,28 @@ This separation allows for better network isolation and security.
 To add additional workspace instances, add a new service in `compose.traefik.secure.yml`:
 
 ```yaml
-user3:
-  image: workspace:latest
-  restart: unless-stopped
-  environment:
-    - MAIN_USER=${USERNAME3}
-  shm_size: 512m
-  labels:
-    - "traefik.enable=true"
-    - "traefik.http.routers.u3.entryPoints=web"
-    - "traefik.http.routers.u3.rule=PathPrefix(`/user3`)"
-    - "traefik.http.routers.u3.middlewares=traefik-forward-auth"
-  networks:
-    - users
+  user3:
+    image: workspace:latest
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ../Dockerfile.ubuntu.noble.gnome
+    environment:
+      - MAIN_USER=${USERNAME3:-user3}
+    volumes:
+      - ./files/user3:/workspace
+      - ./files/common:/workspace/common
+    shm_size: 512m
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.u3.entryPoints=web"
+      - "traefik.http.routers.u3.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME3:-user3}`)"
+      - "traefik.http.routers.u3.middlewares=traefik-forward-auth"
+    networks:
+      - users
 ```
 
-And, add the desired `USERNAME3` variable in `.env`:
+Add the desired `USERNAME3` variable in `.env`:
 
 ```bash
 # Username Configuration
@@ -141,7 +137,13 @@ And, add the desired `USERNAME3` variable in `.env`:
 # Example: http://localhost/user1, http://localhost/user2
 USERNAME1=user1
 USERNAME2=user2
-USERNAME3=user3
+USERNAME3=user3 # <--- replace "user3" with your desired username
+```
+
+And, setup the base structure of the persistent directories for the new user:
+
+```bash
+cp -r ./files/user1 ./files/user3
 ```
 
 ### Using a Different OAuth Provider
@@ -153,7 +155,7 @@ provider:
 2. Adjust the OAuth URLs accordingly
 3. Update the scope as needed for your provider
 
-See [traefik-forward-auth documentation][tfa-docs] for details.
+See the [traefik-forward-auth documentation][tfa-docs] for details.
 
 [tfa-docs]: https://github.com/thomseddon/traefik-forward-auth
 
@@ -161,45 +163,14 @@ See [traefik-forward-auth documentation][tfa-docs] for details.
 
 ### Current Setup (Development/Testing)
 
-⚠️ **Important**: This configuration uses some insecure settings for development:
+⚠️ **Important**: This configuration is designed for development and testing and uses some insecure settings:
 
 - `INSECURE_COOKIE=true` - Allows cookies over HTTP
 - Traefik API is exposed (`--api.insecure=true`)
 - No TLS/HTTPS encryption
 - Debug logging enabled
 
-### Production Recommendations
-
-For production deployments:
-
-1. **Enable HTTPS/TLS**:
-   - Configure SSL certificates (Let's Encrypt recommended)
-   - Remove `INSECURE_COOKIE=true` from traefik-forward-auth
-   - Update OAuth redirect URLs to use HTTPS
-
-2. **Secure Traefik API**:
-   - Remove `--api.insecure=true`
-   - Enable Traefik dashboard authentication
-   - Restrict API access
-
-3. **Environment Variables**:
-   - Use Docker secrets for sensitive data
-   - Never commit `.env` file to version control
-   - Rotate OAuth secrets regularly
-
-4. **Logging**:
-   - Change log level from DEBUG to INFO or WARN
-   - Implement log aggregation and monitoring
-
-5. **Network Security**:
-   - Review and restrict network access
-   - Use firewall rules
-   - Consider using internal networks for service communication
-
-6. **OAuth Configuration**:
-   - Use organization-wide OAuth applications
-   - Restrict OAuth scopes to minimum required
-   - Implement refresh token rotation
+For setting up a composition that includes TLS/HTTPS, see [TRAEFIK_TLS.md](./TRAEFIK_TLS.md).
 
 ## 🔍 Troubleshooting
 
