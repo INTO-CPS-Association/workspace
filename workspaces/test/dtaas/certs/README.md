@@ -7,7 +7,7 @@ This directory should contain your TLS certificates for HTTPS support.
 Place your certificate files in this directory with the following structure:
 
 ```text
-certs/
+test/dtaas/certs/
 ├── fullchain.pem  # Full certificate chain
 └── privkey.pem    # Private key
 ```
@@ -33,7 +33,8 @@ the private key and full certificate chain.
 (Ensure that your `/env/hosts` file point your domain to 127.0.0.1)
 
 #### ***Generate certificates***
-From within the `certs/` folder, replacing every instance of
+
+From within the `test/dtaas/certs/` folder, replacing every instance of
 `foo.com` with your domain:
 
 ```bash
@@ -48,19 +49,24 @@ cp ~/.local/share/mkcert/rootCA.pem rootCA.crt
 ```
 
 #### ***Build forward auth image with your certificate***
-From within `certs/`:
+
+From within `test/dtaas/certs/`:
 
 ```bash
 docker buildx build -t traefik-forward-auth-local:latest .
 ```
 
 #### ***Update forward auth image name in compose file***
+
 Update the `traefik-forward-auth` service definition in the
 `compose.traefik.secure.tls.yml` file by replacing the line
+
 ```yaml
 image: thomseddon/traefik-forward-auth:2
 ```
+
 with
+
 ```yaml
 image: traefik-forward-auth-local:latest
 ```
@@ -77,9 +83,9 @@ image: traefik-forward-auth-local:latest
 
 ## File Permissions
 
-Set appropriate permissions for certificate files:
+From within `test/dtaas/certs/`, set appropriate permissions for certificate files:
 
 ```bash
-chmod 644 certs/fullchain.pem
-chmod 600 certs/privkey.pem
+chmod 644 fullchain.pem
+chmod 600 privkey.pem
 ```
