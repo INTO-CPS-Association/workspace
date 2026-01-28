@@ -5,8 +5,8 @@ for multi-user deployments in the DTaaS installation.
 
 ## ❓ Prerequisites
 
-✅ Docker Engine v27 or later
-✅ Sufficient system resources (at least 1GB RAM per workspace instance)
+✅ Docker Engine v27 or later  
+✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
 ✅ Port 80 available on your host machine
 
 ## 🗒️ Overview
@@ -39,25 +39,26 @@ docker tag intocpsassociation/workspace:latest workspace:latest
 ```
 
 ### Option 2: Build Locally
+First navigate to the `workspaces/` directory.
 
-Before starting the services, build the workspace image:
+Then build the workspace image, either with docker compose:
 
 ```bash
-docker compose -f compose.traefik.yml build user1
+docker compose -f test/dtaas/compose.traefik.yml build user1
 ```
 
-Or use the standard build command:
+Or using the standard build command:
 
 ```bash
-docker build -t workspace:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
 ```
 
 ## :rocket: Start Services
 
-To start all services (Traefik and both workspace instances):
+To start all services (Traefik and both workspace instances), from within the `workspaces/` directory:
 
 ```bash
-docker compose -f compose.traefik.yml up -d
+docker compose -f test/dtaas/compose.traefik.yml up -d
 ```
 
 This will:
@@ -88,17 +89,8 @@ Once all services are running, access the workspaces through Traefik:
 To stop all services:
 
 ```bash
-docker compose -f compose.traefik.yml down
+docker compose -f test/dtaas/compose.traefik.yml down
 ```
-
-## ⚙️ Network Configuration
-
-The setup uses two Docker networks:
-
-- **dtaas-frontend**: Used by Traefik for external communication
-- **dtaas-users**: Shared network for workspace instances and Traefik
-
-This separation allows for better network isolation and security.
 
 ## 🔧 Customization
 
@@ -110,25 +102,31 @@ To add additional workspace instances, add a new service in `compose.traefik.yml
 user3:
   image: workspace:latest
   restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: Dockerfile.ubuntu.noble.gnome
   environment:
-    - MAIN_USER=user3
+    - MAIN_USER=${USERNAME3:-user3}
+  volumes:
+    - ./files/user3:/workspace
+    - ./files/common:/workspace/common
   shm_size: 512m
   labels:
     - "traefik.enable=true"
     - "traefik.http.routers.u3.entryPoints=web"
-    - "traefik.http.routers.u3.rule=PathPrefix(`/user3`)"
+    - "traefik.http.routers.u3.rule=PathPrefix(`/${USERNAME3:-user3}`)"
   networks:
     - users
 ```
 
+And then, setup the base structure of the persistent directories for the new user:
+
+```bash
+cp -r test/dtaas/files/user1 test/dtaas/files/user3
+```
+
 ## :shield: Security Considerations
 
-⚠️ **Important**: This configuration is designed for development and testing.
-For production use:
+⚠️ **Important**: This configuration is designed for development and testing, and should not be reconfigured to be exposed to the internet.
 
-- Disable Traefik insecure API (`--api.insecure=true`)
-- Configure HTTPS/TLS certificates
-- Implement authentication and authorization
-- Review and tighten CORS settings
-- Use secure communication between services
-- Consider using Docker secrets for sensitive data
+For setting up a composition that can be exposed to the internet, see [TRAEFIK_TLS.md](./TRAEFIK_TLS.md).
