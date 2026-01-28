@@ -24,23 +24,25 @@ docker pull intocpsassociation/workspace:latest
 
 ## 🦾 Build Workspace Image
 
-If you want to build the image locally instead of using pre-built images:
+If you want to build the image locally instead of using pre-built images, first, navigate to the `workspaces/` directory. Then:
 
 *Either*  
 Using plain `docker` command:
 
 ```ps1
-docker build -t workspace:latest -f Dockerfile .
+docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
 ```
 
 **Or**
 using `docker compose`:
 
 ```ps1
-docker compose build
+docker compose -f test/dtaas/compose.yml build
 ```
 
 ## :running: Run it
+From `workspaces/`:
+
 
 *Either*  
 Using plain `docker` command:
@@ -48,7 +50,7 @@ Using plain `docker` command:
 ```ps1
 docker run -d --shm-size=512m \
   -p 8080:8080\
-  -e MAIN_USER=dtaas-user --name workspace  workspace:latest
+  -e MAIN_USER=user1 --name workspace  workspace:latest
 ```
 
 :point_right: You can change the **MAIN_USER** variable to any other username
@@ -58,20 +60,20 @@ of your choice.
 using `docker compose`:
 
 ```ps1
-docker compose -f compose.yml up -d
+docker compose -f test/dtaas/compose.yml up -d
 ```
 
 ## :technologist: Use Services
 
-An active container provides the following services
-:warning: please remember to change dtaas-user to the username chosen in the
+An active container provides the following services.
+:warning: please remember to change user1 to the username chosen in the
 previous command
 
 * ***Open workspace*** -
-  <http://localhost:8080/dtaas-user/tools/vnc?path=dtaas-user%2Ftools%2Fvnc%2Fwebsockify>
-* ***Open VSCode*** - <http://localhost:8080/dtaas-user/tools/vscode>
+  <http://localhost:8080/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify>
+* ***Open VSCode*** - <http://localhost:8080/user1/tools/vscode>
 * ***Open Jupyter Notebook*** - <http://localhost:8080>
-* ***Open Jupyter Lab*** - <http://localhost:8080/dtaas-user/lab>
+* ***Open Jupyter Lab*** - <http://localhost:8080/user1/lab>
 
 ## :broom: Clean Up
 
@@ -84,15 +86,15 @@ docker rm workspace
 ```
 
 *Or*
-using `docker compose`:
+using `docker compose` from `workspaces/`:
 
 ```bash
-docker compose -f compose.yml down
+docker compose -f test/dtaas/compose.yml down
 ```
 
 ## :arrows_counterclockwise: Deployment Options
 
-This workspace supports multiple deployment configurations depending on your needs:
+This workspace supports multiple deployment configurations depending on your needs. All deployment-relevant files can be found in `workspaces/test/dtaas/`.
 
 ### 1. Standalone Development (Single User)
 
@@ -106,21 +108,21 @@ This workspace supports multiple deployment configurations depending on your nee
 **File**: `compose.traefik.yml`  
 **Use case**: Multi-user development/testing without authentication  
 **Features**: Traefik reverse proxy, multiple workspaces  
-**Documentation**: [TRAEFIK.md](TRAEFIK.md)
+**Documentation**: [TRAEFIK.md](workspaces/test/dtaas/TRAEFIK.md)
 
 ### 3. Multi-User with OAuth2 (HTTP)
 
 **File**: `compose.traefik.secure.yml`  
 **Use case**: Development/testing with OAuth2 authentication  
 **Features**: Traefik reverse proxy, OAuth2 authentication, HTTP only  
-**Documentation**: [TRAEFIK_TLS.md](TRAEFIK_TLS.md)
+**Documentation**: [TRAEFIK_TLS.md](workspaces/test/dtaas/TRAEFIK_TLS.md)
 
 ### 4. Production Deployment (HTTPS + OAuth2)
 
 **File**: `compose.traefik.secure.tls.yml`  
 **Use case**: Production deployment with full security  
 **Features**: Traefik reverse proxy, OAuth2 authentication, TLS/HTTPS  
-**Documentation**: [TRAEFIK_TLS.md](TRAEFIK_TLS.md)
+**Documentation**: [TRAEFIK_TLS.md](workspaces/test/dtaas/TRAEFIK_TLS.md)
 
 Choose the configuration that best matches your deployment requirements.
 
