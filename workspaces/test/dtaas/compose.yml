@@ -5,6 +5,7 @@ services:
     image: workspace:latest
     build:
       context: .
+      dockerfile: ../Dockerfile.ubuntu.noble.gnome
     environment:
       - MAIN_USER=dtaas-user
     ports:

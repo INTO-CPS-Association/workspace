@@ -27,8 +27,9 @@ services:
     restart: unless-stopped
     build:
       context: .
+      dockerfile: ../Dockerfile.ubuntu.noble.gnome
     environment:
-      - MAIN_USER=user1
+      - MAIN_USER=${USERNAME1}
     volumes:
       - ./files/user1:/workspace
       - ./files/common:/workspace/common

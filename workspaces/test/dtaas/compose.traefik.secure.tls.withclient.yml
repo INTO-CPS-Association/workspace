@@ -28,7 +28,7 @@ services:
     image: intocps/dtaas-web:latest
     restart: unless-stopped
     volumes:
-      - "./dtaas/client.js:/dtaas/client/build/env.js"
+      - "./config/client.js:/dtaas/client/build/env.js"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.client.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/`)"
@@ -43,11 +43,12 @@ services:
     restart: unless-stopped
     build:
       context: .
+      dockerfile: ../Dockerfile.ubuntu.noble.gnome
     environment:
       - MAIN_USER=${USERNAME1}
     volumes:
-      - "./persistent_dir/common:/workspace/common"
-      - "./persistent_dir/${USERNAME1}:/workspace"
+      - "./files/common:/workspace/common"
+      - "./files/user1:/workspace"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME1}`)"
@@ -60,8 +61,8 @@ services:
     image: mltooling/ml-workspace-minimal:0.13.2
     restart: unless-stopped
     volumes:
-      - "./persistent_dir/common:/workspace/common"
-      - "./persistent_dir/${USERNAME2}:/workspace"
+      - "./files/common:/workspace/common"
+      - "./files/user2:/workspace"
     environment:
       - AUTHENTICATE_VIA_JUPYTER=
       - WORKSPACE_BASE_URL=${USERNAME2}
@@ -78,7 +79,7 @@ services:
     image: thomseddon/traefik-forward-auth:latest
     restart: unless-stopped
     volumes:
-      - "./dtaas/conf:/conf"
+      - "./config/conf:/conf"
     environment:
       - LOG_LEVEL=trace
       - DEFAULT_PROVIDER=generic-oauth
