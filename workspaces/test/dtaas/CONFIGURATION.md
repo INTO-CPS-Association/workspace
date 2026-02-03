@@ -92,11 +92,11 @@ sudo apt-get update
 sudo apt-get install certbot
 
 # Generate certificates
-sudo certbot certonly --standalone -d yourdomain.com
+sudo certbot certonly --standalone -d <DOMAIN_NAME>
 
 # Copy certificates to the project
-sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ./certs/
-sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ./certs/
+sudo cp /etc/letsencrypt/live/<DOMAIN_NAME>/fullchain.pem ./certs/
+sudo cp /etc/letsencrypt/live/<DOMAIN_NAME>/privkey.pem ./certs/
 sudo chown $USER:$USER ./certs/*.pem
 chmod 644 ./certs/fullchain.pem
 chmod 600 ./certs/privkey.pem
