@@ -27,13 +27,15 @@ configuring the application setup specified in the compose file.
 
 ## 💪 Build Workspace Image
 
-Before starting the services, build the workspace image:
+First navigate to the `workspaces/` directory.
+
+Then build the workspace image, either with docker compose:
 
 ```bash
-docker compose -f compose.traefik.secure.yml build user1
+docker compose -f test/dtaas/compose.traefik.secure.yml build user1
 ```
 
-Or use the standard build command:
+Or using the standard build command:
 
 ```bash
 docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
@@ -41,10 +43,10 @@ docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
 
 ## :rocket: Start Services
 
-To start all services (Traefik, auth, client, and workspaces):
+To start all services (Traefik, auth, client, and workspaces), from within the `workspaces/` directory:
 
 ```bash
-docker compose -f compose.traefik.secure.yml --env-file config/.env up -d
+docker compose -f test/dtaas/compose.traefik.secure.yml --env-file test/dtaas/config/.env up -d
 ```
 
 This will:

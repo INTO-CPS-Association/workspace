@@ -80,8 +80,8 @@ services:
     image: workspace:latest
     restart: unless-stopped
     build:
-      context: .
-      dockerfile: ../Dockerfile.ubuntu.noble.gnome
+      context: ../..
+      dockerfile: Dockerfile.ubuntu.noble.gnome
     environment:
       - MAIN_USER=${USERNAME1:-user1}
     volumes:
