@@ -156,7 +156,7 @@ This may indicate an issue with the published image. Check:
 
 ## Version Management
 
-The image version is currently set to `1.0.0` in the Dockerfile labels. To
+The image version is currently set to `0.1.0` in the Dockerfile labels. To
 update the version:
 
 1. Edit the `org.opencontainers.image.version` label in `Dockerfile`
