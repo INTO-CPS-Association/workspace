@@ -39,26 +39,25 @@ docker tag intocpsassociation/workspace:latest workspace:latest
 ```
 
 ### Option 2: Build Locally
-First navigate to the `workspaces/` directory.
 
-Then build the workspace image, either with docker compose:
+Build the workspace image, either with docker compose:
 
 ```bash
-docker compose -f test/dtaas/compose.traefik.yml build user1
+docker compose -f workspaces/test/dtaas/compose.traefik.yml build user1
 ```
 
 Or using the standard build command:
 
 ```bash
-docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
+docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
 ```
 
 ## :rocket: Start Services
 
-To start all services (Traefik and both workspace instances), from within the `workspaces/` directory:
+To start all services (Traefik and both workspace instances):
 
 ```bash
-docker compose -f test/dtaas/compose.traefik.yml up -d
+docker compose -f workspaces/test/dtaas/compose.traefik.yml up -d
 ```
 
 This will:
@@ -89,7 +88,7 @@ Once all services are running, access the workspaces through Traefik:
 To stop all services:
 
 ```bash
-docker compose -f test/dtaas/compose.traefik.yml down
+docker compose -f workspaces/test/dtaas/compose.traefik.yml down
 ```
 
 ## 🔧 Customization
@@ -122,7 +121,7 @@ user3:
 And then, setup the base structure of the persistent directories for the new user:
 
 ```bash
-cp -r test/dtaas/files/user1 test/dtaas/files/user3
+cp -r workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/user3
 ```
 
 ## :shield: Security Considerations

@@ -22,31 +22,31 @@ The `compose.traefik.secure.yml` file sets up:
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
-Please see [CONFIGURATION.md](./CONFIGURATION.md) for information on
+## ⚙️ Configure
+
+Please see [`CONFIGURATION.md`](CONFIGURATION.md) for information on
 configuring the application setup specified in the compose file.
 
 ## 💪 Build Workspace Image
 
-First navigate to the `workspaces/` directory.
-
-Then build the workspace image, either with docker compose:
+Build the workspace image, either with docker compose:
 
 ```bash
-docker compose -f test/dtaas/compose.traefik.secure.yml build user1
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml build user1
 ```
 
 Or using the standard build command:
 
 ```bash
-docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
+docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
 ```
 
 ## :rocket: Start Services
 
-To start all services (Traefik, auth, client, and workspaces), from within the `workspaces/` directory:
+To start all services (Traefik, auth, client, and workspaces)::
 
 ```bash
-docker compose -f test/dtaas/compose.traefik.secure.yml --env-file test/dtaas/config/.env up -d
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env up -d
 ```
 
 This will:
@@ -100,7 +100,7 @@ All endpoints require authentication:
 To stop all services:
 
 ```bash
-docker compose -f compose.traefik.secure.yml --env-file config/.env down
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env down
 ```
 
 ## 🔧 Customization
@@ -145,7 +145,7 @@ USERNAME3=user3 # <--- replace "user3" with your desired username
 And, setup the base structure of the persistent directories for the new user:
 
 ```bash
-cp -r ./files/user1 ./files/user3
+cp -r workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/user3
 ```
 
 ### Using a Different OAuth Provider
@@ -189,19 +189,19 @@ If you're stuck in an authentication loop:
 1. Check all services are running:
 
    ```bash
-   docker compose -f compose.traefik.secure.yml ps
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml ps
    ```
 
 2. Check Traefik logs:
 
    ```bash
-   docker compose -f compose.traefik.secure.yml logs traefik
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml logs traefik
    ```
 
 3. Check traefik-forward-auth logs:
 
    ```bash
-   docker compose -f compose.traefik.secure.yml logs traefik-forward-auth
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml logs traefik-forward-auth
    ```
 
 ### OAuth Errors
