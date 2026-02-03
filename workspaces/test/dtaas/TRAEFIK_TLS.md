@@ -9,10 +9,9 @@ deployments.
 ✅ Docker Engine v27 or later  
 ✅ Docker Compose v2.x  
 ✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
-✅ Valid TLS certificates (production) or ability to generate self-signed
-certs (testing)  
+✅ Valid TLS certificates (production) or self-signed certs (testing)
 ✅ OAuth2 provider (GitLab, GitHub, Google, etc.)  
-✅ Domain name pointing to your server (for production)
+✅ Domain name pointing to your server (production) or localhost (testing)
 
 ## 🗒️ Overview
 
@@ -23,7 +22,12 @@ The `compose.traefik.secure.tls.yml` file provides a production-ready setup with
 - **OAuth2 authentication** via traefik-forward-auth
 - **Multiple workspace instances** (user1, user2) behind authentication
 - **Secure communication** with TLS certificates
+- **user1** workspace using the workspace image
+- **user2** workspace using the mltooling/ml-workspace-minimal image
 - **Two Docker networks**: `dtaas-frontend` and `dtaas-users`
+
+Please see [Configuration](CONFIGURATION.md) for information on
+configuring the application setup specified in the compose file.
 
 ## 🔐 TLS Certificate Setup
 
@@ -42,11 +46,11 @@ sudo apt-get install certbot
 sudo certbot certonly --standalone -d yourdomain.com
 
 # Copy certificates to the project
-sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ./certs/
-sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ./certs/
-sudo chown $USER:$USER ./certs/*.pem
-chmod 644 ./certs/fullchain.pem
-chmod 600 ./certs/privkey.pem
+sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ./workspaces/test/dtaas/certs/
+sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ./workspaces/test/dtaas/certs/
+sudo chown $USER:$USER ./workspaces/test/dtaas/certs/*.pem
+chmod 644 ./workspaces/test/dtaas/certs/fullchain.pem
+chmod 600 ./workspaces/test/dtaas/certs/privkey.pem
 ```
 
 ### Option 2: Self-Signed Certificates (Testing Only, Local Only)
@@ -58,91 +62,28 @@ See `certs/README.md`, section "Certificate Generation" subsection
 ⚠️ **Note**: Self-signed certificates will show security warnings in browsers
 and should only be used for testing.
 
-## 🔑 OAuth2 Configuration
-
-This setup uses traefik-forward-auth with OAuth2 for authentication. You'll
-need to configure an OAuth2 application with your provider.
-
-### GitLab OAuth2 Setup
-
-1. Go to your GitLab instance → Settings → Applications
-2. Create a new application with:
-   - **Name**: DTaaS Workspace
-   - **Redirect URI**: `https://yourdomain.com/_oauth`
-   - **Scopes**: `read_user`, `openid`, `profile`, `email`
-3. Save the **Application ID** and **Secret**
-
-### GitHub OAuth2 Setup
-
-1. Go to GitHub → Settings → Developer settings → OAuth Apps
-2. Create a new OAuth App with:
-   - **Application name**: DTaaS Workspace
-   - **Homepage URL**: `https://yourdomain.com`
-   - **Authorization callback URL**: `https://yourdomain.com/_oauth`
-3. Save the **Client ID** and **Client Secret**
-
-### Environment Variables
-
-Copy the the environment example file into the root of this directory:
-
-```bash
-sp ./dtaas/.env.example .env
-```
-
-Replace the placeholders with the values you got from your
-OAuth2 provider, a 32 character secret and your domain name.
-
-Create a `.env` file in the project root with your OAuth2 credentials:
-
-```bash
-# Your GitLab instance URL (without trailing slash)
-# Example: https://gitlab.com or https://gitlab.example.com
-OAUTH_URL=https://gitlab.com
-
-# OAuth Application Client ID
-# Obtained when creating the OAuth application in GitLab
-OAUTH_CLIENT_ID=your_client_id_here
-
-# OAuth Application Client Secret
-# Obtained when creating the OAuth application in GitLab
-OAUTH_CLIENT_SECRET=your_client_secret_here
-
-# Secret key for encrypting OAuth session data
-# Generate a random string (at least 16 characters)
-# Example: openssl rand -base64 32
-OAUTH_SECRET=your_random_secret_key_here
-
-# Server Configuration
-SERVER_DNS=yourdomain.com
-```
-
-The 32 character long secret for `OAUTH_SECRET` can be generated with:
-
-```bash
-openssl rand -hex 16
-```
-
 ## 💻 (Local Domain Redirection)
 
 If you are testing and/or developing locally, ensure that
 `yourdomain.com` points to your local machine by adding the
 following line to `/etc/hosts`:
+
 ```bash
 127.0.0.1 yourdomain.com
 ```
 
 ## 💪 Build Workspace Image
 
-Before starting the services, build the workspace-nouveau image:
+Before starting the services, build the workspace image:
 
 ```bash
-docker compose -f compose.traefik.secure.tls.yml build user1
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml  --env-file workspaces/test/dtaas/config/.env build user1
 ```
 
 Or use the standard build command:
 
 ```bash
-docker build -t workspace-nouveau:latest -f Dockerfile .
+docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
 ```
 
 ## :rocket: Start Services
@@ -150,7 +91,7 @@ docker build -t workspace-nouveau:latest -f Dockerfile .
 To start all services with TLS:
 
 ```bash
-docker compose -f compose.traefik.secure.tls.yml up -d
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml  --env-file workspaces/test/dtaas/config/.env up -d
 ```
 
 This will:
@@ -165,7 +106,7 @@ This will:
 
 Once all services are running, access the workspaces through Traefik with HTTPS:
 
-### User1 Workspace (workspace-nouveau)
+### User1 Workspace (workspace)
 
 - **VNC Desktop**: `https://yourdomain.com/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify`
 - **VS Code**: `https://yourdomain.com/user1/tools/vscode`
@@ -198,13 +139,13 @@ Once all services are running, access the workspaces through Traefik with HTTPS:
 To stop all services:
 
 ```bash
-docker compose -f compose.traefik.secure.tls.yml down
+docker compose -f compose.traefik.secure.tls.yml  --env-file dtaas/.env down
 ```
 
 To stop and remove volumes:
 
 ```bash
-docker compose -f compose.traefik.secure.tls.yml down -v
+docker compose -f compose.traefik.secure.tls.yml  --env-file dtaas/.env down -v
 ```
 
 ## ⚙️ Network Configuration
@@ -224,7 +165,7 @@ To add additional workspace instances, add a new service in `compose.traefik.sec
 
 ```yaml
 user3:
-  image: workspace-nouveau:latest
+  image: workspace:latest
   restart: unless-stopped
   environment:
     - MAIN_USER=user3
@@ -371,7 +312,7 @@ environment:
 For development environments where TLS is not required, use:
 
 ```bash
-docker compose -f compose.traefik.secure.yml up -d
+docker compose -f compose.traefik.secure.yml  --env-file dtaas/.env up -d
 ```
 
 This provides OAuth2 authentication without TLS encryption.
@@ -381,7 +322,7 @@ This provides OAuth2 authentication without TLS encryption.
 For local development without authentication or encryption, use:
 
 ```bash
-docker compose -f compose.traefik.yml up -d
+docker compose -f compose.traefik.yml  --env-file dtaas/.env up -d
 ```
 
 ### Standalone Workspace (Single User)
@@ -391,14 +332,3 @@ For single-user local development, use:
 ```bash
 docker compose -f compose.yml up -d
 ```
-
-## 📊 Deployment Comparison
-
-| Feature | compose.yml | compose.traefik.yml | compose.traefik.secure.yml | compose.traefik.secure.tls.yml |
-| ------- | ----------- | ------------------- | -------------------------- | ------------------------------ |
-| Reverse Proxy | ❌ | ✅ | ✅ | ✅ |
-| Multi-user | ❌ | ✅ | ✅ | ✅ |
-| OAuth2 Auth | ❌ | ❌ | ✅ | ✅ |
-| TLS/HTTPS | ❌ | ❌ | ❌ | ✅ |
-| Production Ready | ❌ | ❌ | ❌ | ✅ |
-| Use Case | Local dev | Multi-user dev | Secure dev/test | Production |
