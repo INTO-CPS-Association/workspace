@@ -175,7 +175,7 @@ jobs:
           - name: ghcr
             image: ghcr.io/${{ github.repository }}
           - name: dockerhub
-            image: ${{ secrets.DOCKERHUB_SCOPE }}/workspace
+            image: IMAGE_NAME_DEFINED_AT_RUNTIME
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1
@@ -195,6 +195,11 @@ jobs:
           # Convert repository name to lowercase for GHCR compatibility
           if [[ "${{ matrix.registry.name }}" == "ghcr" ]]; then
             IMAGE="${IMAGE@L}"  # Bash 4+ lowercase expansion
+          fi
+
+          # Use DOCKERHUB_SCOPE secret for Docker Hub images
+          if [[ "${{ matrix.registry.name }}" == "dockerhub" ]]; then
+            IMAGE="${{ secrets.DOCKERHUB_SCOPE }}/workspace"
           fi
 
           echo "📥 Pulling image: ${IMAGE}:latest"
