@@ -62,7 +62,7 @@ Update the `traefik-forward-auth` service definition in the
 `compose.traefik.secure.tls.yml` file by replacing the line
 
 ```yaml
-image: thomseddon/traefik-forward-auth:2
+image: thomseddon/traefik-forward-auth:2.2.0
 ```
 
 with
