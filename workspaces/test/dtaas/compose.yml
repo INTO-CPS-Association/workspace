@@ -3,7 +3,7 @@ services:
     image: workspace:latest
     container_name: workspace
     build:
-      context: ../../
+      context: ../..
       dockerfile: Dockerfile.ubuntu.noble.gnome
     environment:
       - MAIN_USER=${USERNAME1:-user1}

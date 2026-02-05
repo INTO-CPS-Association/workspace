@@ -24,26 +24,23 @@ docker pull intocps/workspace:latest
 
 ## 🦾 Build Workspace Image
 
-If you want to build the image locally instead of using pre-built images, first, navigate to the `workspaces/` directory. Then:
+If you want to build the image locally instead of using pre-built images, then:
 
 *Either*  
 Using plain `docker` command:
 
 ```ps1
-docker build -t workspace:latest -f Dockerfile.ubuntu.noble.gnome .
+docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
 ```
 
 **Or**
 using `docker compose`:
 
 ```ps1
-docker compose -f test/dtaas/compose.yml build
+docker compose -f workspaces/test/dtaas/compose.yml build
 ```
 
 ## :running: Run it
-From `workspaces/`:
-
-
 *Either*  
 Using plain `docker` command:
 
@@ -60,7 +57,7 @@ of your choice.
 using `docker compose`:
 
 ```ps1
-docker compose -f test/dtaas/compose.yml up -d
+docker compose -f workspaces/test/dtaas/compose.yml up -d
 ```
 
 ## :technologist: Use Services
@@ -86,10 +83,10 @@ docker rm workspace
 ```
 
 *Or*
-using `docker compose` from `workspaces/`:
+using `docker compose`:
 
 ```bash
-docker compose -f test/dtaas/compose.yml down
+docker compose -f workspaces/test/dtaas/compose.yml down
 ```
 
 ## :arrows_counterclockwise: Deployment Options
@@ -115,7 +112,7 @@ This workspace supports multiple deployment configurations depending on your nee
 **File**: `compose.traefik.secure.yml`  
 **Use case**: Development/testing with OAuth2 authentication  
 **Features**: Traefik reverse proxy, OAuth2 authentication, HTTP only  
-**Documentation**: [TRAEFIK_TLS.md](workspaces/test/dtaas/TRAEFIK_TLS.md)
+**Documentation**: [TRAEFIK_SECURE.md](workspaces/test/dtaas/TRAEFIK_SECURE.md)
 
 ### 4. Production Deployment (HTTPS + OAuth2)
 
