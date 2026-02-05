@@ -22,10 +22,9 @@ The `compose.traefik.secure.yml` file sets up:
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
-## ⚙️ Configure
+## ⚙️ Initial Configuration
 
-Please see [`CONFIGURATION.md`](CONFIGURATION.md) for information on
-configuring the application setup specified in the compose file.
+Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md) for the `compose.traefik.secure.yml` composition before building the workspace and running the setup.
 
 ## 💪 Build Workspace Image
 

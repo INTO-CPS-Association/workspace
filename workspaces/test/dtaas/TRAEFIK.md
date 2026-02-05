@@ -20,6 +20,10 @@ The `compose.traefik.yml` file sets up:
 
 Traefik routes requests to different workspace instances based on URL path prefixes.
 
+## ⚙️ Initial Configuration
+
+Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md) for the `compose.traefikyml` composition before running the setup.
+
 ## 💪 Get Workspace Image
 
 You can either use a pre-built image or build it locally.
