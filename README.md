@@ -60,6 +60,12 @@ using `docker compose`:
 docker compose -f workspaces/test/dtaas/compose.yml up -d
 ```
 
+(It is possible to change the username of the main user in the workspace with `docker compose`, compareable to changing the `MAIN_USER` variable in the plain `docker` command. To do that, first follow the "Environment" and "Usernames" steps in the configuration file [`workspaces/test/dtaas/CONFIGURAITON.md`](./workspaces/test/dtaas/CONFIGURATION.md), changing only the `USERNAME1` variable in the `.env` file. Then run the following command instead of the one above:)
+
+```ps1
+docker compose -f workspaces/test/dtaas/compose.yml --env-file workspaces/test/dtaas/config/.env up -d
+```
+
 ## :technologist: Use Services
 
 An active container provides the following services.

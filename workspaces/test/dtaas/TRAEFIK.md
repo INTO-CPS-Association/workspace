@@ -61,7 +61,7 @@ docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./w
 To start all services (Traefik and both workspace instances):
 
 ```bash
-docker compose -f workspaces/test/dtaas/compose.traefik.yml up -d
+docker compose -f workspaces/test/dtaas/compose.traefik.yml --env-file workspaces/test/dtaas/config/.env up -d
 ```
 
 This will:
@@ -92,7 +92,7 @@ Once all services are running, access the workspaces through Traefik:
 To stop all services:
 
 ```bash
-docker compose -f workspaces/test/dtaas/compose.traefik.yml down
+docker compose -f workspaces/test/dtaas/compose.traefik.yml --env-file workspaces/test/dtaas/config/.env down
 ```
 
 ## 🔧 Customization
