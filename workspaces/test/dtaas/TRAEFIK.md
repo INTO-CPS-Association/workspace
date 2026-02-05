@@ -34,8 +34,8 @@ docker pull ghcr.io/into-cps-association/workspace:latest
 docker tag ghcr.io/into-cps-association/workspace:latest workspace:latest
 
 # Or from Docker Hub
-docker pull intocpsassociation/workspace:latest
-docker tag intocpsassociation/workspace:latest workspace:latest
+docker pull intocps/workspace:latest
+docker tag intocps/workspace:latest workspace:latest
 ```
 
 ### Option 2: Build Locally

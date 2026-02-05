@@ -10,7 +10,7 @@ working is subject to change.
 Pre-built Docker images are available from:
 
 - **GitHub Container Registry**: `ghcr.io/into-cps-association/workspace:latest`
-- **Docker Hub**: `intocpsassociation/workspace:latest`
+- **Docker Hub**: `intocps/workspace:latest`
 
 You can pull the image directly:
 
@@ -19,7 +19,7 @@ You can pull the image directly:
 docker pull ghcr.io/into-cps-association/workspace:latest
 
 # From Docker Hub
-docker pull intocpsassociation/workspace:latest
+docker pull intocps/workspace:latest
 ```
 
 ## 🦾 Build Workspace Image
