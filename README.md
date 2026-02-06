@@ -9,7 +9,8 @@ working is subject to change.
 
 Pre-built Docker images are available from:
 
-- **GitHub Container Registry**: `ghcr.io/into-cps-association/workspace:latest`
+- **GitHub Container Registry**:
+  `ghcr.io/into-cps-association/workspace:latest`
 - **Docker Hub**: `intocps/workspace:latest`
 
 You can pull the image directly:
@@ -36,47 +37,35 @@ docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./w
 **Or**
 using `docker compose`:
 
-```ps1
+```bash
 docker compose -f workspaces/test/dtaas/compose.yml build
 ```
 
 ## :running: Run it
+
 *Either*  
 Using plain `docker` command:
 
-```ps1
+```bash
 docker run -d --shm-size=512m \
-  -p 8080:8080\
+  -p 8080:8080 \
   -e MAIN_USER=user1 --name workspace  workspace:latest
 ```
 
 :point_right: You can change the **MAIN_USER** variable to any other username
 of your choice.
 
-*OR*  
-using `docker compose`:
-
-```ps1
-docker compose -f workspaces/test/dtaas/compose.yml up -d
-```
-
-(It is possible to change the username of the main user in the workspace with `docker compose`, compareable to changing the `MAIN_USER` variable in the plain `docker` command. To do that, first follow the "Environment" and "Usernames" steps in the configuration file [`workspaces/test/dtaas/CONFIGURAITON.md`](./workspaces/test/dtaas/CONFIGURATION.md), changing only the `USERNAME1` variable in the `.env` file. Then run the following command instead of the one above:)
-
-```ps1
-docker compose -f workspaces/test/dtaas/compose.yml --env-file workspaces/test/dtaas/config/.env up -d
-```
-
 ## :technologist: Use Services
 
 An active container provides the following services.
-:warning: please remember to change user1 to the username chosen in the
-previous command
+:warning: please remember to change `user1` to the username (`USERNAME1`) set in
+the `.env` file.
 
-* ***Open workspace*** -
+- ***Open workspace*** -
   <http://localhost:8080/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify>
-* ***Open VSCode*** - <http://localhost:8080/user1/tools/vscode>
-* ***Open Jupyter Notebook*** - <http://localhost:8080>
-* ***Open Jupyter Lab*** - <http://localhost:8080/user1/lab>
+- ***Open VSCode*** - <http://localhost:8080/user1/tools/vscode>
+- ***Open Jupyter Notebook*** - <http://localhost:8080>
+- ***Open Jupyter Lab*** - <http://localhost:8080/user1/lab>
 
 ## :broom: Clean Up
 
@@ -88,23 +77,18 @@ docker stop workspace
 docker rm workspace
 ```
 
-*Or*
-using `docker compose`:
-
-```bash
-docker compose -f workspaces/test/dtaas/compose.yml down
-```
-
 ## :arrows_counterclockwise: Deployment Options
 
-This workspace supports multiple deployment configurations depending on your needs. All deployment-relevant files can be found in `workspaces/test/dtaas/`.
+This workspace supports multiple deployment configurations depending
+on your needs. All deployment-relevant files can be found in
+`workspaces/test/dtaas/`.
 
 ### 1. Standalone Development (Single User)
 
 **File**: `compose.yml`  
 **Use case**: Local development, single user  
 **Features**: Basic workspace without reverse proxy  
-**Documentation**: See sections above
+**Documentation**: [SINGLE_USER.md](workspaces/test/dtaas/SINGLE_USER.md)
 
 ### 2. Multi-User Development (HTTP)
 

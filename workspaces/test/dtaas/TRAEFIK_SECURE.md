@@ -26,18 +26,19 @@ The `compose.traefik.secure.yml` file sets up:
 
 Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md) for the `compose.traefik.secure.yml` composition before building the workspace and running the setup.
 
-## 💪 Build Workspace Image
+### Create Workspace Files
 
-Build the workspace image, either with docker compose:
-
-```bash
-docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml build user1
-```
-
-Or using the standard build command:
+All the deployment options require user directories for
+storing workspace files. These need to
+be created for `USERNAME1` and `USERNAME2` set in
+`workspaces/test/dtaas/config/.env` file.
 
 ```bash
-docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
+# create required files
+cp -R workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/<USERNAME1>
+cp -R workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/<USERNAME2>
+# set file permissions for use inside the container
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ## :rocket: Start Services

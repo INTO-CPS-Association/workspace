@@ -22,38 +22,22 @@ Traefik routes requests to different workspace instances based on URL path prefi
 
 ## ⚙️ Initial Configuration
 
-Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md) for the `compose.traefikyml` composition before running the setup.
+Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md) for
+the `compose.traefik.yml` composition before running the setup.
 
-## 💪 Get Workspace Image
+## Create Workspace Files
 
-You can either use a pre-built image or build it locally.
-
-### Option 1: Use Pre-built Image (Recommended)
-
-Pull the latest image from GitHub Container Registry or Docker Hub:
-
-```bash
-# From GitHub Container Registry
-docker pull ghcr.io/into-cps-association/workspace:latest
-docker tag ghcr.io/into-cps-association/workspace:latest workspace:latest
-
-# Or from Docker Hub
-docker pull intocps/workspace:latest
-docker tag intocps/workspace:latest workspace:latest
-```
-
-### Option 2: Build Locally
-
-Build the workspace image, either with docker compose:
+All the deployment options require user directories for
+storing workspace files. These need to
+be created for `USERNAME1` and `USERNAME2` set in
+`workspaces/test/dtaas/config/.env` file.
 
 ```bash
-docker compose -f workspaces/test/dtaas/compose.traefik.yml build user1
-```
-
-Or using the standard build command:
-
-```bash
-docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
+# create required files
+cp -R workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/<USERNAME1>
+cp -R workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/<USERNAME2>
+# set file permissions for use inside the container
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ## :rocket: Start Services

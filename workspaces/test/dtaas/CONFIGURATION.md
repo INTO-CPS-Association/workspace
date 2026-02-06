@@ -2,8 +2,12 @@
 
 This document outlines the configuration needed for the docker compose files.
 Not all parts of the configuration are required by the compose files.
-Here is a mapping of the sections needed for the configuration files. All sections assume that you are in the `workspaces/test/dtaas/` directory.
+Here is a mapping of the sections needed for the configuration files. All sections
+assume that you are in the `workspaces/test/dtaas/` directory.
 
+- `compose.yml`:
+   - [Environment](#-environment)
+   - [Usernames](#-usernames)
 - `compose.traefik.yml`:
    - [Environment](#-environment)
    - [Usernames](#-usernames)
