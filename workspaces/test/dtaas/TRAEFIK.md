@@ -71,6 +71,15 @@ Once all services are running, access the workspaces through Traefik:
 - **Jupyter Notebook**: `http://localhost/user2`
 - **Jupyter Lab**: `http://localhost/user2/lab`
 
+### Custom URL
+
+Remember to change the following variables in URLs to the variable values
+specified in `.env`:
+
+- Change `user1` to `USERNAME1` value
+- Change `user2` to `USERNAME2` value
+- Change `localhost` in URL to the `SERVER_DNS` value
+
 ## 🛑 Stopping Services
 
 To stop all services:

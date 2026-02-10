@@ -24,7 +24,9 @@ The `compose.traefik.secure.yml` file sets up:
 
 ## ⚙️ Initial Configuration
 
-Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md) for the `compose.traefik.secure.yml` composition before building the workspace and running the setup.
+Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md)
+for the `compose.traefik.secure.yml` composition before building
+the workspace and running the setup.
 
 ### Create Workspace Files
 
@@ -56,9 +58,9 @@ This will:
 3. Start the DTaaS web client interface
 4. Start workspace instances for both users
 
-## :technologist: Accessing Services
+## :technologist: Accessing Workspaces
 
-Once all services are running, access them through Traefik at `http://localhost`.
+Once all services are running, access the workspaces through Traefik at `http://localhost`.
 
 ### Initial Access
 
@@ -82,8 +84,6 @@ All endpoints require authentication:
 - **Jupyter Notebook**: `http://localhost/user1`
 - **Jupyter Lab**: `http://localhost/user1/lab`
 
-👉 Remember to replace `user1` with the your username for user 1.
-
 ### User2 Workspace (ml-workspace-minimal)
 
 All endpoints require authentication:
@@ -93,7 +93,14 @@ All endpoints require authentication:
 - **Jupyter Notebook**: `http://localhost/user2`
 - **Jupyter Lab**: `http://localhost/user2/lab`
 
-👉 Remember to replace `user2` wwith the your username for user 2.
+### Custom URL
+
+Remember to change the following variables in URLs to the variable values
+specified in `.env`:
+
+- Change `user1` to `USERNAME1` value
+- Change `user2` to `USERNAME2` value
+- Change `localhost` in URL to the `SERVER_DNS` value
 
 ## 🛑 Stopping Services
 
@@ -165,7 +172,8 @@ See the [traefik-forward-auth documentation][tfa-docs] for details.
 
 ### Current Setup (Development/Testing)
 
-⚠️ **Important**: This configuration is designed for development and testing and uses some insecure settings:
+⚠️ **Important**: This configuration is designed for development and testing
+and uses some insecure settings:
 
 - `INSECURE_COOKIE=true` - Allows cookies over HTTP
 - Traefik API is exposed (`--api.insecure=true`)

@@ -7,7 +7,7 @@ for single-user deployments.
 
 ✅ Docker Engine v27 or later  
 ✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
-✅ Port 8080 available on your host machine
+✅ Port 80 available on your host machine
 
 ## 🗒️ Overview
 
@@ -87,7 +87,12 @@ Once all services are running, access the workspaces through Traefik:
 - **Jupyter Notebook**: `http://localhost/user1`
 - **Jupyter Lab**: `http://localhost/user1/lab`
 
-⚠️Remember to change `user1` to `USERNAME1` if environment file (`.env`) was used.
+### Use of ENV file
+
+If `.env` file is used for docker compose command, remember to:
+
+- Change `user1` to `USERNAME1`
+- Change `localhost` in URL to the `SERVER_DNS`
 
 ## 🛑 Stopping Services
 
