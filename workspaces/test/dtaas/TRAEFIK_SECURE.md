@@ -6,7 +6,7 @@ in the DTaaS installation.
 
 ## ❓ Prerequisites
 
-✅ Docker Engine v27 or later
+✅ Docker Engine v27 or later  
 ✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
 ✅ Port 80 available on your host machine  
 ✅ GitLab OAuth Application configured (see setup below)
@@ -22,29 +22,33 @@ The `compose.traefik.secure.yml` file sets up:
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
-Please see [Configuration](CONFIGURATION.md) for information on
-configuring the application setup specified in the compose file.
+## ⚙️ Initial Configuration
 
-## 💪 Build Workspace Image
+Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md)
+for the `compose.traefik.secure.yml` composition before building
+the workspace and running the setup.
 
-Before starting the services, build the workspace image:
+### Create Workspace Files
+
+All the deployment options require user directories for
+storing workspace files. These need to
+be created for `USERNAME1` and `USERNAME2` set in
+`workspaces/test/dtaas/config/.env` file.
 
 ```bash
-docker compose -f compose.traefik.secure.yml build user1
-```
-
-Or use the standard build command:
-
-```bash
-docker build -t workspace:latest -f Dockerfile .
+# create required files
+cp -R workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/<USERNAME1>
+cp -R workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/<USERNAME2>
+# set file permissions for use inside the container
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ## :rocket: Start Services
 
-To start all services (Traefik, auth, client, and workspaces):
+To start all services (Traefik, auth, client, and workspaces)::
 
 ```bash
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env up -d
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env up -d
 ```
 
 This will:
@@ -54,9 +58,9 @@ This will:
 3. Start the DTaaS web client interface
 4. Start workspace instances for both users
 
-## :technologist: Accessing Services
+## :technologist: Accessing Workspaces
 
-Once all services are running, access them through Traefik at `http://localhost`.
+Once all services are running, access the workspaces through Traefik at `http://localhost`.
 
 ### Initial Access
 
@@ -80,8 +84,6 @@ All endpoints require authentication:
 - **Jupyter Notebook**: `http://localhost/user1`
 - **Jupyter Lab**: `http://localhost/user1/lab`
 
-👉 Remember to replace `user1` with correct username.
-
 ### User2 Workspace (ml-workspace-minimal)
 
 All endpoints require authentication:
@@ -91,25 +93,22 @@ All endpoints require authentication:
 - **Jupyter Notebook**: `http://localhost/user2`
 - **Jupyter Lab**: `http://localhost/user2/lab`
 
-👉 Remember to replace `user2` with correct username.
+### Custom URL
+
+Remember to change the following variables in URLs to the variable values
+specified in `.env`:
+
+- Change `user1` to `USERNAME1` value
+- Change `user2` to `USERNAME2` value
+- Change `localhost` in URL to the `SERVER_DNS` value
 
 ## 🛑 Stopping Services
 
 To stop all services:
 
 ```bash
-docker compose -f compose.traefik.secure.yml --env-file dtaas/.env down
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env down
 ```
-
-## ⚙️ Network Configuration
-
-The setup uses two Docker networks:
-
-- **dtaas-frontend**: Used by Traefik, traefik-forward-auth, and the client
-  for external communication
-- **dtaas-users**: Shared network for workspace instances and Traefik
-
-This separation allows for better network isolation and security.
 
 ## 🔧 Customization
 
@@ -118,22 +117,28 @@ This separation allows for better network isolation and security.
 To add additional workspace instances, add a new service in `compose.traefik.secure.yml`:
 
 ```yaml
-user3:
-  image: workspace:latest
-  restart: unless-stopped
-  environment:
-    - MAIN_USER=${USERNAME3}
-  shm_size: 512m
-  labels:
-    - "traefik.enable=true"
-    - "traefik.http.routers.u3.entryPoints=web"
-    - "traefik.http.routers.u3.rule=PathPrefix(`/user3`)"
-    - "traefik.http.routers.u3.middlewares=traefik-forward-auth"
-  networks:
-    - users
+  user3:
+    image: workspace:latest
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ../Dockerfile.ubuntu.noble.gnome
+    environment:
+      - MAIN_USER=${USERNAME3:-user3}
+    volumes:
+      - ./files/user3:/workspace
+      - ./files/common:/workspace/common
+    shm_size: 512m
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.u3.entryPoints=web"
+      - "traefik.http.routers.u3.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME3:-user3}`)"
+      - "traefik.http.routers.u3.middlewares=traefik-forward-auth"
+    networks:
+      - users
 ```
 
-And, add the desired `USERNAME3` variable in `.env`:
+Add the desired `USERNAME3` variable in `.env`:
 
 ```bash
 # Username Configuration
@@ -141,7 +146,13 @@ And, add the desired `USERNAME3` variable in `.env`:
 # Example: http://localhost/user1, http://localhost/user2
 USERNAME1=user1
 USERNAME2=user2
-USERNAME3=user3
+USERNAME3=user3 # <--- replace "user3" with your desired username
+```
+
+And, setup the base structure of the persistent directories for the new user:
+
+```bash
+cp -r workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/user3
 ```
 
 ### Using a Different OAuth Provider
@@ -153,7 +164,7 @@ provider:
 2. Adjust the OAuth URLs accordingly
 3. Update the scope as needed for your provider
 
-See [traefik-forward-auth documentation][tfa-docs] for details.
+See the [traefik-forward-auth documentation][tfa-docs] for details.
 
 [tfa-docs]: https://github.com/thomseddon/traefik-forward-auth
 
@@ -161,45 +172,15 @@ See [traefik-forward-auth documentation][tfa-docs] for details.
 
 ### Current Setup (Development/Testing)
 
-⚠️ **Important**: This configuration uses some insecure settings for development:
+⚠️ **Important**: This configuration is designed for development and testing
+and uses some insecure settings:
 
 - `INSECURE_COOKIE=true` - Allows cookies over HTTP
 - Traefik API is exposed (`--api.insecure=true`)
 - No TLS/HTTPS encryption
 - Debug logging enabled
 
-### Production Recommendations
-
-For production deployments:
-
-1. **Enable HTTPS/TLS**:
-   - Configure SSL certificates (Let's Encrypt recommended)
-   - Remove `INSECURE_COOKIE=true` from traefik-forward-auth
-   - Update OAuth redirect URLs to use HTTPS
-
-2. **Secure Traefik API**:
-   - Remove `--api.insecure=true`
-   - Enable Traefik dashboard authentication
-   - Restrict API access
-
-3. **Environment Variables**:
-   - Use Docker secrets for sensitive data
-   - Never commit `.env` file to version control
-   - Rotate OAuth secrets regularly
-
-4. **Logging**:
-   - Change log level from DEBUG to INFO or WARN
-   - Implement log aggregation and monitoring
-
-5. **Network Security**:
-   - Review and restrict network access
-   - Use firewall rules
-   - Consider using internal networks for service communication
-
-6. **OAuth Configuration**:
-   - Use organization-wide OAuth applications
-   - Restrict OAuth scopes to minimum required
-   - Implement refresh token rotation
+For setting up a composition that includes TLS/HTTPS, see [TRAEFIK_TLS.md](./TRAEFIK_TLS.md).
 
 ## 🔍 Troubleshooting
 
@@ -216,19 +197,19 @@ If you're stuck in an authentication loop:
 1. Check all services are running:
 
    ```bash
-   docker compose -f compose.traefik.secure.yml ps
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml ps
    ```
 
 2. Check Traefik logs:
 
    ```bash
-   docker compose -f compose.traefik.secure.yml logs traefik
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml logs traefik
    ```
 
 3. Check traefik-forward-auth logs:
 
    ```bash
-   docker compose -f compose.traefik.secure.yml logs traefik-forward-auth
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml logs traefik-forward-auth
    ```
 
 ### OAuth Errors

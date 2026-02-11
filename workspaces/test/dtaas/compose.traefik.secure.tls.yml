@@ -11,14 +11,14 @@ services:
       - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
-      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.directory=/etc/traefik"
       - "--providers.file.watch=true"
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./dynamic/tls.yml:/etc/traefik/dynamic/tls.yml"
+      - "./dynamic/tls.yml:/etc/traefik/tls.yml"
       - "./certs:/etc/traefik-certs"
     networks:
       - frontend
@@ -28,7 +28,7 @@ services:
     image: intocps/dtaas-web:latest
     restart: unless-stopped
     volumes:
-      - "./dtaas/client.js:/dtaas/client/build/env.js"
+      - "./config/client.js:/dtaas/client/build/env.js"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.client.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/`)"
@@ -42,15 +42,16 @@ services:
     image: workspace:latest
     restart: unless-stopped
     build:
-      context: .
+      context: ../..
+      dockerfile: Dockerfile.ubuntu.noble.gnome
     environment:
-      - MAIN_USER=${USERNAME1}
+      - MAIN_USER=${USERNAME1:-user1}
     volumes:
-      - "./persistent_dir/common:/workspace/common"
-      - "./persistent_dir/${USERNAME1}:/workspace"
+      - "./files/common:/workspace/common"
+      - "./files/user1:/workspace"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME1}`)"
+      - "traefik.http.routers.u1.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME1:-user1}`)"
       - "traefik.http.routers.u1.tls=true"
       - "traefik.http.routers.u1.middlewares=traefik-forward-auth"
     networks:
@@ -60,14 +61,14 @@ services:
     image: mltooling/ml-workspace-minimal:0.13.2
     restart: unless-stopped
     volumes:
-      - "./persistent_dir/common:/workspace/common"
-      - "./persistent_dir/${USERNAME2}:/workspace"
+      - "./files/common:/workspace/common"
+      - "./files/user2:/workspace"
     environment:
       - AUTHENTICATE_VIA_JUPYTER=
-      - WORKSPACE_BASE_URL=${USERNAME2}
+      - WORKSPACE_BASE_URL=${USERNAME2:-user2}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.u2.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME2}`)"
+      - "traefik.http.routers.u2.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME2:-user2}`)"
       - "traefik.http.routers.u2.tls=true"
       - "traefik.http.routers.u2.middlewares=traefik-forward-auth"
     networks:
@@ -75,10 +76,10 @@ services:
 
 
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:latest
+    image: thomseddon/traefik-forward-auth:2.2.0
     restart: unless-stopped
     volumes:
-      - "./dtaas/conf:/conf"
+      - "./config/conf:/conf"
     environment:
       - LOG_LEVEL=trace
       - DEFAULT_PROVIDER=generic-oauth

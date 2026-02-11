@@ -1,4 +1,4 @@
-# Workspace Nouveau
+# Workspace
 
 A new workspace image for [DTaaS](https://github.com/INTO-CPS-Association/DTaaS).
 
@@ -9,8 +9,9 @@ working is subject to change.
 
 Pre-built Docker images are available from:
 
-- **GitHub Container Registry**: `ghcr.io/into-cps-association/workspace:latest`
-- **Docker Hub**: `intocpsassociation/workspace:latest`
+- **GitHub Container Registry**:
+  `ghcr.io/into-cps-association/workspace:latest`
+- **Docker Hub**: `intocps/workspace:latest`
 
 You can pull the image directly:
 
@@ -19,25 +20,25 @@ You can pull the image directly:
 docker pull ghcr.io/into-cps-association/workspace:latest
 
 # From Docker Hub
-docker pull intocpsassociation/workspace:latest
+docker pull intocps/workspace:latest
 ```
 
 ## 🦾 Build Workspace Image
 
-If you want to build the image locally instead of using pre-built images:
+If you want to build the image locally instead of using pre-built images, then:
 
 *Either*  
 Using plain `docker` command:
 
 ```ps1
-docker build -t workspace:latest -f Dockerfile .
+docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
 ```
 
 **Or**
 using `docker compose`:
 
-```ps1
-docker compose build
+```bash
+docker compose -f workspaces/test/dtaas/compose.yml build
 ```
 
 ## :running: Run it
@@ -45,33 +46,26 @@ docker compose build
 *Either*  
 Using plain `docker` command:
 
-```ps1
+```bash
 docker run -d --shm-size=512m \
-  -p 8080:8080\
-  -e MAIN_USER=dtaas-user --name workspace  workspace:latest
+  -p 8080:8080 \
+  -e MAIN_USER=user1 --name workspace  workspace:latest
 ```
 
 :point_right: You can change the **MAIN_USER** variable to any other username
 of your choice.
 
-*OR*  
-using `docker compose`:
-
-```ps1
-docker compose -f compose.yml up -d
-```
-
 ## :technologist: Use Services
 
-An active container provides the following services
-:warning: please remember to change dtaas-user to the username chosen in the
-previous command
+An active container provides the following services.
+:warning: please remember to change `user1` to the username (`USERNAME1`) set in
+the `.env` file.
 
-* ***Open workspace*** -
-  <http://localhost:8080/dtaas-user/tools/vnc?path=dtaas-user%2Ftools%2Fvnc%2Fwebsockify>
-* ***Open VSCode*** - <http://localhost:8080/dtaas-user/tools/vscode>
-* ***Open Jupyter Notebook*** - <http://localhost:8080>
-* ***Open Jupyter Lab*** - <http://localhost:8080/dtaas-user/lab>
+- ***Open workspace*** -
+  <http://localhost:8080/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify>
+- ***Open VSCode*** - <http://localhost:8080/user1/tools/vscode>
+- ***Open Jupyter Notebook*** - <http://localhost:8080>
+- ***Open Jupyter Lab*** - <http://localhost:8080/user1/lab>
 
 ## :broom: Clean Up
 
@@ -83,44 +77,39 @@ docker stop workspace
 docker rm workspace
 ```
 
-*Or*
-using `docker compose`:
-
-```bash
-docker compose -f compose.yml down
-```
-
 ## :arrows_counterclockwise: Deployment Options
 
-This workspace supports multiple deployment configurations depending on your needs:
+This workspace supports multiple deployment configurations depending
+on your needs. All deployment-relevant files can be found in
+`workspaces/test/dtaas/`.
 
 ### 1. Standalone Development (Single User)
 
 **File**: `compose.yml`  
 **Use case**: Local development, single user  
 **Features**: Basic workspace without reverse proxy  
-**Documentation**: See sections above
+**Documentation**: [SINGLE_USER.md](workspaces/test/dtaas/SINGLE_USER.md)
 
 ### 2. Multi-User Development (HTTP)
 
 **File**: `compose.traefik.yml`  
 **Use case**: Multi-user development/testing without authentication  
 **Features**: Traefik reverse proxy, multiple workspaces  
-**Documentation**: [TRAEFIK.md](TRAEFIK.md)
+**Documentation**: [TRAEFIK.md](workspaces/test/dtaas/TRAEFIK.md)
 
 ### 3. Multi-User with OAuth2 (HTTP)
 
 **File**: `compose.traefik.secure.yml`  
 **Use case**: Development/testing with OAuth2 authentication  
 **Features**: Traefik reverse proxy, OAuth2 authentication, HTTP only  
-**Documentation**: [TRAEFIK_TLS.md](TRAEFIK_TLS.md)
+**Documentation**: [TRAEFIK_SECURE.md](workspaces/test/dtaas/TRAEFIK_SECURE.md)
 
 ### 4. Production Deployment (HTTPS + OAuth2)
 
 **File**: `compose.traefik.secure.tls.yml`  
 **Use case**: Production deployment with full security  
 **Features**: Traefik reverse proxy, OAuth2 authentication, TLS/HTTPS  
-**Documentation**: [TRAEFIK_TLS.md](TRAEFIK_TLS.md)
+**Documentation**: [TRAEFIK_TLS.md](workspaces/test/dtaas/TRAEFIK_TLS.md)
 
 Choose the configuration that best matches your deployment requirements.
 
