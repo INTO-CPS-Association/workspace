@@ -45,8 +45,7 @@ function start_vscode_server {
 }
 
 function start_admin_server {
-    cd /opt/admin
-    poetry run uvicorn admin.main:app --host 0.0.0.0 --port "${ADMIN_SERVER_PORT}" &
+    workspace-admin --host 0.0.0.0 --port "${ADMIN_SERVER_PORT}" &
     DTAAS_PROCS['admin']=$!
 }
 

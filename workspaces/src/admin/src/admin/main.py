@@ -5,12 +5,14 @@ This service provides a /services endpoint that returns a JSON object
 containing information about all available services in the workspace.
 """
 
+import argparse
 import json
 import os
 import sys
 from pathlib import Path
 from typing import Dict, Any
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
@@ -29,7 +31,8 @@ def load_services() -> Dict[str, Any]:
     Load services from template and substitute environment variables.
 
     Returns:
-        Dictionary containing service information with environment variables substituted.
+        Dictionary containing service information with environment
+        variables substituted.
     """
     # Read the services template
     with open(SERVICES_TEMPLATE_PATH, 'r', encoding='utf-8') as f:
@@ -39,7 +42,7 @@ def load_services() -> Dict[str, Any]:
     main_user = os.getenv('MAIN_USER', 'dtaas-user')
 
     # Substitute {MAIN_USER} in endpoint values
-    for service_id, service_info in services.items():
+    for _service_id, service_info in services.items():
         if 'endpoint' in service_info:
             service_info['endpoint'] = service_info['endpoint'].replace(
                 '{MAIN_USER}', main_user
@@ -83,13 +86,14 @@ def cli():
     """
     Command-line interface for the workspace admin service.
 
-    This allows the service to be run as a standalone utility similar to glances.
+    This allows the service to be run as a standalone utility
+    similar to glances.
     """
-    import argparse
-    import uvicorn
-
     parser = argparse.ArgumentParser(
-        description="Workspace Admin Service - Service discovery for DTaaS workspaces"
+        description=(
+            "Workspace Admin Service - "
+            "Service discovery for DTaaS workspaces"
+        )
     )
     parser.add_argument(
         "--host",
@@ -100,7 +104,10 @@ def cli():
         "--port",
         type=int,
         default=int(os.getenv("ADMIN_SERVER_PORT", "8091")),
-        help="Port to bind the service to (default: $ADMIN_SERVER_PORT or 8091)"
+        help=(
+            "Port to bind the service to "
+            "(default: $ADMIN_SERVER_PORT or 8091)"
+        )
     )
     parser.add_argument(
         "--reload",
@@ -129,7 +136,7 @@ def cli():
     # Start the server
     print(f"Starting Workspace Admin Service on {args.host}:{args.port}")
     print(f"MAIN_USER: {os.getenv('MAIN_USER', 'dtaas-user')}")
-    print(f"Service endpoints:")
+    print("Service endpoints:")
     print(f"  - http://{args.host}:{args.port}/services")
     print(f"  - http://{args.host}:{args.port}/health")
     print(f"  - http://{args.host}:{args.port}/")
