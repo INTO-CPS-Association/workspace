@@ -44,6 +44,13 @@ function start_vscode_server {
     DTAAS_PROCS['vscode']=$!
 }
 
+function start_admin_server {
+    export PATH="/root/.local/bin:${PATH}"
+    cd /opt/admin
+    poetry run uvicorn admin.main:app --host 0.0.0.0 --port "${ADMIN_SERVER_PORT}" &
+    DTAAS_PROCS['admin']=$!
+}
+
 # Links the persistent dir to its subdirectory in home. Can only happen after
 # KASM has setup the main user home directories.
 if [[ ! -h "${HOME}"/Desktop/workspace ]]; then
@@ -53,6 +60,7 @@ fi
 start_nginx
 start_jupyter
 start_vscode_server "${PERSISTENT_DIR}"
+start_admin_server
 
 # Monitor and resurrect DTaaS services.
 sleep 3
@@ -81,6 +89,10 @@ do
             vscode)
                 echo "[INFO] Restarting VS Code server"
                 start_vscode_server "${PERSISTENT_DIR}"
+                ;;
+            admin)
+                echo "[INFO] Restarting Admin server"
+                start_admin_server
                 ;;
             *)
                 echo "[WARNING] An unknown service '${process}' unexpectededly monitored by the custom_startup script was reported to have exitted. This is most irregular - check if something is adding processes to the custom_startup scripts list of monitored subprocesses."
