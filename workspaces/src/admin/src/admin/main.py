@@ -7,6 +7,7 @@ containing information about all available services in the workspace.
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Dict, Any
 
@@ -26,24 +27,24 @@ SERVICES_TEMPLATE_PATH = Path(__file__).parent / "services_template.json"
 def load_services() -> Dict[str, Any]:
     """
     Load services from template and substitute environment variables.
-    
+
     Returns:
         Dictionary containing service information with environment variables substituted.
     """
     # Read the services template
     with open(SERVICES_TEMPLATE_PATH, 'r', encoding='utf-8') as f:
         services = json.load(f)
-    
+
     # Get MAIN_USER from environment, default to 'dtaas-user'
     main_user = os.getenv('MAIN_USER', 'dtaas-user')
-    
+
     # Substitute {MAIN_USER} in endpoint values
     for service_id, service_info in services.items():
         if 'endpoint' in service_info:
             service_info['endpoint'] = service_info['endpoint'].replace(
                 '{MAIN_USER}', main_user
             )
-    
+
     return services
 
 
@@ -64,7 +65,7 @@ async def root() -> Dict[str, Any]:
 async def get_services() -> JSONResponse:
     """
     Get list of available workspace services.
-    
+
     Returns:
         JSONResponse containing service information.
     """
@@ -76,3 +77,70 @@ async def get_services() -> JSONResponse:
 async def health_check() -> Dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+def cli():
+    """
+    Command-line interface for the workspace admin service.
+
+    This allows the service to be run as a standalone utility similar to glances.
+    """
+    import argparse
+    import uvicorn
+
+    parser = argparse.ArgumentParser(
+        description="Workspace Admin Service - Service discovery for DTaaS workspaces"
+    )
+    parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host to bind the service to (default: 0.0.0.0)"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("ADMIN_SERVER_PORT", "8091")),
+        help="Port to bind the service to (default: $ADMIN_SERVER_PORT or 8091)"
+    )
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development"
+    )
+    parser.add_argument(
+        "--list-services",
+        action="store_true",
+        help="List available services and exit"
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="%(prog)s 0.1.0"
+    )
+
+    args = parser.parse_args()
+
+    if args.list_services:
+        # Just list services and exit
+        services = load_services()
+        print(json.dumps(services, indent=2))
+        sys.exit(0)
+
+    # Start the server
+    print(f"Starting Workspace Admin Service on {args.host}:{args.port}")
+    print(f"MAIN_USER: {os.getenv('MAIN_USER', 'dtaas-user')}")
+    print(f"Service endpoints:")
+    print(f"  - http://{args.host}:{args.port}/services")
+    print(f"  - http://{args.host}:{args.port}/health")
+    print(f"  - http://{args.host}:{args.port}/")
+
+    uvicorn.run(
+        "admin.main:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload
+    )
+
+
+if __name__ == "__main__":
+    cli()

@@ -132,7 +132,28 @@ poetry install
 poetry run pytest -v
 ```
 
+### Code Quality and Coverage
+
+**Run pylint for code quality analysis:**
+
+```bash
+cd workspaces/src/admin
+poetry run pylint src/admin tests
+```
+
+**Run tests with coverage analysis:**
+
+```bash
+cd workspaces/src/admin
+poetry run pytest --cov=admin --cov-report=html --cov-report=term
+```
+
+This will generate a coverage report in `htmlcov/index.html` and display a
+summary in the terminal.
+
 ### Running Locally
+
+**As a service:**
 
 ```bash
 cd workspaces/src/admin
@@ -140,6 +161,31 @@ export MAIN_USER=testuser
 export ADMIN_SERVER_PORT=8091
 poetry run uvicorn admin.main:app --host 0.0.0.0 --port 8091
 ```
+
+**As a CLI utility:**
+
+```bash
+cd workspaces/src/admin
+poetry install
+
+# Run the service
+poetry run workspace-admin
+
+# Run with custom host and port
+poetry run workspace-admin --host 127.0.0.1 --port 9000
+
+# List services without starting the server
+poetry run workspace-admin --list-services
+
+# Run with auto-reload for development
+poetry run workspace-admin --reload
+
+# Show help
+poetry run workspace-admin --help
+```
+
+The CLI interface makes the admin service work like a system utility similar to
+glances, allowing easy command-line operation and service listing.
 
 ### Adding New Services
 

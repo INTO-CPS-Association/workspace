@@ -9,8 +9,9 @@ curl -sSL https://install.python-poetry.org | python3 - --version 1.8.5
 export PATH="/root/.local/bin:${PATH}"
 
 # Copy admin service to /opt/admin
+# INST_DIR is /dockerstartup/install, so we need ../admin from there
 mkdir -p /opt/admin
-cp -r "${INST_DIR}/../../admin" /opt/
+cp -r "${INST_DIR}/../admin" /opt/
 
 # Install dependencies using Poetry
 cd /opt/admin

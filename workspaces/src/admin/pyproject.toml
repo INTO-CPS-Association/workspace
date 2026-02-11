@@ -6,6 +6,9 @@ authors = ["INTO-CPS Association"]
 readme = "README.md"
 packages = [{include = "admin", from = "src"}]
 
+[tool.poetry.scripts]
+workspace-admin = "admin.main:cli"
+
 [tool.poetry.dependencies]
 python = "^3.12"
 fastapi = "^0.115.0"
@@ -14,12 +17,12 @@ uvicorn = {extras = ["standard"], version = "^0.32.0"}
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
 httpx = "^0.28.0"
-pytest-asyncio = "^0.24.0"
+pylint = "^4.0.4"
+pytest-cov = "^7.0.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
 testpaths = ["tests"]
