@@ -30,7 +30,7 @@ to use the local image.
 Disregard this directory's usual requirement of the presence of
 the private key and full certificate chain.
 
-(Ensure that your `/env/hosts` file point your domain to 127.0.0.1)
+(Ensure that your `/etc/hosts` file point your domain to 127.0.0.1)
 
 #### ***Generate certificates***
 
