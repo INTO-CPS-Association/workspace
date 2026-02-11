@@ -4,9 +4,7 @@ set -e
 echo "Installing Admin Service"
 
 # Install Poetry
-python3 -m pip install pipx
-mkdir -p /opt/pipx
-PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install poetry
+apt-get install -y python3-poetry
 poetry --version
 
 # Copy admin service to /opt/admin
