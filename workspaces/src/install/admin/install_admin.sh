@@ -17,7 +17,7 @@ mkdir -p /opt/admin
 cp -r "${INST_DIR}/../admin/"* /opt/admin/
 
 # Verify pyproject.toml exists
-if [ ! -f /opt/admin/pyproject.toml ]; then
+if [[ ! -f /opt/admin/pyproject.toml ]]; then
     echo "Error: pyproject.toml not found in /opt/admin"
     ls -la /opt/admin/
     exit 1
@@ -29,14 +29,14 @@ poetry build
 
 # Install the wheel package using pipx
 # Find the built wheel file
-WHEEL_FILE=$(find /opt/admin/dist -name "*.whl" -type f | head -n 1)
-if [ -z "$WHEEL_FILE" ]; then
+WHEEL_FILE=$(find /opt/admin/dist -name "*.whl" -type f | head -n 1) || true
+if [[ -z "${WHEEL_FILE}" ]]; then
     echo "Error: No wheel file found in /opt/admin/dist"
     exit 1
 fi
 
-echo "Installing wheel: $WHEEL_FILE"
-pipx install "$WHEEL_FILE"
+echo "Installing wheel: ${WHEEL_FILE}"
+pipx install "${WHEEL_FILE}"
 
 # Verify installation
 if ! command -v workspace-admin &> /dev/null; then
