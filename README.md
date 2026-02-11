@@ -67,6 +67,48 @@ the `.env` file.
 - ***Open Jupyter Notebook*** - <http://localhost:8080>
 - ***Open Jupyter Lab*** - <http://localhost:8080/user1/lab>
 
+### Service Discovery
+
+The workspace provides a `/services` endpoint that returns a JSON list of
+available services. This enables dynamic service discovery for frontend
+applications.
+
+**Example**: Get service list for user1
+
+```bash
+curl http://localhost:8080/user1/services
+```
+
+**Response**:
+
+```json
+{
+  "desktop": {
+    "name": "Desktop",
+    "description": "Virtual Desktop Environment",
+    "endpoint": "tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify"
+  },
+  "vscode": {
+    "name": "VS Code",
+    "description": "VS Code IDE",
+    "endpoint": "tools/vscode"
+  },
+  "notebook": {
+    "name": "Jupyter Notebook",
+    "description": "Jupyter Notebook",
+    "endpoint": ""
+  },
+  "lab": {
+    "name": "Jupyter Lab",
+    "description": "Jupyter Lab IDE",
+    "endpoint": "lab"
+  }
+}
+```
+
+The endpoint values are dynamically populated with the user's username from the
+`MAIN_USER` environment variable.
+
 ## :broom: Clean Up
 
 *Either*  

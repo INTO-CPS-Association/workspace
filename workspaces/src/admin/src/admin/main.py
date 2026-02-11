@@ -48,7 +48,7 @@ def load_services() -> Dict[str, Any]:
 
 
 @app.get("/")
-async def root() -> Dict[str, str]:
+async def root() -> Dict[str, Any]:
     """Root endpoint providing service information."""
     return {
         "service": "Workspace Admin Service",
