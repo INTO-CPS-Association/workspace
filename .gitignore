@@ -5,6 +5,8 @@ env/
 .env/
 ENV/
 __pycache__/
+.pytest_cache/
+poetry.lock
 
 # Runtime data
 pids
