@@ -87,3 +87,9 @@ workspaces/test/dtaas/certs/**
 
 # temp files for workspace
 .workspace
+
+# poetry files
+dist/
+build/
+*.egg-info/
+.coverage

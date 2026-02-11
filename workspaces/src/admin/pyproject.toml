@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "admin"
+name = "workspace-admin"
 version = "0.1.0"
 description = "Admin service for DTaaS workspace service discovery"
 authors = ["INTO-CPS Association"]
