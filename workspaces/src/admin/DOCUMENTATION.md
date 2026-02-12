@@ -33,7 +33,7 @@ curl http://localhost:8080/{path-prefix}/services
   "desktop": {
     "name": "Desktop",
     "description": "Virtual Desktop Environment",
-    "endpoint": "tools/vnc?path={path-prefix}tools%2Fvnc%2Fwebsockify"
+    "endpoint": "tools/vnc?path={PATH_PREFIX}%2Ftools%2Fvnc%2Fwebsockify"
   },
   "vscode": {
     "name": "VS Code",
