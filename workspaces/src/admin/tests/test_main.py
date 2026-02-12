@@ -9,19 +9,21 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from admin.main import app, load_services, SERVICES_TEMPLATE_PATH
+from admin.main import create_app, load_services, SERVICES_TEMPLATE_PATH
 
 
 @pytest.fixture(name='test_client')
 def fixture_test_client():
     """Create a test client for the FastAPI app."""
+    app = create_app()
     return TestClient(app)
 
 
-@pytest.fixture(name='setup_mock_main_user')
-def fixture_mock_main_user(monkeypatch):
-    """Set up mock MAIN_USER environment variable."""
-    monkeypatch.setenv('MAIN_USER', 'testuser')
+@pytest.fixture(name='test_client_with_prefix')
+def fixture_test_client_with_prefix():
+    """Create a test client for the FastAPI app with path prefix."""
+    app = create_app(path_prefix="user1")
+    return TestClient(app)
 
 
 def test_root_endpoint(test_client):
@@ -42,10 +44,8 @@ def test_health_check(test_client):
     assert data["status"] == "healthy"
 
 
-def test_services_endpoint(test_client, setup_mock_main_user):
+def test_services_endpoint(test_client):
     """Test the /services endpoint returns service list."""
-    # setup_mock_main_user fixture sets MAIN_USER='testuser'
-    _ = setup_mock_main_user  # Mark as intentionally used
     response = test_client.get("/services")
     assert response.status_code == 200
 
@@ -64,36 +64,18 @@ def test_services_endpoint(test_client, setup_mock_main_user):
     assert "endpoint" in desktop
     assert desktop["name"] == "Desktop"
 
-    # Check that MAIN_USER is substituted correctly
-    assert "testuser" in desktop["endpoint"]
-    assert "{MAIN_USER}" not in desktop["endpoint"]
 
-
-def test_services_endpoint_default_user(test_client, monkeypatch):
-    """Test /services endpoint with default MAIN_USER."""
-    # Remove MAIN_USER from environment
-    monkeypatch.delenv('MAIN_USER', raising=False)
-
+def test_services_endpoint_returns_all_services(test_client):
+    """Test /services endpoint returns all defined services."""
     response = test_client.get("/services")
     assert response.status_code == 200
 
     services = response.json()
-    desktop = services["desktop"]
 
-    # Should use default 'dtaas-user'
-    assert "dtaas-user" in desktop["endpoint"]
-
-
-def test_load_services_substitutes_main_user(setup_mock_main_user):
-    """Test that load_services correctly substitutes MAIN_USER."""
-    # setup_mock_main_user fixture sets MAIN_USER='testuser'
-    _ = setup_mock_main_user  # Mark as intentionally used
-    services = load_services()
-
-    # Check that {MAIN_USER} is replaced with 'testuser'
-    desktop_endpoint = services["desktop"]["endpoint"]
-    assert "testuser" in desktop_endpoint
-    assert "{MAIN_USER}" not in desktop_endpoint
+    # Verify all expected services are present
+    required_services = ["desktop", "vscode", "notebook", "lab"]
+    for service_id in required_services:
+        assert service_id in services
 
 
 def test_load_services_preserves_structure():
@@ -128,7 +110,6 @@ def test_services_template_valid_json():
 def test_cli_list_services(monkeypatch, capsys):
     """Test CLI --list-services flag."""
     import sys
-    monkeypatch.setenv('MAIN_USER', 'clitest')
     monkeypatch.setattr(sys, 'argv', ['workspace-admin', '--list-services'])
 
     from admin.main import cli
@@ -140,7 +121,7 @@ def test_cli_list_services(monkeypatch, capsys):
     captured = capsys.readouterr()
     output = json.loads(captured.out)
     assert "desktop" in output
-    assert "clitest" in output["desktop"]["endpoint"]
+    assert "vscode" in output
 
 
 def test_cli_version(monkeypatch):
@@ -194,3 +175,54 @@ def test_health_endpoint_returns_json(test_client):
     """Test that health endpoint returns JSON."""
     response = test_client.get("/health")
     assert response.headers["content-type"] == "application/json"
+
+
+def test_root_endpoint_with_prefix(test_client_with_prefix):
+    """Test root endpoint with path prefix."""
+    response = test_client_with_prefix.get("/user1/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["service"] == "Workspace Admin Service"
+
+
+def test_services_endpoint_with_prefix(test_client_with_prefix):
+    """Test services endpoint with path prefix."""
+    response = test_client_with_prefix.get("/user1/services")
+    assert response.status_code == 200
+    services = response.json()
+    assert "desktop" in services
+
+
+def test_health_endpoint_with_prefix(test_client_with_prefix):
+    """Test health endpoint with path prefix."""
+    response = test_client_with_prefix.get("/user1/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+
+
+def test_path_prefix_not_accessible_without_prefix(test_client_with_prefix):
+    """Test that endpoints are not accessible without prefix when prefix is set."""
+    # When app has prefix, root-level routes should not work
+    response = test_client_with_prefix.get("/services")
+    assert response.status_code == 404
+
+
+def test_create_app_with_various_prefixes():
+    """Test creating app with different prefix formats."""
+    # Test with leading/trailing slashes - routes should work
+    app1 = create_app("/user1/")
+    client1 = TestClient(app1)
+    assert client1.get("/user1/health").status_code == 200
+
+    app2 = create_app("user1")
+    client2 = TestClient(app2)
+    assert client2.get("/user1/health").status_code == 200
+
+    app3 = create_app("")
+    client3 = TestClient(app3)
+    assert client3.get("/health").status_code == 200
+
+    app4 = create_app("/")
+    client4 = TestClient(app4)
+    assert client4.get("/health").status_code == 200

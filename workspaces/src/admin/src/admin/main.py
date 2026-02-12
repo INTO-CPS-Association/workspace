@@ -13,20 +13,79 @@ from pathlib import Path
 from typing import Dict, Any
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.responses import JSONResponse
 
-app = FastAPI(
-    title="Workspace Admin Service",
-    description="Service discovery and management for DTaaS workspace",
-    version="0.1.0"
-)
+def create_app(path_prefix: str = "") -> FastAPI:
+    """
+    Create and configure the FastAPI application.
+
+    Args:
+        path_prefix: Optional path prefix for all routes (e.g., "user1")
+
+    Returns:
+        Configured FastAPI application instance.
+    """
+    # Clean up path prefix
+    if path_prefix:
+        path_prefix = path_prefix.strip("/")
+        if path_prefix:
+            path_prefix = f"/{path_prefix}"
+    else:
+        path_prefix = ""
+
+    # Create the FastAPI app
+    fastapi_app = FastAPI(
+        title="Workspace Admin Service",
+        description="Service discovery and management for DTaaS workspace",
+        version="0.1.0"
+    )
+
+    # Create router for our endpoints
+    router = APIRouter()
+
+    @router.get("/")
+    async def root() -> Dict[str, Any]:
+        """Root endpoint providing service information."""
+        return {
+            "service": "Workspace Admin Service",
+            "version": "0.1.0",
+            "endpoints": {
+                "/services": "Get list of available workspace services",
+                "/health": "Health check endpoint"
+            }
+        }
+
+    @router.get("/services")
+    async def get_services() -> JSONResponse:
+        """
+        Get list of available workspace services.
+
+        Returns:
+            JSONResponse containing service information.
+        """
+        services = load_services(os.environ["PATH_PREFIX"] if "PATH_PREFIX" in os.environ else "")
+        return JSONResponse(content=services)
+
+    @router.get("/health")
+    async def health_check() -> Dict[str, str]:
+        """Health check endpoint."""
+        return {"status": "healthy"}
+
+    # Include router with optional prefix
+    fastapi_app.include_router(router, prefix=path_prefix)
+
+    return fastapi_app
+
+
+# Create default app instance
+app = create_app()
 
 # Path to services template
 SERVICES_TEMPLATE_PATH = Path(__file__).parent / "services_template.json"
 
 
-def load_services() -> Dict[str, Any]:
+def load_services(path_prefix: str = "") -> Dict[str, Any]:
     """
     Load services from template and substitute environment variables.
 
@@ -38,48 +97,14 @@ def load_services() -> Dict[str, Any]:
     with open(SERVICES_TEMPLATE_PATH, 'r', encoding='utf-8') as f:
         services = json.load(f)
 
-    # Get MAIN_USER from environment, default to 'dtaas-user'
-    main_user = os.getenv('MAIN_USER', 'dtaas-user')
-
-    # Substitute {MAIN_USER} in endpoint values
-    for _service_id, service_info in services.items():
+    # Substitute {PATH_PREFIX} in endpoint values
+    for _, service_info in services.items():
         if 'endpoint' in service_info:
             service_info['endpoint'] = service_info['endpoint'].replace(
-                '{MAIN_USER}', main_user
+                '{PATH_PREFIX}', path_prefix
             )
 
     return services
-
-
-@app.get("/")
-async def root() -> Dict[str, Any]:
-    """Root endpoint providing service information."""
-    return {
-        "service": "Workspace Admin Service",
-        "version": "0.1.0",
-        "endpoints": {
-            "/services": "Get list of available workspace services",
-            "/health": "Health check endpoint"
-        }
-    }
-
-
-@app.get("/services")
-async def get_services() -> JSONResponse:
-    """
-    Get list of available workspace services.
-
-    Returns:
-        JSONResponse containing service information.
-    """
-    services = load_services()
-    return JSONResponse(content=services)
-
-
-@app.get("/health")
-async def health_check() -> Dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "healthy"}
 
 
 def cli():
@@ -110,6 +135,11 @@ def cli():
         )
     )
     parser.add_argument(
+        "--path-prefix",
+        default=os.getenv("PATH_PREFIX", "dtaas-user"),
+        help="Path prefix for API routes (e.g., 'dtaas-user' for routes at /dtaas-user/services)"
+    )
+    parser.add_argument(
         "--reload",
         action="store_true",
         help="Enable auto-reload for development"
@@ -127,22 +157,33 @@ def cli():
 
     args = parser.parse_args()
 
+    # Set up path prefix
+    path_prefix = args.path_prefix.strip("/")
+    if path_prefix:
+        os.environ["PATH_PREFIX"] = path_prefix
+        prefix_display = f"/{path_prefix}"
+    else:
+        prefix_display = ""
+
     if args.list_services:
         # Just list services and exit
-        services = load_services()
+        services = load_services(path_prefix)
         print(json.dumps(services, indent=2))
         sys.exit(0)
 
     # Start the server
     print(f"Starting Workspace Admin Service on {args.host}:{args.port}")
-    print(f"MAIN_USER: {os.getenv('MAIN_USER', 'dtaas-user')}")
     print("Service endpoints:")
-    print(f"  - http://{args.host}:{args.port}/services")
-    print(f"  - http://{args.host}:{args.port}/health")
-    print(f"  - http://{args.host}:{args.port}/")
+    print(f"  - http://{args.host}:{args.port}{prefix_display}/services")
+    print(f"  - http://{args.host}:{args.port}{prefix_display}/health")
+    print(f"  - http://{args.host}:{args.port}{prefix_display}/")
+
+    # Recreate app with path prefix
+    global app  # pylint: disable=global-statement
+    app = create_app(path_prefix)
 
     uvicorn.run(
-        "admin.main:app",
+        app,
         host=args.host,
         port=args.port,
         reload=args.reload

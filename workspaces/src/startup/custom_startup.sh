@@ -45,7 +45,12 @@ function start_vscode_server {
 }
 
 function start_admin_server {
-    workspace-admin --host 0.0.0.0 --port "${ADMIN_SERVER_PORT}" &
+    local path_prefix="${MAIN_USER:-}"
+    if [[ -n "${path_prefix}" ]]; then
+        workspace-admin --host 0.0.0.0 --port "${ADMIN_SERVER_PORT}" --path-prefix "${path_prefix}" &
+    else
+        workspace-admin --host 0.0.0.0 --port "${ADMIN_SERVER_PORT}" &
+    fi
     DTAAS_PROCS['admin']=$!
 }
 

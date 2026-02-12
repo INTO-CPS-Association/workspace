@@ -6,8 +6,8 @@ and management capabilities for the DTaaS workspace.
 ## Overview
 
 The service runs on port 8091 (configurable via `ADMIN_SERVER_PORT` environment
-variable) and is proxied through nginx to be accessible at the `/services`
-endpoint.
+variable) and is proxied through nginx. It supports path prefixes for multi-user
+deployments, allowing routes to be accessible at `/{path-prefix}/services`.
 
 ## Endpoints
 
@@ -19,7 +19,11 @@ services.
 **Request**:
 
 ```bash
-curl http://localhost:8080/{username}/services
+# Without path prefix
+curl http://localhost:8080/services
+
+# With path prefix
+curl http://localhost:8080/{path-prefix}/services
 ```
 
 **Response**: Status 200 OK
@@ -29,7 +33,7 @@ curl http://localhost:8080/{username}/services
   "desktop": {
     "name": "Desktop",
     "description": "Virtual Desktop Environment",
-    "endpoint": "tools/vnc?path={username}%2Ftools%2Fvnc%2Fwebsockify"
+    "endpoint": "tools/vnc?path={path-prefix}tools%2Fvnc%2Fwebsockify"
   },
   "vscode": {
     "name": "VS Code",
@@ -50,10 +54,9 @@ curl http://localhost:8080/{username}/services
 ```
 
 **Notes**:
-- The `{username}` placeholder in endpoints is automatically replaced with the
-  value of the `MAIN_USER` environment variable
 - Service endpoints are relative paths that should be appended to the base
   workspace URL
+- When using path prefixes, the prefix is automatically prepended to all routes
 - Empty string endpoints indicate the service is available at the root path
 
 ### GET /health
@@ -63,7 +66,11 @@ Health check endpoint for monitoring service availability.
 **Request**:
 
 ```bash
+# Without path prefix
 curl http://localhost:8091/health
+
+# With path prefix  
+curl http://localhost:8091/{path-prefix}/health
 ```
 
 **Response**: Status 200 OK
@@ -81,7 +88,11 @@ Root endpoint providing service metadata and available endpoints.
 **Request**:
 
 ```bash
+# Without path prefix
 curl http://localhost:8091/
+
+# With path prefix
+curl http://localhost:8091/{path-prefix}
 ```
 
 **Response**: Status 200 OK
@@ -101,12 +112,11 @@ curl http://localhost:8091/
 
 ### Service Discovery Flow
 
-1. User accesses `http://{domain}/{username}/services`
+1. User accesses `http://{domain}/{path-prefix}/services` (or `/services` without prefix)
 2. nginx receives the request and routes it to the admin service on port 8091
 3. Admin service reads the `services_template.json` file
-4. Template placeholders (e.g., `{MAIN_USER}`) are replaced with environment
-   variable values
-5. JSON response is returned to the client
+4. JSON response is returned to the client
+5. Path prefix is configured via CLI argument when starting the service
 
 ### Components
 
@@ -119,8 +129,8 @@ curl http://localhost:8091/
 
 ## Environment Variables
 
-- `MAIN_USER`: Username for the workspace (default: `dtaas-user`)
 - `ADMIN_SERVER_PORT`: Port for the admin service (default: `8091`)
+- `PATH_PREFIX`: Optional path prefix for API routes (can also be set via CLI `--path-prefix` argument)
 
 ## Development
 
@@ -129,7 +139,7 @@ curl http://localhost:8091/
 ```bash
 cd workspaces/src/admin
 poetry install
-poetry run pytest -v
+poetry run pytest --cov=admin --cov-report=html --cov-report=term-missing
 ```
 
 ### Code Quality and Coverage
@@ -157,9 +167,8 @@ summary in the terminal.
 
 ```bash
 cd workspaces/src/admin
-export MAIN_USER=testuser
 export ADMIN_SERVER_PORT=8091
-poetry run uvicorn admin.main:app --host 0.0.0.0 --port 8091
+poetry run workspace-admin --path-prefix dtaas-user
 ```
 
 **As a CLI utility:**
@@ -173,6 +182,9 @@ poetry run workspace-admin
 
 # Run with custom host and port
 poetry run workspace-admin --host 127.0.0.1 --port 9000
+
+# Run with path prefix for multi-user deployments
+poetry run workspace-admin --path-prefix dtaas-user
 
 # List services without starting the server
 poetry run workspace-admin --list-services
@@ -203,11 +215,7 @@ To add a new service to the workspace:
 }
 ```
 
-2. If the service requires dynamic values, use placeholders like `{MAIN_USER}`
-   which will be substituted at runtime
-
-3. No code changes are required - the service automatically reads and processes
-   the template
+2. The service automatically reads and processes the template - no code changes required
 
 ## Integration with DTaaS
 
