@@ -12,9 +12,7 @@ poetry --version
 pipx --version
 
 # Copy admin service to /opt/admin
-# INST_DIR is /dockerstartup/install, admin source is at src/admin
-mkdir -p /opt/admin
-cp -r "${INST_DIR}/../admin/"* /opt/admin/
+cp -r "${ADMIN_DIR}" /opt/
 
 # Verify pyproject.toml exists
 if [[ ! -f /opt/admin/pyproject.toml ]]; then
@@ -25,6 +23,8 @@ fi
 
 # Build the wheel package
 cd /opt/admin
+poetry config virtualenvs.in-project true
+poetry install --only main --no-root
 poetry build
 
 # Install the wheel package using pipx
@@ -37,6 +37,8 @@ fi
 
 echo "Installing wheel: ${WHEEL_FILE}"
 pipx install "${WHEEL_FILE}"
+pipx ensurepath
+source ~/.bashrc
 
 # Verify installation
 if ! command -v workspace-admin &> /dev/null; then
