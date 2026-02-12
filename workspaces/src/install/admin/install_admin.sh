@@ -38,6 +38,7 @@ fi
 echo "Installing wheel: ${WHEEL_FILE}"
 pipx install "${WHEEL_FILE}"
 pipx ensurepath
+# shellcheck disable=SC1090
 source ~/.bashrc
 
 # Verify installation

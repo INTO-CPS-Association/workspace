@@ -16,12 +16,13 @@ import uvicorn
 from fastapi import FastAPI, APIRouter
 from fastapi.responses import JSONResponse
 
+
 def create_app(path_prefix: str = "") -> FastAPI:
     """
     Create and configure the FastAPI application.
 
     Args:
-        path_prefix: Optional path prefix for all routes (e.g., "user1")
+        path_prefix: Optional path prefix for all routes (e.g., "dtaas-user")
 
     Returns:
         Configured FastAPI application instance.
