@@ -9,16 +9,17 @@ This repository builds a containerized virtual desktop environment  (Workspace) 
 ### `.` - Project root
 Contains files more related to the repository than the project artifact. This includes various linting configurations, the README, the LICENSE, the CODE_OF_CONDUCT and so on. Apart from this, it also contains:
 - `scripts/` - Contains various scripts useful in the development and maintanence of the repository.
-- [`workspaces/`](#workspaces---main-artifact-directory) - Contains files related more to the project artifact than the repository infrastructure.
+- [`workspaces/`](#workspaces-main-artifact-directory) - Contains files related more to the project artifact than the repository infrastructure.
 
 
 ### `workspaces/` - Main artifact directory
 Contains all files related to the Workspace image artifact.
-- [`src/`](#workspacessrc---workspace-image-source-files) - Source files needed to build the image.
+- [`src/`](#workspacessrc-workspace-image-source-files) - Source files needed to build the image.
 - `test/` - Files related to testing the image.
 - `Dockerfile.*` - The dockerfile(s) used in building the image. (must be linted with hadolint)
 
 #### `workspaces/src/` - Workspace image source files
+- `admin/` - Admin service for workspace service discovery (FastAPI application)
 - `install/` - Files used as part of the image build process.
 - `resources/` - Static files injected into the image during building.
 - `startup/` - Files used during image startup, bootstrapping the workspace, configuring it dependent on container runtime environment variables.
@@ -62,6 +63,13 @@ Contains files needed to test the integration of the workspace into existing DTa
 - Include docstrings for functions and modules
 - Use type hints where appropriate
 
+#### Python Projects (admin service)
+- Use Poetry for dependency management
+- Run tests with pytest before committing
+- Maintain test coverage above 75%
+- Ensure all tests pass: `poetry run pytest --cov`
+- Lint with pylint: `poetry run pylint src tests`
+
 #### Dockerfile
 - Use hadolint for linting
 - Pin specific versions for base images and packages
@@ -102,6 +110,14 @@ Before committing changes:
 4. Update Dockerfile to call the installation script
 5. Update README.md with component information
 
+#### Modifying the Admin Service
+1. Make changes to `workspaces/src/admin/src/admin/`
+2. Update tests in `workspaces/src/admin/tests/`
+3. Run tests: `cd workspaces/src/admin && poetry run pytest --cov`
+4. Run linting: `poetry run pylint src/admin tests`
+5. Update documentation in README.md and DOCUMENTATION.md
+6. Rebuild and reinstall: `poetry build && poetry install`
+
 #### Modifying Startup Behavior
 1. Edit or add scripts in `workspaces/src/startup/``
 2. Ensure scripts are executable
@@ -128,6 +144,11 @@ docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yaml config
 # Python scripts (if any)
 pylint **/*.py
 flake8 **/*.py
+
+# Admin service (Python FastAPI project)
+cd workspaces/src/admin
+poetry run pytest --cov=admin --cov-report=term-missing
+poetry run pylint src/admin tests
 ```
 
 ## Best Practices
