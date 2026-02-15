@@ -19,6 +19,10 @@ ENV ADMIN_SERVER_PORT=8091 \
 
 WORKDIR $HOME
 
+# Configure locale generation to only build en_US.UTF-8 to reduce build time
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    rm -rf /var/lib/locales/supported.d/*
+
 COPY ./src/install/ ${INST_DIR}
 COPY ./src/admin/ ${ADMIN_DIR}
 
