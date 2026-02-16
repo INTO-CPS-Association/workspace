@@ -22,12 +22,12 @@ WORKDIR $HOME
 COPY ./src/install/ ${INST_DIR}
 COPY ./src/admin/ ${ADMIN_DIR}
 
-RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
-    bash ${INST_DIR}/nginx/install_nginx.sh && \
-    bash ${INST_DIR}/vscode/install_vscode_server.sh && \
-    bash ${INST_DIR}/jupyter/install_jupyter.sh && \
-    bash ${INST_DIR}/admin/install_admin.sh && \
-    bash ${INST_DIR}/dtaas_cleanup.sh
+RUN bash ${INST_DIR}/firefox/install_firefox.sh
+RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
+RUN bash ${INST_DIR}/jupyter/install_jupyter.sh
+RUN bash ${INST_DIR}/admin/install_admin.sh
+RUN bash ${INST_DIR}/dtaas_cleanup.sh
 
 COPY ./src/startup/ ${STARTUPDIR}
 
