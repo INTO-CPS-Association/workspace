@@ -7,6 +7,7 @@ FastAPI service for workspace service discovery and management.
 - `/services` endpoint - Returns JSON list of available workspace services
 - Path prefix support for multi-user deployments
 - Command-line interface for standalone operation
+- Optional git backup worker for `$WORKSPACE_DIR/private` and `$WORKSPACE_DIR/common`
 
 ## Running
 
@@ -35,6 +36,9 @@ poetry run workspace-admin --list-services
 
 # Run with auto-reload for development
 poetry run workspace-admin --reload
+
+# Run with git backup enabled from explicit config file
+poetry run workspace-admin --config ./config.env
 
 # Show help
 poetry run workspace-admin --help
@@ -65,3 +69,15 @@ Run code quality checks:
 ```bash
 poetry run pylint src/admin tests
 ```
+
+## Git backup configuration
+
+Copy and edit `config.env.example` to `$HOME/.workspace/config.env` (or pass
+`--config`):
+
+```bash
+cp config.env.example "$HOME/.workspace/config.env"
+```
+
+The admin service will clone and periodically sync configured `private` and
+`common` repositories every 5 minutes by default.
