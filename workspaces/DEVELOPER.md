@@ -1,6 +1,8 @@
 # Developer Documentation
 
-This document provides comprehensive information about environment variables, build arguments, and configuration options used in the workspace Docker image and build process.
+This document provides comprehensive information about environment variables,
+build arguments, and configuration options used in the workspace Docker image
+and build process.
 
 ## Table of Contents
 
@@ -13,7 +15,8 @@ This document provides comprehensive information about environment variables, bu
 
 ## Docker Build Arguments
 
-These arguments are automatically provided by Docker Buildx during multi-platform builds and can be used in Dockerfile instructions.
+These arguments are automatically provided by Docker Buildx during
+multi-platform builds and can be used in Dockerfile instructions.
 
 ### TARGETARCH
 
@@ -22,6 +25,7 @@ These arguments are automatically provided by Docker Buildx during multi-platfor
 - **Possible Values**: `amd64`, `arm64`, `arm`, `ppc64le`, `s390x`, etc.
 - **Usage**: Automatically set by Docker Buildx when building with `--platform`
 - **Example**:
+
   ```dockerfile
   ARG TARGETARCH
   RUN echo "Building for architecture: ${TARGETARCH}"
@@ -34,6 +38,7 @@ These arguments are automatically provided by Docker Buildx during multi-platfor
 - **Possible Values**: `linux/amd64`, `linux/arm64`, `linux/arm/v7`, etc.
 - **Usage**: Automatically set by Docker Buildx when building with `--platform`
 - **Example**:
+
   ```dockerfile
   ARG TARGETPLATFORM
   RUN echo "Building for platform: ${TARGETPLATFORM}"
@@ -46,6 +51,7 @@ These arguments are automatically provided by Docker Buildx during multi-platfor
 - **Possible Values**: `linux/amd64`, `linux/arm64`, etc.
 - **Usage**: Useful for cross-compilation scenarios
 - **Example**:
+
   ```dockerfile
   ARG BUILDPLATFORM
   RUN echo "Building on platform: ${BUILDPLATFORM}"
@@ -53,7 +59,8 @@ These arguments are automatically provided by Docker Buildx during multi-platfor
 
 ## Dockerfile Environment Variables
 
-These environment variables are set in the Dockerfile and are available during both build and runtime.
+These environment variables are set in the Dockerfile and are available during
+both build and runtime.
 
 ### Service Ports
 
@@ -168,6 +175,7 @@ These variables can be set when running the container to customize its behavior.
 - **Description**: Username for the workspace session
 - **Usage**: Used by startup scripts to configure user-specific paths and services
 - **Example**:
+
   ```bash
   docker run -e MAIN_USER=user1 workspace:latest
   ```
@@ -183,7 +191,8 @@ These variables can be set when running the container to customize its behavior.
 
 ### Building for Multiple Architectures
 
-The workspace image supports building for multiple processor architectures using Docker Buildx:
+The workspace image supports building for multiple processor architectures using
+Docker Buildx:
 
 ```bash
 # Create a builder instance (one-time setup)
@@ -202,10 +211,13 @@ docker buildx build \
 
 When adding new software or scripts:
 
-1. **Check architecture compatibility**: Ensure downloaded binaries support both amd64 and arm64
-2. **Use `${TARGETARCH}` in downloads**: Many projects provide separate downloads per architecture
+1. **Check architecture compatibility**: Ensure downloaded binaries support both
+   amd64 and arm64
+2. **Use `${TARGETARCH}` in downloads**: Many projects provide separate
+   downloads per architecture
 3. **Test on both architectures**: If possible, test builds on both platforms
-4. **Use QEMU for testing**: You can test arm64 builds on amd64 using QEMU emulation
+4. **Use QEMU for testing**: You can test arm64 builds on amd64 using QEMU
+   emulation
 
 Example of architecture-aware installation:
 
@@ -219,7 +231,8 @@ wget "https://example.com/download-${ARCH}.tar.gz"
 
 ## Installation Scripts
 
-Installation scripts are located in `src/install/` and are executed during the Docker build process.
+Installation scripts are located in `src/install/` and are executed during the
+Docker build process.
 
 ### Script Environment
 
@@ -258,11 +271,13 @@ rm -rf /var/lib/apt/lists/*
 
 ## Startup Scripts
 
-Startup scripts are located in `src/startup/` and are executed when the container starts.
+Startup scripts are located in `src/startup/` and are executed when the
+container starts.
 
 ### Startup Script Order
 
-1. `dtaas_shim.sh` - First script that restores environment and switches to MAIN_USER
+1. `dtaas_shim.sh` - First script that restores environment and switches to
+   MAIN_USER
 2. `kasm_default_profile.sh` - Base image startup (inherited)
 3. `vnc_startup.sh` - VNC server initialization (inherited)
 4. `custom_startup.sh` - Custom service initialization
@@ -300,7 +315,8 @@ Startup scripts are located in `src/startup/` and are executed when the containe
 
 ## Environment Variable Precedence
 
-1. **Runtime** (`docker run -e` or `compose.yml`): Highest priority, overrides all
+1. **Runtime** (`docker run -e` or `compose.yml`): Highest priority, overrides
+   all
 2. **Dockerfile ENV**: Default values, can be overridden at runtime
 3. **Dockerfile ARG**: Only available during build, not at runtime
 
