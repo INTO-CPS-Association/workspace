@@ -97,16 +97,21 @@ def cli() -> None:
 
     app = create_app(path_prefix)
 
+    stop_event = None
     if not args.disable_git_backup:
         stop_event = threading.Event()
         start_git_backup(args.config, args.git_sync_interval, stop_event)
 
-    uvicorn.run(
-        app,
-        host=args.host,
-        port=args.port,
-        reload=args.reload,
-    )
+    try:
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+            reload=args.reload,
+        )
+    finally:
+        if stop_event is not None:
+            stop_event.set()
 
 
 if __name__ == "__main__":

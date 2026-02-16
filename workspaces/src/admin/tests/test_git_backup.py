@@ -36,6 +36,10 @@ GIT_WORK_TREE = "assets/common"
     )
     repos = load_git_backup_config(config_file)
     assert len(repos) == 2
+    assert repos[0].repo_url == "https://example.com/private.git"
+    assert repos[0].branch == "main"
+    assert repos[0].username == "user"
+    assert repos[0].token == "token"
     assert repos[0].git_dir == Path("/workspace/private")
     assert repos[0].work_tree == Path("/home/user/.workspace/assets/private")
 
@@ -58,13 +62,22 @@ GIT_REPO_USERNAME = "user"
 GIT_REPO_TOKEN = "token"
 GIT_DIR = "private"
 GIT_WORK_TREE = "assets/private"
+
+[assets.common]
+GIT_REPO_URL = "https://example.com/common.git"
+GIT_REPO_BRANCH = "main"
+GIT_REPO_USERNAME = "user"
+GIT_REPO_TOKEN = "token"
+GIT_DIR = "common"
+GIT_WORK_TREE = "assets/common"
 """.strip(),
         encoding="utf-8",
     )
     repos = load_git_backup_config(config_file)
 
-    def fake_run(command, check, capture_output, text):  # pylint: disable=unused-argument
+    def fake_run(*args, **_kwargs):
         """Simulate git clone and no-op for other git commands."""
+        command = args[0]
         if command[0:2] == ["git", "clone"]:
             work_tree = Path(command[-1])
             work_tree.mkdir(parents=True, exist_ok=True)
@@ -76,4 +89,6 @@ GIT_WORK_TREE = "assets/private"
     manager.initialize()
 
     assert repos[0].git_dir.is_symlink()
-    assert repos[0].git_dir.resolve() == repos[0].work_tree
+    assert repos[0].git_dir.resolve() == repos[0].work_tree.resolve()
+    assert repos[1].git_dir.is_symlink()
+    assert repos[1].git_dir.resolve() == repos[1].work_tree.resolve()

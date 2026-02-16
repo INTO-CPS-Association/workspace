@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
-import os
 import subprocess
 import threading
 import time
 import tomllib
+from urllib.parse import urlsplit, urlunsplit
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
@@ -41,9 +41,18 @@ class RepoConfig:
     @property
     def sanitized_url(self) -> str:
         """Return a sanitized URL for logs."""
-        if self.repo_url.startswith("https://") and self.username:
-            return self.repo_url.replace("https://", f"https://{self.username}:***@", 1)
-        return self.repo_url
+        split_url = urlsplit(self.repo_url)
+        if "@" not in split_url.netloc:
+            return self.repo_url
+        return urlunsplit(
+            (
+                split_url.scheme,
+                f"***@{split_url.netloc.split('@', maxsplit=1)[1]}",
+                split_url.path,
+                split_url.query,
+                split_url.fragment,
+            ),
+        )
 
 
 def _run_git_command(repo: RepoConfig, args: List[str]) -> subprocess.CompletedProcess[str]:
@@ -152,8 +161,9 @@ class GitBackupManager:
 
         if repo.git_dir.exists() and not repo.git_dir.is_symlink():
             raise ValueError(
-                f"Cannot create symlink at {repo.git_dir}, "
-                "path already exists and is not a symlink",
+                "Cannot create configured GIT_DIR link for repository "
+                f"'{repo.name}'. Remove the existing path or configure "
+                "a different GIT_DIR location.",
             )
 
         if not repo.git_dir.exists():
@@ -162,20 +172,18 @@ class GitBackupManager:
     def _sync_repo(self, repo: RepoConfig) -> None:
         _run_git_command(repo, ["fetch", "origin", repo.branch])
         _run_git_command(repo, ["pull", "--no-rebase", "-X", "ours", "origin", repo.branch])
+        self.logger.info(
+            "Pulled %s with merge strategy '-X ours' (local changes preferred on conflicts)",
+            repo.name,
+        )
         _run_git_command(repo, ["add", "-A"])
 
         status = _run_git_command(repo, ["status", "--porcelain"]).stdout.strip()
         if status:
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-            _run_git_command(repo, ["commit", "-m", f"workspace backup {timestamp} UTC"])
+            commit_timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            _run_git_command(repo, ["commit", "-m", f"workspace backup {commit_timestamp}"])
             _run_git_command(repo, ["push", "origin", repo.branch])
             self.logger.info("Committed and pushed changes for %s", repo.name)
-
-
-def _resolve_paths(config_path: Path) -> tuple[Path, Path]:
-    app_dir = config_path.parent
-    workspace_dir = Path(os.getenv("PERSISTENT_DIR", "/workspace"))
-    return app_dir, workspace_dir
 
 
 def start_git_backup(
@@ -187,16 +195,15 @@ def start_git_backup(
     if not config_path.exists():
         return
 
-    app_dir, _ = _resolve_paths(config_path)
+    app_dir = config_path.parent
     logger = _configure_logger(app_dir / "logs" / "workspace-admin.log")
     repos = load_git_backup_config(config_path)
     manager = GitBackupManager(repos, logger)
     manager.initialize()
 
     def backup_loop() -> None:
-        while not stop_event.is_set():
+        while not stop_event.wait(interval_seconds):
             manager.sync_once()
-            stop_event.wait(interval_seconds)
 
     backup_thread = threading.Thread(target=backup_loop, daemon=True)
     backup_thread.start()

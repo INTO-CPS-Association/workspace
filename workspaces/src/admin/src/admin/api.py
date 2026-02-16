@@ -39,9 +39,7 @@ def create_app(path_prefix: str = "") -> FastAPI:
 
     @router.get("/services")
     async def get_services() -> JSONResponse:
-        services = load_services(
-            os.environ["PATH_PREFIX"] if "PATH_PREFIX" in os.environ else "",
-        )
+        services = load_services(os.environ.get("PATH_PREFIX", ""))
         return JSONResponse(content=services)
 
     @router.get("/health")
