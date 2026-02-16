@@ -269,6 +269,52 @@ apt-get clean
 rm -rf /var/lib/apt/lists/*
 ```
 
+### Real-World Examples
+
+#### VSCode Server Installation
+
+The VSCode installation script (`src/install/vscode/install_vscode_server.sh`) uses
+TARGETARCH to download the correct architecture-specific package:
+
+```bash
+# Use TARGETARCH if available (set by Docker Buildx), otherwise detect architecture
+ARCH="${TARGETARCH:-amd64}"
+
+# code-server uses the same architecture naming as Docker (amd64/arm64)
+fetch "https://github.com/coder/code-server/releases/download/v${VERSION}/code-server_${VERSION}_${ARCH}.deb" \
+    "${CACHE_DIR}/code-server_${VERSION}_${ARCH}.deb"
+```
+
+#### Firefox Installation
+
+The Firefox installation script (`src/install/firefox/install_firefox.sh`) demonstrates
+how to convert between Docker architecture names and GNU triplet names:
+
+```bash
+# Use TARGETARCH if available, otherwise detect from system
+if [[ -n "${TARGETARCH}" ]]; then
+  ARCH="${TARGETARCH}"
+else
+  ARCH=$(arch | sed 's/aarch64/arm64/g' | sed 's/x86_64/amd64/g')
+fi
+
+# Convert to GNU triplet format for library paths
+case "${ARCH}" in
+  arm64)
+    GNU_ARCH="aarch64"
+    ;;
+  amd64)
+    GNU_ARCH="x86_64"
+    ;;
+  *)
+    GNU_ARCH=$(arch)
+    ;;
+esac
+
+# Use GNU_ARCH for system library paths
+ln /usr/lib/"${GNU_ARCH}"-linux-gnu/pkcs11/p11-kit-trust.so /usr/lib/firefox/libnssckbi.so
+```
+
 ## Startup Scripts
 
 Startup scripts are located in `src/startup/` and are executed when the
