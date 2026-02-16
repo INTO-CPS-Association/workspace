@@ -41,6 +41,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1
 
+      - name: Set up QEMU for multi-platform builds
+        uses: docker/setup-qemu-action@e3d37281a7c83b4f9c4315e2d6b7c5e4e7e67f3b # v3.3.1
+        with:
+          platforms: linux/amd64,linux/arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
@@ -141,6 +146,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Set up QEMU for multi-platform builds
+        uses: docker/setup-qemu-action@e3d37281a7c83b4f9c4315e2d6b7c5e4e7e67f3b # v3.3.1
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
