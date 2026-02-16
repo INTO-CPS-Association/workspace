@@ -27,8 +27,6 @@ docker pull intocps/workspace:latest
 
 If you want to build the image locally instead of using pre-built images, then:
 
-### Single Platform Build
-
 *Either*  
 Using plain `docker` command:
 
@@ -42,34 +40,6 @@ using `docker compose`:
 ```bash
 docker compose -f workspaces/test/dtaas/compose.yml build
 ```
-
-### Multi-Platform Build
-
-To build images for multiple architectures (amd64 and arm64):
-
-```bash
-# Create and use a multi-platform builder (one-time setup)
-docker buildx create --name multiarch --use
-
-# Build for multiple platforms
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t workspace:latest \
-  -f workspaces/Dockerfile.ubuntu.noble.gnome \
-  ./workspaces
-
-# To build and push to a registry (e.g., Docker Hub or GHCR)
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t your-registry/workspace:latest \
-  -f workspaces/Dockerfile.ubuntu.noble.gnome \
-  --push \
-  ./workspaces
-```
-
-**Note**: Multi-platform builds require Docker Buildx and QEMU for cross-platform
-emulation. The pre-built images from GitHub Container Registry and Docker Hub
-are already multi-platform and will automatically match your system architecture.
 
 ## :running: Run it
 
