@@ -288,32 +288,34 @@ fetch "https://github.com/coder/code-server/releases/download/v${VERSION}/code-s
 #### Firefox Installation
 
 The Firefox installation script (`src/install/firefox/install_firefox.sh`) demonstrates
-how to convert between Docker architecture names and GNU triplet names:
+a simplified approach to convert architecture names to GNU triplet format:
 
 ```bash
-# Use TARGETARCH if available, otherwise detect from system
-if [[ -n "${TARGETARCH}" ]]; then
-  ARCH="${TARGETARCH}"
-else
-  ARCH=$(arch | sed 's/aarch64/arm64/g' | sed 's/x86_64/amd64/g')
-fi
-
+# Prefer TARGETARCH (set by Docker Buildx); fallback to system uname -m
 # Convert to GNU triplet format for library paths
-case "${ARCH}" in
-  arm64)
-    GNU_ARCH="aarch64"
-    ;;
-  amd64)
+src_arch="${TARGETARCH:-$(uname -m)}"
+
+case "${src_arch}" in
+  amd64|x86_64)
     GNU_ARCH="x86_64"
     ;;
+  arm64|aarch64)
+    GNU_ARCH="aarch64"
+    ;;
+  386)
+    GNU_ARCH="i386"
+    ;;
   *)
-    GNU_ARCH=$(arch)
+    GNU_ARCH="${src_arch}"
     ;;
 esac
 
 # Use GNU_ARCH for system library paths
 ln /usr/lib/"${GNU_ARCH}"-linux-gnu/pkcs11/p11-kit-trust.so /usr/lib/firefox/libnssckbi.so
 ```
+
+This approach handles both Docker architecture names (amd64/arm64) and system
+architecture names (x86_64/aarch64) in a single case statement.
 
 ## Startup Scripts
 

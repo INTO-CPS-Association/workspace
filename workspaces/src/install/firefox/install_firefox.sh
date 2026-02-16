@@ -9,24 +9,22 @@ if [[ -f /dockerstartup/install/firefox/firefox/firefox.desktop ]]; then
   mv /dockerstartup/install/firefox/firefox.desktop "${HOME}"/Desktop/
 fi
 
-# Use TARGETARCH if available (set by Docker Buildx), otherwise detect from system
-# Convert architecture names: aarch64->arm64, x86_64->amd64
-if [[ -n "${TARGETARCH}" ]]; then
-  ARCH="${TARGETARCH}"
-else
-  ARCH=$(arch | sed 's/aarch64/arm64/g' | sed 's/x86_64/amd64/g')
-fi
+# Prefer TARGETARCH (set by Docker Buildx); fallback to system uname -m
+# Convert to GNU triplet format for library paths
+src_arch="${TARGETARCH:-$(uname -m)}"
 
-# Convert to the format used by GNU triplet (arm64->aarch64, amd64->x86_64)
-case "${ARCH}" in
-  arm64)
-    GNU_ARCH="aarch64"
-    ;;
-  amd64)
+case "${src_arch}" in
+  amd64|x86_64)
     GNU_ARCH="x86_64"
     ;;
+  arm64|aarch64)
+    GNU_ARCH="aarch64"
+    ;;
+  386)
+    GNU_ARCH="i386"
+    ;;
   *)
-    GNU_ARCH=$(arch)
+    GNU_ARCH="${src_arch}"
     ;;
 esac
 
