@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1
 
       - name: Set up QEMU for multi-platform builds
-        uses: docker/setup-qemu-action@e3d37281a7c83b4f9c4315e2d6b7c5e4e7e67f3b # v3.3.1
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         with:
           platforms: linux/amd64,linux/arm64
 
@@ -148,7 +148,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
 
       - name: Set up QEMU for multi-platform builds
-        uses: docker/setup-qemu-action@e3d37281a7c83b4f9c4315e2d6b7c5e4e7e67f3b # v3.3.1
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         with:
           platforms: linux/amd64,linux/arm64
 

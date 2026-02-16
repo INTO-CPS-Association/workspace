@@ -9,7 +9,26 @@ if [[ -f /dockerstartup/install/firefox/firefox/firefox.desktop ]]; then
   mv /dockerstartup/install/firefox/firefox.desktop "${HOME}"/Desktop/
 fi
 
-ARCH=$(arch | sed 's/aarch64/arm64/g' | sed 's/x86_64/amd64/g')
+# Use TARGETARCH if available (set by Docker Buildx), otherwise detect from system
+# Convert architecture names: aarch64->arm64, x86_64->amd64
+if [[ -n "${TARGETARCH}" ]]; then
+  ARCH="${TARGETARCH}"
+else
+  ARCH=$(arch | sed 's/aarch64/arm64/g' | sed 's/x86_64/amd64/g')
+fi
+
+# Convert to the format used by GNU triplet (arm64->aarch64, amd64->x86_64)
+case "${ARCH}" in
+  arm64)
+    GNU_ARCH="aarch64"
+    ;;
+  amd64)
+    GNU_ARCH="x86_64"
+    ;;
+  *)
+    GNU_ARCH=$(arch)
+    ;;
+esac
 
 echo "Install Firefox"
 if [[ ! -f '/etc/apt/preferences.d/mozilla-firefox' ]]; then
@@ -24,7 +43,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y firefox p11-kit-modules
 
 # Update firefox to utilize the system certificate store instead of the one that ships with firefox
 rm -f /usr/lib/firefox/libnssckbi.so
-ln /usr/lib/"$(arch)"-linux-gnu/pkcs11/p11-kit-trust.so /usr/lib/firefox/libnssckbi.so
+ln /usr/lib/"${GNU_ARCH}"-linux-gnu/pkcs11/p11-kit-trust.so /usr/lib/firefox/libnssckbi.so
 
 preferences_file=/usr/lib/firefox/browser/defaults/preferences/firefox.js
 

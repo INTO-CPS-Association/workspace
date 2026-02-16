@@ -32,7 +32,13 @@ fetch() {
 
 CACHE_DIR=/tmp/code-server-cache
 VERSION=${VERSION:-$(set -e; echo_latest_version)}
-ARCH=amd64
+
+# Use TARGETARCH if available (set by Docker Buildx), otherwise detect architecture
+# TARGETARCH will be 'amd64' or 'arm64' from Docker Buildx
+ARCH="${TARGETARCH:-amd64}"
+
+# code-server uses the same architecture naming as Docker (amd64/arm64)
+# so we can use TARGETARCH directly
 
 fetch "https://github.com/coder/code-server/releases/download/v${VERSION}/code-server_${VERSION}_${ARCH}.deb" \
     "${CACHE_DIR}/code-server_${VERSION}_${ARCH}.deb"
