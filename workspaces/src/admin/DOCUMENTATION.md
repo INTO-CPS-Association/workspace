@@ -120,7 +120,10 @@ curl http://localhost:8091/{path-prefix}
 
 ### Components
 
-- **FastAPI Application** (`src/admin/main.py`): Core service implementation
+- **CLI entrypoint** (`src/admin/main.py`): Service startup and option parsing
+- **FastAPI Application** (`src/admin/api.py`): API route setup
+- **Git backup manager** (`src/admin/git_backup.py`): Clone/sync worker
+- **Services loader** (`src/admin/services.py`): Service template processing
 - **Services Template** (`src/admin/services_template.json`): JSON template
   defining available services
 - **nginx Configuration** (`startup/nginx.conf`): Reverse proxy routing
@@ -131,6 +134,7 @@ curl http://localhost:8091/{path-prefix}
 
 - `ADMIN_SERVER_PORT`: Port for the admin service (default: `8091`)
 - `PATH_PREFIX`: Optional path prefix for API routes (can also be set via CLI `--path-prefix` argument)
+- `HOME`: Used to resolve default git backup config path
 
 ## Development
 
@@ -198,6 +202,20 @@ poetry run workspace-admin --help
 
 The CLI interface makes the admin service work like a system utility similar to
 glances, allowing easy command-line operation and service listing.
+
+### Git backup configuration
+
+The service reads git backup settings from `$HOME/.workspace/config.env` by
+default (or a custom path from `--config`). A template is provided in
+`config.env.example`.
+
+When configured, repositories are cloned/synced and served through symlinks at:
+
+- `$WORKSPACE_DIR/private`
+- `$WORKSPACE_DIR/common`
+
+These links point to their configured working trees under
+`$WORKSPACE_APP_DIR/assets/...`.
 
 ### Adding New Services
 
