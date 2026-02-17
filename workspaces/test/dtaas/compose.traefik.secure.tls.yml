@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v2.11
+    image: traefik:v3.6.4
     restart: unless-stopped
     command:
       - "--log.level=DEBUG"
@@ -23,6 +23,9 @@ services:
     networks:
       - frontend
       - users
+    depends_on:
+      keycloak:
+        condition: service_healthy
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.7
@@ -40,8 +43,8 @@ services:
       - KC_PROXY_HEADERS=xforwarded
       - KC_HTTP_ENABLED=true
       - KC_HTTP_RELATIVE_PATH=/auth
-      - KC_HOSTNAME_URL=http://${SERVER_DNS:-localhost}:8080/auth
-      - KC_HOSTNAME_ADMIN_URL=http://${SERVER_DNS:-localhost}:8080/auth
+      - KC_HOSTNAME_URL=https://${SERVER_DNS:-localhost}/auth
+      - KC_HOSTNAME_ADMIN_URL=https://${SERVER_DNS:-localhost}/auth
     volumes:
       - keycloak-data:/opt/keycloak/data
     healthcheck:
@@ -146,7 +149,8 @@ services:
       - frontend
       - users
     depends_on:
-      - keycloak
+      keycloak:
+        condition: service_healthy
 
 networks:
   frontend:
