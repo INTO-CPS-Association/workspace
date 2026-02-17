@@ -1,22 +1,22 @@
-# Workspace with Traefik Forward Auth (OAuth2 Security)
+# Workspace with Traefik Forward Auth (OIDC/Keycloak Security)
 
 This guide explains how to use the workspace container with Traefik reverse proxy
-and OAuth2 authentication via traefik-forward-auth for secure multi-user deployments
+and OIDC authentication via Keycloak and traefik-forward-auth for secure multi-user deployments
 in the DTaaS installation.
 
 ## ❓ Prerequisites
 
-✅ Docker Engine v27 or later  
-✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
+✅ Docker Engine v27 or later
+✅ Sufficient system resources (at least 2GB RAM - includes Keycloak)  
 ✅ Port 80 available on your host machine  
-✅ GitLab OAuth Application configured (see setup below)
 
 ## 🗒️ Overview
 
 The `compose.traefik.secure.yml` file sets up:
 
 - **Traefik** reverse proxy on port 80
-- **traefik-forward-auth** for OAuth2 authentication with GitLab
+- **Keycloak** identity provider with OIDC support
+- **traefik-forward-auth** for OIDC authentication
 - **client** - DTaaS web interface
 - **user1** workspace using the workspace image
 - **user2** workspace using the mltooling/ml-workspace-minimal image
@@ -25,7 +25,8 @@ The `compose.traefik.secure.yml` file sets up:
 ## ⚙️ Initial Configuration
 
 Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md)
-for the `compose.traefik.secure.yml` composition before building
+for the `compose.traefik.secure.yml` composition AND the setip instructions
+for Keycloak in [`KEYCLOAK_SETUP.md`](KEYCLOAK_SETUP.md) before building
 the workspace and running the setup.
 
 ### Create Workspace Files
@@ -45,7 +46,7 @@ sudo chown -R 1000:100 workspaces/test/dtaas/files
 
 ## :rocket: Start Services
 
-To start all services (Traefik, auth, client, and workspaces)::
+To start all services (Traefik, Keycloak, auth, client, and workspaces):
 
 ```bash
 docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env up -d
@@ -54,21 +55,42 @@ docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file wo
 This will:
 
 1. Start the Traefik reverse proxy on port 80
-2. Start traefik-forward-auth for OAuth2 authentication
-3. Start the DTaaS web client interface
-4. Start workspace instances for both users
+2. Start Keycloak identity provider at `/auth`
+3. Start traefik-forward-auth for OIDC authentication
+4. Start the DTaaS web client interface
+5. Start workspace instances for both users
+
+**Note**: First-time startup may take a few minutes for Keycloak to initialize.
+
+## :gear: Configure Keycloak
+
+After starting the services, you need to configure Keycloak. See [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) for detailed instructions.
+
+Quick steps:
+1. Access Keycloak at `http://foo.com/auth`
+2. Login with admin credentials from `.env`
+3. Create a realm named `dtaas` (or match your `KEYCLOAK_REALM`)
+4. Create an OIDC client named `dtaas-workspace`
+5. Create users in Keycloak
+6. Update `.env` with the client secret
+7. Restart services
 
 ## :technologist: Accessing Workspaces
 
-Once all services are running, access the workspaces through Traefik at `http://localhost`.
+Once all services are running and Keycloak is configured, access them through Traefik at `http://localhost`.
 
 ### Initial Access
 
 1. Navigate to `http://localhost` in your web browser
-2. You will be redirected to GitLab for authentication
-3. Log in with your GitLab credentials
-4. Authorize the DTaaS Workspace application
-5. You will be redirected back to the DTaaS web interface
+2. You will be redirected to Keycloak for authentication
+3. Log in with a user you created in Keycloak
+4. You will be redirected back to the DTaaS web interface
+
+### Keycloak Admin Console
+
+- **URL**: `http://localhost/auth`
+- Access to manage users, roles, clients, and authentication settings
+- Login with `KEYCLOAK_ADMIN` credentials from `.env`
 
 ### DTaaS Web Client
 
@@ -200,16 +222,42 @@ cp -r workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/user3
 
 ### Using a Different OAuth Provider
 
-traefik-forward-auth supports multiple OAuth providers. To use a different
-provider:
+traefik-forward-auth supports multiple OAuth providers including GitLab, Google, Okta, and generic OAuth2.
 
-1. Update the `DEFAULT_PROVIDER` in the traefik-forward-auth service
-2. Adjust the OAuth URLs accordingly
-3. Update the scope as needed for your provider
+**To use GitLab instead of Keycloak:**
 
-See the [traefik-forward-auth documentation][tfa-docs] for details.
+1. Update the traefik-forward-auth environment in `compose.traefik.secure.yml`:
+   ```yaml
+   environment:
+     - DEFAULT_PROVIDER=generic-oauth
+     - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
+     - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=${OAUTH_URL}/oauth/token
+     - PROVIDERS_GENERIC_OAUTH_USER_URL=${OAUTH_URL}/api/v4/user
+     - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+     - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+     - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
+   ```
+2. Remove the `keycloak` service from the compose file
+3. Configure GitLab OAuth application (see [CONFIGURATION.md](CONFIGURATION.md))
+4. Update `.env` with GitLab OAuth credentials
+
+See [traefik-forward-auth documentation][tfa-docs] for other providers.
 
 [tfa-docs]: https://github.com/thomseddon/traefik-forward-auth
+
+### Using External Keycloak
+
+To use an external Keycloak instance instead of the embedded one:
+
+1. Update `KEYCLOAK_ISSUER_URL` in `.env`:
+   ```bash
+   KEYCLOAK_ISSUER_URL=https://keycloak.example.com/auth/realms/dtaas
+   ```
+2. Remove the `keycloak` service from compose file (optional)
+3. Configure the client in your external Keycloak
+4. Update `.env` with client credentials
+
+**Minimal changes required!**
 
 ## :shield: Security Considerations
 
@@ -227,45 +275,69 @@ For setting up a composition that includes TLS/HTTPS, see [TRAEFIK_TLS.md](./TRA
 
 ## 🔍 Troubleshooting
 
+### Keycloak Not Accessible
+
+1. Check Keycloak is running:
+   ```bash
+   docker compose -f compose.traefik.secure.yml ps keycloak
+   ```
+
+2. Check Keycloak logs:
+   ```bash
+   docker compose -f compose.traefik.secure.yml logs keycloak
+   ```
+
+3. Wait for Keycloak to fully start (first startup can take 1-2 minutes)
+
 ### Authentication Loop
 
 If you're stuck in an authentication loop:
 
 1. Clear browser cookies for localhost
 2. Check that `OAUTH_SECRET` is set and consistent
-3. Verify GitLab OAuth redirect URL matches your setup
+3. Verify Keycloak client redirect URI matches `http://localhost/_oauth/*`
+4. Check traefik-forward-auth logs for errors
+5. Ensure `KEYCLOAK_ISSUER_URL` is correct
 
 ### Services Not Accessible
 
 1. Check all services are running:
-
    ```bash
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml ps
    ```
 
 2. Check Traefik logs:
-
    ```bash
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml logs traefik
    ```
 
 3. Check traefik-forward-auth logs:
-
    ```bash
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml logs traefik-forward-auth
    ```
 
-### OAuth Errors
+### OIDC/OAuth Errors
 
-If you see OAuth errors:
+If you see OIDC errors:
 
 1. Verify all environment variables in `.env` are correct
-2. Check GitLab OAuth application settings
-3. Ensure redirect URI matches exactly (including protocol and path)
+2. Check Keycloak client settings (client ID, secret, redirect URIs)
+3. Ensure Keycloak realm name matches `KEYCLOAK_REALM`
+4. Verify client authentication is enabled in Keycloak
+5. Check that the issuer URL is accessible from the traefik-forward-auth container
+
+### "Invalid Client" Error
+
+- Verify `KEYCLOAK_CLIENT_SECRET` matches the value in Keycloak
+- Ensure client authentication is enabled in Keycloak client settings
 
 ## 📚 Additional Resources
 
+- [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) - Detailed Keycloak setup guide
+- [KEYCLOAK_MIGRATION.md](KEYCLOAK_MIGRATION.md) - Migration guide from GitLab OAuth
+- [CONFIGURATION.md](CONFIGURATION.md) - General configuration guide
 - [Traefik Documentation](https://doc.traefik.io/traefik/)
+- [Keycloak Documentation](https://www.keycloak.org/documentation)
 - [traefik-forward-auth GitHub](https://github.com/thomseddon/traefik-forward-auth)
-- [GitLab OAuth Documentation](https://docs.gitlab.com/ee/integration/oauth_provider.html)
+- [OIDC Specification](https://openid.net/specs/openid-connect-core-1_0.html)
 - [DTaaS Documentation](https://github.com/INTO-CPS-Association/DTaaS)
