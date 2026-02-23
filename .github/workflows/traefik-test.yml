@@ -30,13 +30,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        inclulde:
+        arch:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     needs: validate-compose
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.arch.runner }}
     permissions:
       contents: read
     steps:
@@ -56,7 +56,7 @@ jobs:
           file: workspaces/Dockerfile.ubuntu.noble.gnome
           push: false
           load: true
-          platforms: ${{ matrix.platform }}
+          platforms: ${{ matrix.arch.platform }}
           tags: workspace:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
