@@ -1,6 +1,6 @@
 name: Test Traefik OAuth2 and TLS Configuration
 
-'on':
+on:
   push:
   pull_request:
     branches:
@@ -23,7 +23,7 @@ jobs:
           - compose.traefik.secure.tls.yml
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Validate ${{ matrix.compose-file }} syntax
         run: |
@@ -37,17 +37,17 @@ jobs:
       fail-fast: false
       matrix:
         inclulde:
-        - platform: linux/amd64
-          runner: ubuntu-latest
-        - platform: linux/arm64
-          runner: ubuntu-24.04-arm
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     needs: validate-compose
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Set up QEMU for multi-platform builds
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -84,17 +84,26 @@ jobs:
 
       - name: Start services
         run: |
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env up -d
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            up -d
           echo "⏳ Waiting for services to be ready..."
           sleep 90
 
       - name: Check service health (HTTP)
         run: |
           echo "📊 Checking service status..."
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env ps
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps
           echo "---"
           # Check if all services are running
-          SERVICES=$(docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env ps --format json)
+          SERVICES=$(docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
             # JSON array format
             FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
@@ -105,7 +114,10 @@ jobs:
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
             echo "$FAILED"
-            docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env logs
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs
             exit 1
           fi
           echo "✅ All services are running"
@@ -133,15 +145,24 @@ jobs:
 
           if [ $attempt -eq $max_attempts ]; then
               echo "⚠️ Unexpected response code: $response"
-              docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env logs traefik
-              docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env logs traefik-forward-auth
+              docker compose \
+                -f workspaces/test/dtaas/compose.traefik.secure.yml \
+                --env-file workspaces/test/dtaas/config/.env \
+                logs traefik
+              docker compose \
+                -f workspaces/test/dtaas/compose.traefik.secure.yml \
+                --env-file workspaces/test/dtaas/config/.env \
+                logs traefik-forward-auth
               exit 1
           fi
 
       - name: Cleanup (HTTP)
         if: always()
         run: |
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env down -v
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            down -v
           docker system prune -f
 
   test-traefik-secure-tls:
@@ -150,10 +171,10 @@ jobs:
       fail-fast: false
       matrix:
         inclulde:
-        - platform: linux/amd64
-          runner: ubuntu-latest
-        - platform: linux/arm64
-          runner: ubuntu-24.04-arm
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     needs: ${{ matrix.runner }}
     runs-on: ubuntu-latest
     permissions:
@@ -219,17 +240,26 @@ jobs:
 
       - name: Start Traefik and workspace services (TLS)
         run: |
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env up -d
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            up -d
           echo "⏳ Waiting for services to be ready..."
           sleep 180
 
       - name: Check service health (TLS)
         run: |
           echo "📊 Checking service status..."
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env ps
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps
           echo "---"
           # Check if all services are running
-          SERVICES=$(docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env ps --format json)
+          SERVICES=$(docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
             # JSON array format
             FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
@@ -270,8 +300,14 @@ jobs:
 
           if [ $attempt -eq $max_attempts ]; then
             echo "⚠️ HTTPS connectivity issues, checking logs..."
-            docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env logs traefik
-            docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env logs traefik-forward-auth
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs traefik
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs traefik-forward-auth
             exit 1
           fi
 
@@ -291,22 +327,37 @@ jobs:
       - name: Verify TLS certificate is loaded
         run: |
           echo "Checking Traefik logs for TLS certificate loading..."
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env logs traefik | \
-            grep -i "certificate" || echo "No certificate messages in logs"
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik \
+            | grep -i "certificate" || echo "No certificate messages in logs"
 
       - name: Show service logs on failure
         if: failure()
         run: |
           echo "=== Traefik Logs ==="
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env logs traefik
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik
           echo "=== Traefik Forward Auth Logs ==="
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env logs traefik-forward-auth
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik-forward-auth
           echo "=== User1 Logs ==="
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env logs user1 | tail -50
-          
+          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs user1 \
+            | tail -50
+
       - name: Cleanup (TLS)
         if: always()
         run: |
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env down -v
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            down -v
           docker system prune -f
           rm -rf workspaces/test/dtaas/certs/*.pem
