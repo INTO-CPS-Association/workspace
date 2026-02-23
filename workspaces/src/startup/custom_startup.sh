@@ -62,8 +62,10 @@ fi
 
 start_nginx
 start_jupyter
-start_vscode_server "${PERSISTENT_DIR}"
 start_admin_server
+if [[ ! ${VSCODE_DISABLED:-1} == 1 ]]; then
+  start_vscode_server "${PERSISTENT_DIR}"
+fi
 
 # Monitor and resurrect DTaaS services.
 sleep 3
