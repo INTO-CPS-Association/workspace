@@ -1,6 +1,6 @@
-FROM kasmweb/core-ubuntu-noble:1.18.0 AS configure
+ARG INSTALLATION="full"
 
-ARG INSTALL_TYPE=full
+FROM kasmweb/core-ubuntu-noble:1.18.0 AS configure
 
 USER root
 
@@ -48,7 +48,7 @@ RUN bash ${INST_DIR}/nginx/install_nginx.sh && \
     bash ${INST_DIR}/admin/install_admin.sh && \
     bash ${INST_DIR}/dtaas_cleanup.sh
 
-FROM install-${INSTALL_TYPE} AS setup
+FROM install-${INSTALLATION} AS setup
 
 COPY ./src/startup/ ${STARTUPDIR}
 
