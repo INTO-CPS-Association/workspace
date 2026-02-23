@@ -100,7 +100,7 @@ do
                 start_admin_server
                 ;;
             *)
-                echo "[WARNING] An unknown service '${process}' unexpectededly monitored by the custom_startup script was reported to have exitted. This is most irregular - check if something is adding processes to the custom_startup scripts list of monitored subprocesses."
+                echo "[WARNING] An unknown service '${process}' unexpectedly monitored by the custom_startup script was reported to have exited. This is most irregular - check if something is adding processes to the custom_startup script's list of monitored subprocesses."
                 ;;
         esac
     done
