@@ -173,6 +173,19 @@ see [PUBLISHING.md](PUBLISHING.md).
 
 ## Development
 
+### Alternative Development Image
+
+If the full featureset of the workspace image is not necessary during development, a slimmer, quicker to build image can be generated instead.
+
+This is done by adding the setting the build argument `INSTALLATION` to `minimal` when building the image. For example:
+
+```
+docker build -t workspace:latest \
+  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  --build-arg INSTALLATION=minimal \
+  ./workspaces
+```
+
 ### Code Quality
 
 This project enforces strict code quality checks via GitHub Actions:
