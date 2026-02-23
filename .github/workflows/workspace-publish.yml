@@ -4,7 +4,7 @@ name: Publish Workspace Docker Image
   workflow_run:
     workflows:
       # the workflow names must match exactly with those in the required workflow files
-      - "Dockerfile Lint and Build"
+      - "Dockerfile Lint"
       - "Lint Scripts"
       - "Test Traefik Configuration"
       - "Test Traefik OAuth2 and TLS Configuration"
@@ -46,7 +46,7 @@ jobs:
 
           # Define required workflows
           # the workflow names must match exactly with those in the required workflow files
-          WORKFLOWS=("Dockerfile Lint and Build" "Lint Scripts" "Test Traefik Configuration" "Test Traefik OAuth2 and TLS Configuration")
+          WORKFLOWS=("Dockerfile Lint" "Lint Scripts" "Test Traefik Configuration" "Test Traefik OAuth2 and TLS Configuration")
           ALL_SUCCESS=true
 
           for workflow in "${WORKFLOWS[@]}"; do
@@ -176,7 +176,6 @@ jobs:
 
   test-published-images:
     name: Test Published Images
-    runs-on: ubuntu-latest
     needs: [publish-ghcr, publish-dockerhub]
     permissions:
       contents: read
@@ -188,6 +187,9 @@ jobs:
             image: ghcr.io/${{ github.repository }}
           - name: dockerhub
             image: IMAGE_NAME_DEFINED_AT_RUNTIME
+        platform: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.platform }}
+          
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6.0.1
