@@ -195,6 +195,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
+      - name: Set up QEMU for multi-platform builds
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
       - name: Log in to registry
         if: matrix.registry.name == 'ghcr'
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4
