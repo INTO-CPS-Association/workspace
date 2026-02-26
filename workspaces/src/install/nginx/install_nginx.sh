@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -xe
 
-DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install --no-install-recommends -y curl gnupg2 ca-certificates lsb-release ubuntu-keyring
+DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install --no-install-recommends -y curl gnupg ca-certificates lsb-release ubuntu-keyring
 
 curl https://nginx.org/keys/nginx_signing.key | gpg --dearmor \
     | tee /usr/share/keyrings/nginx-archive-keyring.gpg >/dev/null
