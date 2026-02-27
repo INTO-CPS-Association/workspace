@@ -41,10 +41,10 @@ RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
 FROM configure AS install-minimal
 
 # Tells the custom_startup script to not try to start the vscode server
-ENV VSCODE_DISABLED=1
+ENV VSCODE_DISABLED=1 \
+    JUPYTER_DISABLED=1
 
 RUN bash ${INST_DIR}/nginx/install_nginx.sh && \
-    bash ${INST_DIR}/jupyter/install_jupyter.sh && \
     bash ${INST_DIR}/admin/install_admin.sh && \
     bash ${INST_DIR}/dtaas_cleanup.sh
 

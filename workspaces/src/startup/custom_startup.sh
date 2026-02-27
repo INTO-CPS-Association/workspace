@@ -61,10 +61,12 @@ if [[ ! -h "${HOME}"/Desktop/workspace ]]; then
 fi
 
 start_nginx
-start_jupyter
+if [[ ! ${JUPYTER_DISABLED:-1} == 1 ]]; then
+    start_jupyter
+fi
 start_admin_server
 if [[ ! ${VSCODE_DISABLED:-1} == 1 ]]; then
-  start_vscode_server "${PERSISTENT_DIR}"
+    start_vscode_server "${PERSISTENT_DIR}"
 fi
 
 # Monitor and resurrect DTaaS services.
