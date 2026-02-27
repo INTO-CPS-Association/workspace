@@ -2,6 +2,12 @@ ARG INSTALLATION="full"
 
 FROM kasmweb/core-ubuntu-noble:1.18.0 AS configure
 
+# Docker build arguments for multi-architecture support
+# These are automatically set by Docker Buildx during multi-platform builds
+ARG TARGETARCH
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
 USER root
 
 ENV ADMIN_SERVER_PORT=8091 \
