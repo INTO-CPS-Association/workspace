@@ -94,7 +94,7 @@ the `.env` file.
 - ***Open workspace*** -
   <http://localhost:8080/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify>
 - ***Open VSCode*** - <http://localhost:8080/user1/tools/vscode>
-- ***Open Jupyter Notebook*** - <http://localhost:8080>
+- ***Open Jupyter Notebook*** - <http://localhost:8080/user1>
 - ***Open Jupyter Lab*** - <http://localhost:8080/user1/lab>
 
 ### Service Discovery

@@ -61,11 +61,11 @@ if [[ ! -h "${HOME}"/Desktop/workspace ]]; then
 fi
 
 start_nginx
-if [[ ! ${JUPYTER_DISABLED:-1} == 1 ]]; then
+if [[ ! ${JUPYTER_DISABLED:-0} == 1 ]]; then
     start_jupyter
 fi
 start_admin_server
-if [[ ! ${VSCODE_DISABLED:-1} == 1 ]]; then
+if [[ ! ${VSCODE_DISABLED:-0} == 1 ]]; then
     start_vscode_server "${PERSISTENT_DIR}"
 fi
 

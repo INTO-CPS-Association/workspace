@@ -211,6 +211,34 @@ These variables can be set when running the container to customize its behavior.
 - **Description**: Port for noVNC web interface
 - **Usage**: Used by nginx configuration to proxy VNC connections
 
+### JUPYTER_DISABLED
+
+- **Type**: Runtime ENV
+- **Default**: `0` (Jupyter is **enabled** by default in the `full` build)
+- **Description**: Controls whether Jupyter Server is started at container runtime
+- **Possible Values**: `0` (start Jupyter), `1` (skip Jupyter)
+- **Usage**: Set to `1` to disable Jupyter (automatically set to `1` in the
+  `minimal` build via Dockerfile)
+- **Example**:
+
+  ```bash
+  docker run -e JUPYTER_DISABLED=1 workspace:latest
+  ```
+
+### VSCODE_DISABLED
+
+- **Type**: Runtime ENV
+- **Default**: `0` (VS Code Server is **enabled** by default in the `full` build)
+- **Description**: Controls whether VS Code Server is started at container runtime
+- **Possible Values**: `0` (start VS Code Server), `1` (skip VS Code Server)
+- **Usage**: Set to `1` to disable VS Code Server (automatically set to `1` in the
+  `minimal` build via Dockerfile)
+- **Example**:
+
+  ```bash
+  docker run -e VSCODE_DISABLED=1 workspace:latest
+  ```
+
 ## Multi-Architecture Build
 
 ### Building for Multiple Architectures
@@ -222,13 +250,49 @@ Docker Buildx:
 # Create a builder instance (one-time setup)
 docker buildx create --name multiarch --use
 
-# Build for multiple platforms
+# Single-platform build and load into local Docker
+docker build -t workspace:latest \
+  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  --build-arg INSTALLATION=minimal \
+  ./workspaces
+
+# Multi-platform build without loading or saving
+# Build arg is optional
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t workspace:latest \
-  -f Dockerfile.ubuntu.noble.gnome \
+  -t workspace:minimal-build \
+  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  --build-arg INSTALLATION=minimal \
+  ./workspaces
+
+
+# Multi-platform build -> push to registry
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t workspace:minimal-build \
+  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  --build-arg INSTALLATION=minimal \
   --push \
-  .
+  ./workspaces
+
+# Build each arch to Docker-format tar, then load (creates separate images locally)
+# NOTE: use type=docker (not type=tar) so that docker load can read the archive.
+docker buildx build \
+  --platform linux/amd64 \
+  -t workspace-amd64 \
+  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  --output type=docker,dest=./workspace-amd64.tar \
+  ./workspaces
+
+docker buildx build \
+  --platform linux/arm64 \
+  -t workspace-arm64 \
+  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  --output type=docker,dest=./workspace-arm64.tar \
+  ./workspaces
+
+docker load -i ./workspace-amd64.tar
+docker load -i ./workspace-arm64.tar
 ```
 
 ### Architecture-Specific Considerations
@@ -373,8 +437,8 @@ container starts.
 - **Purpose**: Start custom services
 - **Key Functions**:
   - Configures nginx reverse proxy
-  - Starts Jupyter Server on `$JUPYTER_SERVER_PORT`
-  - Starts VS Code Server on `$CODE_SERVER_PORT`
+  - Starts Jupyter Server on `$JUPYTER_SERVER_PORT` (unless `INSTALLATION=minimal`)
+  - Starts VS Code Server on `$CODE_SERVER_PORT` (unless `INSTALLATION=minimal`)
   - Starts Admin service on `$ADMIN_SERVER_PORT`
 
 ### configure_nginx.py
