@@ -1,16 +1,18 @@
 # CI override for compose.traefik.secure.tls.yml
 #
-# Adds a local Dex OIDC provider and reconfigures traefik-forward-auth
+# Adds a local Dex OIDC provider and reconfigures traefik-forward-auth-local
 # to use it instead of a real OAuth application.  Intended ONLY for automated
-# CI testing with TLS – do NOT use in production.
+# CI testing with TLS using the local-certs profile – do NOT use in production.
 #
-# Differences from compose.ci.override.yml (HTTP version):
-#   - INSECURE_COOKIE is not set (defaults to false), correct for HTTPS
-#   - Redirect URI used by Dex is https://localhost/_oauth
-#     (both http and https URIs are registered in config/dex.yml)
+# Prerequisites:
+#   1. Build the local forward-auth image (see certs/README.md):
+#        docker build -t traefik-forward-auth-local:latest \
+#            workspaces/test/dtaas/certs/
+#   2. Generate mkcert certificates (see certs/README.md).
 #
 # Usage:
 #   docker compose \
+#     --profile local-certs \
 #     -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
 #     -f workspaces/test/dtaas/compose.ci.tls.override.yml \
 #     --env-file workspaces/test/dtaas/config/.env \
@@ -36,8 +38,10 @@ services:
       - frontend
       - users
 
-  # ─── Override traefik-forward-auth to point at Dex (TLS variant) ───────────
-  traefik-forward-auth:
+  # ─── Override traefik-forward-auth-local to point at Dex ──────────────────
+  # This overrides the local-certs profile service from the base compose file.
+  # No INSECURE_COOKIE since HTTPS is used (cookies are secure by default).
+  traefik-forward-auth-local:
     environment:
       # Switch to OIDC provider (Dex)
       - DEFAULT_PROVIDER=oidc
@@ -46,8 +50,7 @@ services:
       - PROVIDERS_OIDC_CLIENT_ID=traefik-forward-auth
       - PROVIDERS_OIDC_CLIENT_SECRET=ci-test-client-secret
       - SECRET=ci-test-hmac-secret-at-least-32-chars!!
-      # No INSECURE_COOKIE for HTTPS (cookies are secure by default)
-      # Clear any legacy GitLab/generic-oauth variables
+      # Clear any legacy GitLab/generic-oauth variables set in the base file
       - PROVIDERS_GENERIC_OAUTH_AUTH_URL=
       - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=
       - PROVIDERS_GENERIC_OAUTH_USER_URL=
