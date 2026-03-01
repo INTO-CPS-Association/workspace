@@ -1,3 +1,25 @@
+# ── Shared forward-auth configuration ──────────────────────────────────────
+# Merged into both traefik-forward-auth and traefik-forward-auth-local via the
+# YAML merge key (<<) so that common settings are defined in one place.
+x-forward-auth-common: &forward-auth-common
+  restart: unless-stopped
+  volumes:
+    - "./config/conf:/conf"
+  environment:
+    - LOG_LEVEL=trace
+    - DEFAULT_PROVIDER=generic-oauth
+    - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
+    - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=${OAUTH_URL}/oauth/token
+    - PROVIDERS_GENERIC_OAUTH_USER_URL=${OAUTH_URL}/api/v4/user
+    - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+    - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+    - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
+    - SECRET= "${OAUTH_SECRET}"
+    - CONFIG=/conf
+  networks:
+    - frontend
+    - users
+
 services:
   traefik:
     image: traefik:v3.6.4
@@ -74,23 +96,17 @@ services:
     networks:
       - users
 
-
+  # ── Standard upstream image (valid / production TLS certificates) ──────────
+  # Use when Traefik serves a certificate from a trusted CA (Let's Encrypt,
+  # ZeroSSL, etc.).  The standard thomseddon image does not need to trust any
+  # extra root CA.
+  #
+  # Enable with:  docker compose --profile valid-certs -f ... up -d
   traefik-forward-auth:
+    <<: *forward-auth-common
     image: thomseddon/traefik-forward-auth:2.2.0
-    restart: unless-stopped
-    volumes:
-      - "./config/conf:/conf"
-    environment:
-      - LOG_LEVEL=trace
-      - DEFAULT_PROVIDER=generic-oauth
-      - PROVIDERS_GENERIC_OAUTH_AUTH_URL=${OAUTH_URL}/oauth/authorize
-      - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=${OAUTH_URL}/oauth/token
-      - PROVIDERS_GENERIC_OAUTH_USER_URL=${OAUTH_URL}/api/v4/user
-      - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
-      - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
-      - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
-      - SECRET= "${OAUTH_SECRET}"
-      - CONFIG=/conf
+    profiles:
+      - valid-certs
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.redirect.entryPoints=web-secure"
@@ -99,9 +115,31 @@ services:
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
       - "traefik.http.services.traefik-forward-auth.loadbalancer.server.port=4181"
-    networks:
-      - frontend
-      - users
+
+  # ── Local CA–aware image (mkcert / self-signed certificates) ───────────────
+  # Use when Traefik serves a certificate issued by a local CA (e.g. mkcert).
+  # The custom image embeds the local root CA so that traefik-forward-auth can
+  # validate HTTPS redirects that land on the self-signed certificate.
+  #
+  # Build the image first:
+  #   docker build -t traefik-forward-auth-local:latest \
+  #       workspaces/test/dtaas/certs/
+  # (See workspaces/test/dtaas/certs/README.md for full instructions.)
+  #
+  # Enable with:  docker compose --profile local-certs -f ... up -d
+  traefik-forward-auth-local:
+    <<: *forward-auth-common
+    image: traefik-forward-auth-local:latest
+    profiles:
+      - local-certs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redirect.entryPoints=web-secure"
+      - "traefik.http.routers.redirect.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/_oauth`)"
+      - "traefik.http.routers.redirect.middlewares=traefik-forward-auth"
+      - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth-local:4181"
+      - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
+      - "traefik.http.services.traefik-forward-auth-local.loadbalancer.server.port=4181"
 
 networks:
   frontend:
