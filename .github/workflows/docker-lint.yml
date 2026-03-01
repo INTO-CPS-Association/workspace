@@ -46,6 +46,7 @@ jobs:
 
           echo "Linting compose.ci.tls.override.yml (with base)"
           docker compose \
+            --profile local-certs \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
             -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             config --quiet
