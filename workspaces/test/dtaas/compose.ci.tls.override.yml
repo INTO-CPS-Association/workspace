@@ -1,0 +1,58 @@
+# CI override for compose.traefik.secure.tls.yml
+#
+# Adds a local Dex OIDC provider and reconfigures traefik-forward-auth
+# to use it instead of a real OAuth application.  Intended ONLY for automated
+# CI testing with TLS – do NOT use in production.
+#
+# Differences from compose.ci.override.yml (HTTP version):
+#   - INSECURE_COOKIE is not set (defaults to false), correct for HTTPS
+#   - Redirect URI used by Dex is https://localhost/_oauth
+#     (both http and https URIs are registered in config/dex.yml)
+#
+# Usage:
+#   docker compose \
+#     -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+#     -f workspaces/test/dtaas/compose.ci.tls.override.yml \
+#     --env-file workspaces/test/dtaas/config/.env \
+#     up -d
+
+name: workspace-traefik-secure-tls
+
+services:
+
+  # ─── Local Dex OIDC provider ───────────────────────────────────────────────
+  # Dex itself always runs over plain HTTP on port 5556 regardless of whether
+  # the application uses TLS.  The redirect URI it issues back to the browser
+  # will be https://localhost/_oauth (registered in config/dex.yml).
+  dex:
+    image: dexidp/dex:v2.41.1
+    restart: unless-stopped
+    command: ["dex", "serve", "/etc/dex/config.yml"]
+    volumes:
+      - ./config/dex.yml:/etc/dex/config.yml:ro
+    ports:
+      - "5556:5556"
+    networks:
+      - frontend
+      - users
+
+  # ─── Override traefik-forward-auth to point at Dex (TLS variant) ───────────
+  traefik-forward-auth:
+    environment:
+      # Switch to OIDC provider (Dex)
+      - DEFAULT_PROVIDER=oidc
+      # Internal Docker network URL for OIDC discovery document fetch
+      - PROVIDERS_OIDC_ISSUER_URL=http://dex:5556/dex
+      - PROVIDERS_OIDC_CLIENT_ID=traefik-forward-auth
+      - PROVIDERS_OIDC_CLIENT_SECRET=ci-test-client-secret
+      - SECRET=ci-test-hmac-secret-at-least-32-chars!!
+      # No INSECURE_COOKIE for HTTPS (cookies are secure by default)
+      # Clear any legacy GitLab/generic-oauth variables
+      - PROVIDERS_GENERIC_OAUTH_AUTH_URL=
+      - PROVIDERS_GENERIC_OAUTH_TOKEN_URL=
+      - PROVIDERS_GENERIC_OAUTH_USER_URL=
+      - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=
+      - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=
+      - PROVIDERS_GENERIC_OAUTH_SCOPE=
+    depends_on:
+      - dex
