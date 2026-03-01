@@ -31,6 +31,22 @@ jobs:
           docker compose -f workspaces/test/dtaas/${{ matrix.compose-file }} --env-file workspaces/test/dtaas/config/.env config > /dev/null
           echo "✅ ${{ matrix.compose-file }} syntax is valid"
 
+      - name: Validate CI overlay compose files syntax
+        run: |
+          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            config > /dev/null
+          echo "✅ compose.ci.override.yml syntax is valid"
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            config > /dev/null
+          echo "✅ compose.ci.tls.override.yml syntax is valid"
+
   test-traefik-secure:
     name: Test Traefik Secure Setup
     strategy:
@@ -71,6 +87,7 @@ jobs:
         run: |
           docker pull traefik:v3.6.4
           docker pull thomseddon/traefik-forward-auth:2.2.0
+          docker pull dexidp/dex:v2.41.1
           docker pull intocps/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
@@ -82,10 +99,18 @@ jobs:
           cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
           cp ./workspaces/test/dtaas/config/client.js.example ./workspaces/test/dtaas/config/client.js
 
-      - name: Start services
+      # Make the Dex Docker service name resolvable from the CI runner host.
+      # This is required because traefik-forward-auth redirects the browser to
+      # http://dex:5556/dex/auth?... and curl (running on the host) must be
+      # able to follow that redirect.
+      - name: Add Dex hostname to /etc/hosts
+        run: echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
+
+      - name: Start services (with CI Dex OIDC override)
         run: |
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             up -d
           echo "⏳ Waiting for services to be ready..."
@@ -96,12 +121,14 @@ jobs:
           echo "📊 Checking service status..."
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             ps
           echo "---"
           # Check if all services are running
           SERVICES=$(docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
@@ -116,51 +143,69 @@ jobs:
             echo "$FAILED"
             docker compose \
               -f workspaces/test/dtaas/compose.traefik.secure.yml \
+              -f workspaces/test/dtaas/compose.ci.override.yml \
               --env-file workspaces/test/dtaas/config/.env \
               logs
             exit 1
           fi
           echo "✅ All services are running"
 
-      - name: Test service accessibility (HTTP)
+      # Verify traefik-forward-auth is actually enforcing auth (unrequested
+      # access should redirect to Dex, not return 200 directly).
+      - name: Verify auth is enforced (expect redirect, not 200)
         run: |
-          echo "Testing HTTP connectivity..."
-          max_attempts=5
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            # Test if services respond (will get auth redirect)
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null || echo "000")
-            echo "Attempt $((attempt + 1))/$max_attempts - HTTP response: $response"
-            # We expect 302 (redirect to OAuth) or 200 if auth middleware is not fully configured
-            if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
-              echo "✅ Traefik is responding correctly"
-              break
-            fi
-
-            attempt=$((attempt + 1))
-            if [ $attempt -lt $max_attempts ]; then
-              sleep 15
-            fi
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-              echo "⚠️ Unexpected response code: $response"
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs traefik
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs traefik-forward-auth
-              exit 1
+          echo "Verifying that unauthenticated requests are redirected..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-redirs 0 http://localhost/user1/ 2>/dev/null || echo "000")
+          echo "Unauthenticated response code: $response"
+          if [ "$response" = "302" ] || [ "$response" = "307" ]; then
+            echo "✅ Auth middleware is active (unauthenticated -> redirect)"
+          else
+            echo "❌ Expected 302/307 redirect but got $response"
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.yml \
+              -f workspaces/test/dtaas/compose.ci.override.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs traefik traefik-forward-auth dex
+            exit 1
           fi
+
+      # Perform the full automated OAuth2 login flow and verify that an
+      # authenticated request reaches the workspace service (HTTP 200).
+      - name: Test automated OAuth2 login via Dex (user1)
+        run: |
+          chmod +x workspaces/test/dtaas/scripts/ci_auth_login.sh
+          workspaces/test/dtaas/scripts/ci_auth_login.sh \
+            http://localhost user1 http://dex:5556 password
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "=== Traefik Logs ==="
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik
+          echo "=== Traefik Forward Auth Logs ==="
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik-forward-auth
+          echo "=== Dex Logs ==="
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs dex
 
       - name: Cleanup (HTTP)
         if: always()
         run: |
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             down -v
           docker system prune -f
@@ -230,18 +275,27 @@ jobs:
           cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
           cp ./workspaces/test/dtaas/config/client.js.example ./workspaces/test/dtaas/config/client.js
 
+      # Make the Dex Docker service name resolvable from the CI runner host.
+      # This is required because traefik-forward-auth redirects the browser to
+      # http://dex:5556/dex/auth?... and curl (running on the host) must be
+      # able to follow that redirect.
+      - name: Add Dex hostname to /etc/hosts
+        run: echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
+
       - name: Pull the docker images used in compose files
         run: |
           docker pull traefik:v3.6.4
           docker pull thomseddon/traefik-forward-auth:2.2.0
+          docker pull dexidp/dex:v2.41.1
           docker pull intocps/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
 
-      - name: Start Traefik and workspace services (TLS)
+      - name: Start services (with CI Dex OIDC override, TLS)
         run: |
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             up -d
           echo "⏳ Waiting for services to be ready..."
@@ -252,12 +306,14 @@ jobs:
           echo "📊 Checking service status..."
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             ps
           echo "---"
           # Check if all services are running
           SERVICES=$(docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
@@ -270,46 +326,43 @@ jobs:
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
             echo "$FAILED"
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+              -f workspaces/test/dtaas/compose.ci.tls.override.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs
             exit 1
           fi
           echo "✅ All services are running"
 
-      - name: Test HTTPS connectivity
+      # Verify traefik-forward-auth is actually enforcing auth (unrequested
+      # access should redirect to Dex, not return 200 directly).
+      - name: Verify auth is enforced (expect redirect, not 200)
         run: |
-          echo "Testing HTTPS connectivity..."
-          max_attempts=5
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            # Test HTTPS (will show cert warning but should connect)
-            response=$(curl -k -s -o /dev/null -w "%{http_code}" \
-              https://localhost/ 2>/dev/null || echo "000")
-
-            echo "Attempt $((attempt + 1))/$max_attempts - HTTPS response: $response"
-
-            # We expect 302 (redirect to OAuth) or 200
-            if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
-              echo "✅ HTTPS is working correctly"
-              break
-            fi
-
-            attempt=$((attempt + 1))
-            if [ $attempt -lt $max_attempts ]; then
-              sleep 30
-            fi
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "⚠️ HTTPS connectivity issues, checking logs..."
+          echo "Verifying that unauthenticated requests are redirected..."
+          response=$(curl -k -s -o /dev/null -w "%{http_code}" \
+            --max-redirs 0 https://localhost/user1/ 2>/dev/null || echo "000")
+          echo "Unauthenticated response code: $response"
+          if [ "$response" = "302" ] || [ "$response" = "307" ]; then
+            echo "✅ Auth middleware is active (unauthenticated -> redirect)"
+          else
+            echo "❌ Expected 302/307 redirect but got $response"
             docker compose \
               -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+              -f workspaces/test/dtaas/compose.ci.tls.override.yml \
               --env-file workspaces/test/dtaas/config/.env \
-              logs traefik
-            docker compose \
-              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-              --env-file workspaces/test/dtaas/config/.env \
-              logs traefik-forward-auth
+              logs traefik traefik-forward-auth dex
             exit 1
           fi
+
+      # Perform the full automated OAuth2 login flow over HTTPS and verify
+      # that an authenticated request reaches the workspace service (HTTP 200).
+      # The -k flag allows curl to accept the self-signed certificate.
+      - name: Test automated OAuth2 login via Dex (user1, TLS)
+        run: |
+          chmod +x workspaces/test/dtaas/scripts/ci_auth_login.sh
+          workspaces/test/dtaas/scripts/ci_auth_login.sh \
+            https://localhost user1 http://dex:5556 password "-k"
 
       - name: Test HTTP to HTTPS redirect
         run: |
@@ -329,6 +382,7 @@ jobs:
           echo "Checking Traefik logs for TLS certificate loading..."
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             logs traefik \
             | grep -i "certificate" || echo "No certificate messages in logs"
@@ -339,15 +393,25 @@ jobs:
           echo "=== Traefik Logs ==="
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             logs traefik
           echo "=== Traefik Forward Auth Logs ==="
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             logs traefik-forward-auth
+          echo "=== Dex Logs ==="
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs dex
           echo "=== User1 Logs ==="
-          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             logs user1 \
             | tail -50
@@ -357,6 +421,7 @@ jobs:
         run: |
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
             --env-file workspaces/test/dtaas/config/.env \
             down -v
           docker system prune -f

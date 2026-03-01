@@ -28,8 +28,24 @@ jobs:
 
       - name: Lint Docker Compose files
         run: |
-          # Find and lint all compose files
-          for file in $(find . -name "compose*.yaml" -o -name "compose*.yml"); do
+          # Validate standalone compose files.
+          # Skip CI overlay files (*.ci*.override.yml) – they extend a base
+          # compose file and cannot be validated in isolation.
+          for file in $(find . \( -name "compose*.yaml" -o -name "compose*.yml" \) \
+              | grep -v '\.ci.*\.override\.yml'); do
             echo "Linting $file"
             docker compose -f "$file" config --quiet
           done
+
+          # Validate CI overlay files together with their base compose files.
+          echo "Linting compose.ci.override.yml (with base)"
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            -f workspaces/test/dtaas/compose.ci.override.yml \
+            config --quiet
+
+          echo "Linting compose.ci.tls.override.yml (with base)"
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
+            config --quiet
