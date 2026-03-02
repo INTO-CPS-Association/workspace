@@ -76,7 +76,7 @@ environment:
 - Kept GitLab OAuth instructions as an alternative
 - Added link to dedicated Keycloak setup guide
 
-### 4. `KEYCLOAK_SETUP.md` (New)
+### 4. `KEYCLOAK_SETUP.md`
 
 - Comprehensive setup guide for Keycloak
 - Step-by-step configuration instructions

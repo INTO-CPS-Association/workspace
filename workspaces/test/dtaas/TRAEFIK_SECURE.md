@@ -25,7 +25,7 @@ The `compose.traefik.secure.yml` file sets up:
 ## ⚙️ Initial Configuration
 
 Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md)
-for the `compose.traefik.secure.yml` composition AND the setip instructions
+for the `compose.traefik.secure.yml` composition AND the setup instructions
 for Keycloak in [`KEYCLOAK_SETUP.md`](KEYCLOAK_SETUP.md) before building
 the workspace and running the setup.
 
@@ -172,7 +172,8 @@ specified in `.env`:
 To stop all services:
 
 ```bash
-docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env down
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+  --env-file workspaces/test/dtaas/config/.env down
 ```
 
 ## 🔧 Customization
@@ -218,6 +219,7 @@ And, setup the base structure of the persistent directories for the new user:
 
 ```bash
 cp -r workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/user3
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ### Using a Different OAuth Provider

@@ -31,14 +31,15 @@ User → Traefik → Forward Auth → Keycloak (OIDC) → Protected Service
 
 ### Step 1: Configure Environment
 ```bash
-cp dtaas/.env.example dtaas/.env
-# Edit dtaas/.env with Keycloak credentials
+cd workspaces/test/dtaas
+cp config/.env.example config/.env
+# Edit .env with Keycloak credentials
 ```
 
 ### Step 2: Start Services
 ```bash
 docker compose -f compose.traefik.secure.tls.yml build
-docker compose -f compose.traefik.secure.tls.yml --env-file dtaas/.env up -d
+docker compose -f compose.traefik.secure.tls.yml --env-file config/.env up -d
 ```
 
 ### Step 3: Setup Keycloak (First Time Only)

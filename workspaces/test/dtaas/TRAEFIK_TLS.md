@@ -203,6 +203,7 @@ Don't forget to create the user's directory:
 
 ```bash
 cp -r ./workspaces/test/dtaas/files/user1 ./workspaces/test/dtaas/files/user3
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ### Using Different OAuth2 Providers
