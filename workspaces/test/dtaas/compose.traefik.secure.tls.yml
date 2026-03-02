@@ -21,11 +21,10 @@ services:
       - "./dynamic/tls.yml:/etc/traefik/tls.yml"
       - "./certs:/etc/traefik-certs"
     networks:
-      - frontend
-      - users
-    depends_on:
-      keycloak:
-        condition: service_healthy
+      frontend:
+        aliases:
+          - "${SERVER_DNS:-localhost}"
+      users:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.7
@@ -78,7 +77,7 @@ services:
       - frontend
 
   user1:
-    image: workspace:latest
+    image: intocps/workspace:latest
     restart: unless-stopped
     build:
       context: ../..
@@ -87,7 +86,7 @@ services:
       - MAIN_USER=${USERNAME1:-user1}
     volumes:
       - "./files/common:/workspace/common"
-      - "./files/user1:/workspace"
+      - "./files/${USERNAME1:-user1}:/workspace"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.u1.entryPoints=web-secure"
@@ -102,7 +101,7 @@ services:
     restart: unless-stopped
     volumes:
       - "./files/common:/workspace/common"
-      - "./files/user2:/workspace"
+      - "./files/${USERNAME2:-user2}:/workspace"
     environment:
       - AUTHENTICATE_VIA_JUPYTER=
       - WORKSPACE_BASE_URL=${USERNAME2:-user2}
@@ -117,14 +116,14 @@ services:
 
 
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:2.2.0
+    image: thomseddon/traefik-forward-auth:latest
     restart: unless-stopped
     volumes:
       - "./config/conf:/conf"
     environment:
       - LOG_LEVEL=trace
       - DEFAULT_PROVIDER=oidc
-      - PROVIDERS_OIDC_ISSUER_URL=${KEYCLOAK_ISSUER_URL:-https://${SERVER_DNS:-localhost}/auth/realms/${KEYCLOAK_REALM:-dtaas}}
+      - PROVIDERS_OIDC_ISSUER_URL=${KEYCLOAK_ISSUER_URL:-http://keycloak:8080/auth/realms/${KEYCLOAK_REALM:-dtaas}}
       - PROVIDERS_OIDC_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
       - PROVIDERS_OIDC_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
       - SECRET=${OAUTH_SECRET}
@@ -133,9 +132,6 @@ services:
       - AUTH_HOST=${SERVER_DNS:-localhost}
       - COOKIE_DOMAIN=${SERVER_DNS:-localhost}
       - URL_PATH=/_oauth
-      - INSECURE_SKIP_VERIFY=true
-    extra_hosts:
-      - "${SERVER_DNS:-localhost}:host-gateway"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.redirect.entryPoints=web-secure"
@@ -148,8 +144,7 @@ services:
       - frontend
       - users
     depends_on:
-      keycloak:
-        condition: service_healthy
+      - keycloak
 
 networks:
   frontend:
