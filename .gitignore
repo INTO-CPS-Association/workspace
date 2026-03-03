@@ -85,6 +85,10 @@ workspaces/test/dtaas/certs/**
 !workspaces/test/dtaas/certs/Dockerfile
 !workspaces/test/dtaas/certs/README.md
 
+# ignore config of workspace admin
+workspaces/src/admin/config.env
+
+
 # temp files for workspace
 .workspace
 

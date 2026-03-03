@@ -68,12 +68,12 @@ sudo chown -R 1000:100 workspaces/test/dtaas/files
 To start all services for a single user:
 
 ```bash
+cd workspaces/test/dtaas
 # run the compose file without environment variables
-docker compose -f workspaces/test/dtaas/compose.yml up -d
+docker compose -f compose.yml up -d
 
 # run the compose file with environment variables
-docker compose -f workspaces/test/dtaas/compose.yml \
-  --env-file workspaces/test/dtaas/config/.env up -d
+docker compose -f compose.yml --env-file config/.env up -d
 ```
 
 This will start the workspace of single user.
@@ -153,4 +153,4 @@ docker compose -f workspaces/test/dtaas/compose.yml --env-file workspaces/test/d
 ⚠️ **Important**: This configuration is designed for development and testing,
 and should not be reconfigured to be exposed to the internet.
 
-For setting up a composition that can be exposed to the internet, see [TRAEFIK_TLS.md](./TRAEFIK_TLS.md).
+For setting up a composition that can be exposed to the internet, see [TRAEFIK_TLS.md](TRAEFIK_TLS.md).

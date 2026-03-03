@@ -203,6 +203,7 @@ Don't forget to create the user's directory:
 
 ```bash
 cp -r ./workspaces/test/dtaas/files/user1 ./workspaces/test/dtaas/files/user3
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ### Using Different OAuth2 Providers
@@ -291,13 +292,13 @@ environment:
 
 ### HTTP-Only with OAuth2 (Development)
 
-For development environments where TLS is not required, see [`TRAEFIK_SECURE.md`](./TRAEFIK_SECURE.md).
+For development environments where TLS is not required, see [`TRAEFIK_SECURE.md`](TRAEFIK_SECURE.md).
 
 This provides OAuth2 authentication without TLS encryption.
 
 ### Basic Traefik (No Auth, No TLS)
 
-For local development without authentication or encryption, see [`TRAEFIK.md`](./TRAEFIK.md).
+For local development without authentication or encryption, see [`TRAEFIK.md`](TRAEFIK.md).
 
 ### Standalone Workspace (Single User)
 

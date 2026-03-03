@@ -8,24 +8,28 @@ assume that you are in the `workspaces/test/dtaas/` directory.
 - `compose.yml`:
   - [Environment](#-environment)
   - [Usernames](#-usernames)
+  - [User Directories](#-user-directories)
 - `compose.traefik.yml`:
   - [Environment](#-environment)
   - [Usernames](#-usernames)
+  - [User Directories](#-user-directories)
 - `compose.traefik.secure.yml`:
   - [Environment](#-environment)
   - [Usernames](#-usernames)
+  - [User Directories](#-user-directories)
   - [Domain](#-domain)
   - [Protocol - HTTP](#-http)
   - [Web Client](#️-dtaas-web-client-config)
-  - [OAuth2](#-oauth2-configuration-with-gitlab)
+  - [OAuth2](#-oauth2-configuration)
   - [Forward Auth](#-traefik-forward-auth-configuration)
 - `compose.traefik.secure.tls.yml`:
   - [Environment](#-environment)
   - [Usernames](#-usernames)
+  - [User Directories](#-user-directories)
   - [Domain - Remote](#️-remote-testing)
   - [Protocol - HTTPS](#-https)
   - [Web Client](#️-dtaas-web-client-config)
-  - [OAuth2](#-oauth2-configuration-with-gitlab)
+  - [OAuth2](#-oauth2-configuration)
   - [Forward Auth](#-traefik-forward-auth-configuration)
 
 ## 🌍 Environment
@@ -56,6 +60,13 @@ USERNAME2=user2
 
 **NOTE:** If the composition also needs forward auth, then these
 usernames must match the names of the gitlab users used in the forward auth.
+
+## 📁 User Directories
+
+The compose files need user directories in `files`.
+Copy existing `user1` directory and paste as two new directories
+with usernames selected for your case. These usernames are mentioned as
+`USERNAME1` and `USERNAME2` in the docker compose files.
 
 ## 🌐 Domain
 
@@ -132,19 +143,32 @@ cp config/client.js.example config/client.js
 
 Then, edit the new DTaaS Web Client config file, updating the following values:
 
-```js
-if (typeof window !== 'undefined') {
-  window.env = {
-...
-   REACT_APP_URL: '<PROTOCOL>://<DOMAIN_NAME>/',
-...
-   REACT_APP_REDIRECT_URI: '<PROTOCOL>://<DOMAIN_NAME>/Library',
-...
-  };
-}
+### 🔑🖥️ Client OAuth2 Setup
+
+In addition, the DTaaS web client uses OAuth2 authorization as well.
+It needs a client application.
+The following steps explain creation of Client OAuth2 application
+on a Gitlab installation.
+
+1. Go to your GitLab instance → Edit Profile Settings → Applications
+2. Create a new OAuth App with:
+   - **Application name**: DTaaS Workspace
+   - **Homepage URL**: `https://yourdomain.com`
+   - **Authorization callback URL**: `https://yourdomain.com/Library`
+   - **Scopes**: `openid`, `profile`, `read_user`, `read_repository`, `api`
+3. Save the **Client ID**
+
+Create and update the DTaaS web client configuration.
+
+```bash
+cp dtaas/client.js.example dtaas/client.js
 ```
 
-## 🔑 OAuth2 Configuration with GitLab
+Update the `REACT_APP_CLIENT_ID` with the **Client ID** generated above
+and `REACT_APP_AUTH_AUTHORITY` with URL of your GitLab instance, for example
+`https://gitlab.com`.
+
+## 🔑 OAuth2 Configuration
 
 Both this composition and the contained DTaaS Web Client uses
 OAuth2 for authentication. You'll need to configure an OAuth2 apllication
@@ -152,15 +176,62 @@ for each, with your OAuth2 provider. This guide assumes that you use
 Gitlab as your provider; other providers are possible but are not covered
 by this guide.
 
-### 🔑🚪 Forward Auth OAuth2 setup
+### 🎯 Keycloak Authentication Setup (Recommended)
+
+The default configuration for `compose.traefik.secure.yml` and
+`compose.traefik.secure.yml` now use **Keycloak**
+for authentication via OIDC (OpenID Connect). Keycloak provides a robust, 
+enterprise-grade identity and access management solution.
+
+**For detailed Keycloak setup instructions, see [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md)**
+
+Quick overview:
+1. Start services with `docker compose -f compose.traefik.secure.yml up -d`
+2. Access Keycloak at `http://localhost/auth`
+3. Create a realm and OIDC client
+4. Create users in Keycloak
+5. Update `.env` with client credentials
+
+
+#### Configure Environment Variables
+
+1. **For Keycloak (default)**, edit `config/.env` and fill in your Keycloak credentials:
+
+   ```bash
+   # Keycloak Admin Credentials
+   KEYCLOAK_ADMIN=admin
+   KEYCLOAK_ADMIN_PASSWORD=changeme
+
+   # Keycloak Realm
+   KEYCLOAK_REALM=dtaas
+
+   # Keycloak Client Credentials (obtain from Keycloak after creating client)
+   KEYCLOAK_CLIENT_ID=dtaas-workspace
+   KEYCLOAK_CLIENT_SECRET=your_client_secret_here
+
+   # Keycloak Issuer URL
+   KEYCLOAK_ISSUER_URL=http://keycloak:8080/auth/realms/dtaas
+
+   # Secret key for encrypting OAuth session data
+   # Generate a random string (at least 16 characters)
+   OAUTH_SECRET=$(openssl rand -base64 32)
+   ```
+
+### 🔄 GitLab OAuth2 Configuration (Legacy/Alternative)
+
+If you prefer to use GitLab instead of Keycloak, you can modify the 
+`traefik-forward-auth` service configuration in the compose file.
 
 1. Go to your GitLab instance → Profile Settings → Applications
 2. Create a new application with:
    - **Name**: DTaaS Workspace
-   - **Redirect URI**: `<PROTOCOL>://<DOMAIN_NAME>/_oauth`
+   - **Redirect URI**: `https://yourdomain.com/_oauth`
    - **Confidential**: Ticked
-   - **Scopes**: `read_user`
-3. Update the environment file, [`config/.env`](./config/.env),
+   - **Scopes**: `read_user`, `read_email`
+
+#### Configure Environment Variables
+
+Update the environment file, [`config/.env`](./config/.env),
    with the **Application ID** and **Secret**:
 
    ```bash
@@ -190,27 +261,6 @@ by this guide.
    # Example: openssl rand -base64 32
    OAUTH_SECRET=<RANDOM_STRIN>
    ...
-   ```
-
-### 🔑🖥️ DTaaS Web Client OAuth2 Setup
-
-1. Go to your GitLab instance → Profile Settings → Applications
-2. Create a new application with:
-   - **Name**: DTaaS Web Client
-   - **Redirect URI**: `<PROTOCOL>://<DOMAIN_NAME>/Library`
-   - **Confidential**: **Un**ticked
-   - **Scopes**: `api`, `read_user`, `read_repository`, `openid`, `profile`
-3. Update the DTaaS Web Client config file, [`config/client.js`](./config/client.js),
-   with the **Application ID**:
-
-   ```js
-   if (typeof window !== 'undefined') {
-     window.env = {
-   ...
-      REACT_APP_CLIENT_ID: '<APPLICATION_ID>',
-   ...
-     };
-   }
    ```
 
 ## 🚪 Traefik Forward Auth Configuration
