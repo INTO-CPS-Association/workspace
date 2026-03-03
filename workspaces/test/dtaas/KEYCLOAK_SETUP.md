@@ -62,24 +62,28 @@ USERNAME2=user2
 
 ### 2. Start Services
 
-Build and start all services:
+The `keycloak` service is in [secure traefik](TRAEFIK_SECURE.md) and
+[secure Traefik with TLS](TRAEFIK_TLS.md) deployments.
+
+Start all services:
 
 ```bash
-docker compose -f compose.traefik.secure.tls.yml build
-docker compose -f compose.traefik.secure.tls.yml --env-file config/.env up -d
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env up -d
+# or
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env up -d
 ```
 
 ### 3. Configure Keycloak
 
 #### Access Keycloak Admin Console
 
-1. Navigate to `https://foo.com/auth`
+1. Navigate to `https://<SERVER_DNS>/auth`
 2. Click **Administration Console**
 3. Login with credentials from your `.env` file (default: `admin` / `admin`)
 
 #### Create a Realm
 
-1. In the top-left dropdown (currently showing "Master"), click **Create Realm**  
+1. In the top-left dropdown (currently showing "Master"), click **Create Realm**
 2. **Realm name**: `dtaas` (or match your `KEYCLOAK_REALM` in `.env`)  
 3. Click **Create**
 
@@ -132,8 +136,9 @@ docker compose -f compose.traefik.secure.tls.yml --env-file config/.env up -d
 After configuring Keycloak, restart the services to apply the new client secret:
 
 ```bash
-docker compose -f compose.traefik.secure.tls.yml --env-file config/.env down
-docker compose -f compose.traefik.secure.tls.yml --env-file config/.env up -d
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env up -d --force-recreate traefik-forward-auth
+# or
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env up -d  --force-recreate traefik-forward-auth
 ```
 
 ### 5. Test Authentication

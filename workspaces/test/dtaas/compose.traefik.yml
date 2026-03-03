@@ -36,7 +36,7 @@ services:
     environment:
       - MAIN_USER=${USERNAME1:-user1}
     volumes:
-      - ./files/user1:/workspace
+      - ./files/${USERNAME1:-user1}:/workspace
       - ./files/common:/workspace/common
     shm_size: 512m
     labels:

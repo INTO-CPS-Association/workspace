@@ -67,7 +67,8 @@ This will:
 After starting the services, you need to configure Keycloak. See [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) for detailed instructions.
 
 Quick steps:
-1. **Disable SSL requirement** on the new realm (see below)
+
+1. For non-`localhost` scenarios, **Disable SSL requirement** on the new realm (see below)
 2. Access Keycloak at `http://<SERVER_DNS>/auth`
 3. Login with admin credentials from `.env`
 4. Create a realm named `dtaas` (or match your `KEYCLOAK_REALM`)
