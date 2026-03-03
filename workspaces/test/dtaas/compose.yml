@@ -1,6 +1,10 @@
+# ⚠️ DEVELOPMENT ONLY - INSECURE CONFIGURATION ⚠️
+# This configuration runs single-user workspace in HTTP mode for development/testing.
+# For production deployments with TLS/HTTPS, use compose.traefik.secure.tls.yml instead.
+
 services:
   workspace:
-    image: workspace:latest
+    image: intocps/workspace:latest
     container_name: workspace
     build:
       context: ../..

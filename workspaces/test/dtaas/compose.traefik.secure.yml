@@ -1,8 +1,9 @@
 # ⚠️ DEVELOPMENT ONLY - INSECURE CONFIGURATION ⚠️
+# This configuration uses Traefik for multi-user scenario. The traefik forward-auth is used for user authorization.
 # This configuration uses HTTP (not HTTPS) and insecure flags for development/testing.
 # For production deployments with TLS/HTTPS, use compose.traefik.secure.tls.yml instead.
 
-name: workspace-traefik-secure
+name: dtaas
 
 services:
   traefik:
@@ -39,8 +40,8 @@ services:
     environment:
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      - KC_HOSTNAME=${SERVER_DNS:-localhost}
-      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_URL=http://${SERVER_DNS:-localhost}/auth  # DEV ONLY - use https in production
+      - KC_HOSTNAME_ADMIN_URL=http://${SERVER_DNS:-localhost}/auth  # DEV ONLY
       - KC_HTTP_ENABLED=true  # DEV ONLY - use HTTPS in production
       - KC_PROXY_HEADERS=xforwarded  # Enable proxy headers for Traefik
       - KC_HTTP_RELATIVE_PATH=/auth
@@ -90,7 +91,7 @@ services:
       - frontend
       - users
     depends_on:
-      - keycloak:
+      - keycloak
 
   client:
     image: intocps/dtaas-web:new-workspace
@@ -107,7 +108,7 @@ services:
       - frontend
 
   user1:
-    image: workspace:latest
+    image: intocps/workspace:latest
     restart: unless-stopped
     build:
       context: ../..

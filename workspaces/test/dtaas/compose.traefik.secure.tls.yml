@@ -1,3 +1,8 @@
+# Production-ready Traefik configuration with TLS/HTTPS for secure deployments of the DTAAS workspace.
+# This configuration is intended for production use with TLS/HTTPS. For development/testing, use compose.traefik.secure.yml instead.
+
+name: dtaas
+
 services:
   traefik:
     image: traefik:v3.6.4

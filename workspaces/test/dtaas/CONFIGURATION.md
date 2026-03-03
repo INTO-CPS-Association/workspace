@@ -178,7 +178,8 @@ by this guide.
 
 ### 🎯 Keycloak Authentication Setup (Recommended)
 
-The default configuration for `compose.traefik.secure.yml` now uses **Keycloak** 
+The default configuration for `compose.traefik.secure.yml` and
+`compose.traefik.secure.yml` now use **Keycloak**
 for authentication via OIDC (OpenID Connect). Keycloak provides a robust, 
 enterprise-grade identity and access management solution.
 
