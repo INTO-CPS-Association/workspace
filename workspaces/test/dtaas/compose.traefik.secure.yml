@@ -93,7 +93,7 @@ services:
       - keycloak:
 
   client:
-    image: intocps/dtaas-web:latest
+    image: intocps/dtaas-web:new-workspace
     restart: unless-stopped
     volumes:
       - ./config/client.js:/dtaas/client/build/env.js
