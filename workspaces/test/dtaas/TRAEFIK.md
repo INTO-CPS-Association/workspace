@@ -60,6 +60,8 @@ Once all services are running, access the workspaces through Traefik:
 ### User1 Workspace (workspace)
 
 - **VNC Desktop**: `http://localhost/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify`
+- **VNC Desktop (ml-workspace compatible)**: `http://localhost/user1/tools/vnc/`
+  (redirects to the URL above; any query parameters such as `?password=vncpassword` are dropped)
 - **VS Code**: `http://localhost/user1/tools/vscode`
 - **Jupyter Notebook**: `http://localhost/user1`
 - **Jupyter Lab**: `http://localhost/user1/lab`
