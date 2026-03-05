@@ -2,6 +2,23 @@
 
 The main changes made so far are listed here.
 
+## Week of 03-Mar-2026
+
+### Changed
+
+* GitHub Actions build cache optimised to reduce execution time on repeated runs
+  * Added GHCR registry cache (`type=registry`) alongside GitHub Actions cache
+    (`type=gha`) in all Docker build workflows for persistent cross-run
+    and cross-workflow layer caching
+  * Extracted a dedicated `build-workspace-image` job in
+    `traefik-secure-test.yml` so the workspace image is built once per
+    architecture and reused by both `test-traefik-secure` and
+    `test-traefik-secure-tls`, eliminating four redundant builds per run
+  * Test jobs now use read-only cache (`cache-from` only) after the build
+    job has populated the cache, further reducing write contention
+  * Fixed inconsistent `docker/setup-buildx-action` version in
+    `test-traefik-secure-tls` (updated from v3.11.1 to v3.12.0)
+
 ## Week of 10-Feb-2026
 
 ### Added
