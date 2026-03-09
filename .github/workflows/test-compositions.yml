@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   validate-compose:
-    name: Validate Secure Compose Files
+    name: Validate Compositions
     runs-on: ubuntu-latest
     permissions:
       contents: read
