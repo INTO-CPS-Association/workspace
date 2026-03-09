@@ -135,6 +135,8 @@ jobs:
           cache-from: |
             type=gha
             type=registry,ref=${{ steps.cache-ref.outputs.ref }}
+
+      - name: Pull the docker images used in compose files
         run: |
           docker pull traefik:v3.6.4
           docker pull thomseddon/traefik-forward-auth:2.2.0

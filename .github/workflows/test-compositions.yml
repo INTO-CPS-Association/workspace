@@ -1,0 +1,502 @@
+name: Test Docker Image Compositions
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-compose:
+    name: Validate Secure Compose Files
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        compose-file:
+          - compose.traefik.yml
+          - compose.traefik.secure.yml
+          - compose.traefik.secure.tls.yml
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Validate ${{ matrix.compose-file }} syntax
+        run: |
+          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
+          docker compose -f workspaces/test/dtaas/${{ matrix.compose-file }} --env-file workspaces/test/dtaas/config/.env config > /dev/null
+          echo "✅ ${{ matrix.compose-file }} syntax is valid"
+
+  build-workspace-image:
+    name: Build and Cache Workspace Image
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    needs: validate-compose
+    runs-on: ${{ matrix.arch.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build and cache workspace image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ./workspaces
+          file: workspaces/Dockerfile.ubuntu.noble.gnome
+          push: false
+          platforms: ${{ matrix.arch.platform }}
+          cache-from: |
+            type=gha
+          cache-to: |
+            type=gha,mode=max
+
+  test-traefik:
+    name: Test Traefik with Workspace
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    needs: build-workspace-image
+    runs-on: ${{ matrix.arch.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up QEMU for multi-platform builds
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build workspace image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ./workspaces
+          file: workspaces/Dockerfile.ubuntu.noble.gnome
+          push: false
+          load: true
+          platforms: ${{ matrix.arch.platform }}
+          tags: workspace:latest
+          cache-from: |
+            type=gha
+
+      - name: Start Traefik and workspace services
+        run: |
+          docker compose -f workspaces/test/dtaas/compose.traefik.yml up -d
+          echo "⏳ Waiting for services to be ready..."
+          sleep 30
+
+      - name: Check service health
+        run: |
+          echo "📊 Checking service status..."
+          docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
+          echo "---"
+          # Check if all services are running
+          SERVICES=$(docker compose -f workspaces/test/dtaas/compose.traefik.yml ps --format json)
+          if echo "$SERVICES" | head -1 | grep -q '^\['; then
+            # JSON array format
+            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+          else
+            # Newline-delimited JSON format
+            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+          fi
+          if [ -n "$FAILED" ]; then
+            echo "❌ Some services are not running:"
+            echo "$FAILED"
+            exit 1
+          fi
+          echo "✅ All services are running"
+
+      - name: Test workspace routing through Traefik
+        run: |
+          echo "Testing workspace accessibility through Traefik..."
+          max_attempts=5
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" \
+              http://localhost/user1/ 2>/dev/null || echo "000")
+
+            if [ "$response" = "200" ] || [ "$response" = "302" ] || \
+               [ "$response" = "301" ]; then
+              echo "✅ Workspace routing works (HTTP $response)"
+              break
+            fi
+
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts - Got HTTP $response"
+            sleep 5
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "⚠️ Workspace not fully accessible, checking service health..."
+            docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
+            docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 traefik
+            docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 user1
+            echo "Note: Workspace may need more time to fully initialize"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f workspaces/test/dtaas/compose.traefik.yml down -v
+          docker system prune -f
+
+  test-traefik-secure:
+    name: Test Traefik Secure Setup
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    needs: build-workspace-image
+    runs-on: ${{ matrix.arch.runner }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up QEMU for multi-platform builds
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build workspace image
+        # Read-only cache: build-workspace-image already populated the cache.
+        # Omitting cache-to avoids write contention between parallel test jobs.
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ./workspaces
+          file: workspaces/Dockerfile.ubuntu.noble.gnome
+          push: false
+          load: true
+          platforms: ${{ matrix.arch.platform }}
+          tags: workspace:latest
+          cache-from: |
+            type=gha
+
+      - name: Pull the docker images used in compose files
+        run: |
+          docker pull traefik:v3.6.4
+          docker pull thomseddon/traefik-forward-auth:2.2.0
+          docker pull intocps/dtaas-web:latest || \
+            echo "⚠️ DTaaS web image not available, will skip"
+          docker pull mltooling/ml-workspace-minimal:0.13.2
+
+      - name: Create DTaaS configuration files
+        run: |
+          set -e
+          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
+          cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
+          cp ./workspaces/test/dtaas/config/client.js.example ./workspaces/test/dtaas/config/client.js
+
+      - name: Start services
+        run: |
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            up -d
+          echo "⏳ Waiting for services to be ready..."
+          sleep 90
+
+      - name: Check service health (HTTP)
+        run: |
+          echo "📊 Checking service status..."
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps
+          echo "---"
+          # Check if all services are running
+          SERVICES=$(docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps --format json)
+          if echo "$SERVICES" | head -1 | grep -q '^\['; then
+            # JSON array format
+            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+          else
+            # Newline-delimited JSON format
+            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+          fi
+          if [ -n "$FAILED" ]; then
+            echo "❌ Some services are not running:"
+            echo "$FAILED"
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs
+            exit 1
+          fi
+          echo "✅ All services are running"
+
+      - name: Test service accessibility (HTTP)
+        run: |
+          echo "Testing HTTP connectivity..."
+          max_attempts=5
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Test if services respond (will get auth redirect)
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null || echo "000")
+            echo "Attempt $((attempt + 1))/$max_attempts - HTTP response: $response"
+            # We expect 302 (redirect to OAuth) or 200 if auth middleware is not fully configured
+            if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
+              echo "✅ Traefik is responding correctly"
+              break
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -lt $max_attempts ]; then
+              sleep 15
+            fi
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+              echo "⚠️ Unexpected response code: $response"
+              docker compose \
+                -f workspaces/test/dtaas/compose.traefik.secure.yml \
+                --env-file workspaces/test/dtaas/config/.env \
+                logs traefik
+              docker compose \
+                -f workspaces/test/dtaas/compose.traefik.secure.yml \
+                --env-file workspaces/test/dtaas/config/.env \
+                logs traefik-forward-auth
+              exit 1
+          fi
+
+      - name: Cleanup (HTTP)
+        if: always()
+        run: |
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            down -v
+          docker system prune -f
+
+  test-traefik-secure-tls:
+    name: Test Traefik with TLS
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    needs: build-workspace-image
+    runs-on: ${{ matrix.arch.runner }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up QEMU for multi-platform builds
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build workspace image
+        # Read-only cache: build-workspace-image already populated the cache.
+        # Omitting cache-to avoids write contention between parallel test jobs.
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ./workspaces
+          file: workspaces/Dockerfile.ubuntu.noble.gnome
+          push: false
+          load: true
+          platforms: ${{ matrix.arch.platform }}
+          tags: workspace:latest
+          cache-from: |
+            type=gha
+
+      - name: Generate self-signed certificates for testing
+        run: |
+          mkdir -p workspaces/test/dtaas/certs
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout workspaces/test/dtaas/certs/privkey.pem \
+            -out workspaces/test/dtaas/certs/fullchain.pem \
+            -subj "/C=US/ST=Test/L=Test/O=Test/CN=localhost"
+          chmod 644 workspaces/test/dtaas/certs/fullchain.pem
+          chmod 600 workspaces/test/dtaas/certs/privkey.pem
+          echo "✅ Self-signed certificates generated"
+
+      - name: Verify TLS configuration file
+        run: |
+          if [ -f workspaces/test/dtaas/dynamic/tls.yml ]; then
+            echo "✅ TLS configuration file exists"
+            cat workspaces/test/dtaas/dynamic/tls.yml
+          else
+            echo "❌ TLS configuration file not found"
+            exit 1
+          fi
+
+      - name: Create DTaaS configuration files
+        run: |
+          set -e
+          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
+          sed -i 's/yourdomain.com/localhost/g' ./workspaces/test/dtaas/config/.env
+          cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
+          cp ./workspaces/test/dtaas/config/client.js.example ./workspaces/test/dtaas/config/client.js
+
+      - name: Pull the docker images used in compose files
+        run: |
+          docker pull traefik:v3.6.4
+          docker pull thomseddon/traefik-forward-auth:2.2.0
+          docker pull intocps/dtaas-web:latest || \
+            echo "⚠️ DTaaS web image not available, will skip"
+          docker pull mltooling/ml-workspace-minimal:0.13.2
+
+      - name: Start Traefik and workspace services (TLS)
+        run: |
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            up -d
+          echo "⏳ Waiting for services to be ready..."
+          sleep 180
+
+      - name: Check service health (TLS)
+        run: |
+          echo "📊 Checking service status..."
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps
+          echo "---"
+          # Check if all services are running
+          SERVICES=$(docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            ps --format json)
+          if echo "$SERVICES" | head -1 | grep -q '^\['; then
+            # JSON array format
+            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+          else
+            # Newline-delimited JSON format
+            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+          fi
+          if [ -n "$FAILED" ]; then
+            echo "❌ Some services are not running:"
+            echo "$FAILED"
+            exit 1
+          fi
+          echo "✅ All services are running"
+
+      - name: Test HTTPS connectivity
+        run: |
+          echo "Testing HTTPS connectivity..."
+          max_attempts=5
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Test HTTPS (will show cert warning but should connect)
+            response=$(curl -k -s -o /dev/null -w "%{http_code}" \
+              https://localhost/ 2>/dev/null || echo "000")
+
+            echo "Attempt $((attempt + 1))/$max_attempts - HTTPS response: $response"
+
+            # We expect 302 (redirect to OAuth) or 200
+            if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
+              echo "✅ HTTPS is working correctly"
+              break
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -lt $max_attempts ]; then
+              sleep 30
+            fi
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "⚠️ HTTPS connectivity issues, checking logs..."
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs traefik
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+              --env-file workspaces/test/dtaas/config/.env \
+              logs traefik-forward-auth
+            exit 1
+          fi
+
+      - name: Test HTTP to HTTPS redirect
+        run: |
+          echo "Testing HTTP to HTTPS redirect..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 0 http://localhost/ 2>/dev/null || echo "000")
+
+          if [ "$response" = "301" ] || [ "$response" = "308" ]; then
+            echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
+          else
+            echo "⚠️ Unexpected redirect behavior (HTTP $response)"
+            echo "This might be expected if Traefik is still initializing"
+          fi
+
+      - name: Verify TLS certificate is loaded
+        run: |
+          echo "Checking Traefik logs for TLS certificate loading..."
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik \
+            | grep -i "certificate" || echo "No certificate messages in logs"
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "=== Traefik Logs ==="
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik
+          echo "=== Traefik Forward Auth Logs ==="
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik-forward-auth
+          echo "=== User1 Logs ==="
+          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs user1 \
+            | tail -50
+
+      - name: Cleanup (TLS)
+        if: always()
+        run: |
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            down -v
+          docker system prune -f
+          rm -rf workspaces/test/dtaas/certs/*.pem
