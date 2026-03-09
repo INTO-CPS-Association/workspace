@@ -6,8 +6,7 @@ on:
       # the workflow names must match exactly with those in the required workflow files
       - "Dockerfile Lint"
       - "Lint Scripts"
-      - "Test Traefik Configuration"
-      - "Test Traefik OAuth2 and TLS Configuration"
+      - "Test Docker Image Compositions"
     types:
       - completed
     branches:
