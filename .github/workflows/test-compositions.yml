@@ -225,7 +225,7 @@ jobs:
             --env-file workspaces/test/dtaas/config/.env \
             up -d
           echo "⏳ Waiting for services to be ready..."
-          sleep 90
+          sleep 30
 
       - name: Check service health (HTTP)
         run: |
@@ -384,7 +384,7 @@ jobs:
             --env-file workspaces/test/dtaas/config/.env \
             up -d
           echo "⏳ Waiting for services to be ready..."
-          sleep 180
+          sleep 30
 
       - name: Check service health (TLS)
         run: |
