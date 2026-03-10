@@ -1,3 +1,8 @@
+# Production-ready Traefik configuration with TLS/HTTPS for secure deployments of the DTAAS workspace.
+# This configuration is intended for production use with TLS/HTTPS. For development/testing, use compose.traefik.secure.yml instead.
+
+name: dtaas
+
 services:
   traefik:
     image: traefik:v3.6.4
@@ -60,7 +65,7 @@ services:
       - users
 
   client:
-    image: intocps/dtaas-web:latest
+    image: intocps/dtaas-web:new-workspace
     restart: unless-stopped
     volumes:
       - "./config/client.js:/dtaas/client/build/env.js"
@@ -115,7 +120,10 @@ services:
 
   traefik-forward-auth:
     image: thomseddon/traefik-forward-auth:latest
+    #image: traefik-forward-auth-local:latest
     restart: unless-stopped
+    extra_hosts:
+      - "localhost:host-gateway"  # Resolve localhost to Docker host so OIDC discovery reaches Traefik on port 443
     volumes:
       - "./config/conf:/conf"
     environment:

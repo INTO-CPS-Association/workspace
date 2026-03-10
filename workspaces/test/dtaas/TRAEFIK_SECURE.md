@@ -25,7 +25,7 @@ The `compose.traefik.secure.yml` file sets up:
 ## ⚙️ Initial Configuration
 
 Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md)
-for the `compose.traefik.secure.yml` composition AND the setip instructions
+for the `compose.traefik.secure.yml` composition AND the setup instructions
 for Keycloak in [`KEYCLOAK_SETUP.md`](KEYCLOAK_SETUP.md) before building
 the workspace and running the setup.
 
@@ -67,13 +67,47 @@ This will:
 After starting the services, you need to configure Keycloak. See [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) for detailed instructions.
 
 Quick steps:
-1. Access Keycloak at `http://foo.com/auth`
-2. Login with admin credentials from `.env`
-3. Create a realm named `dtaas` (or match your `KEYCLOAK_REALM`)
-4. Create an OIDC client named `dtaas-workspace`
-5. Create users in Keycloak
-6. Update `.env` with the client secret
-7. Restart services
+
+1. For non-`localhost` scenarios, **Disable SSL requirement** on the new realm (see below)
+2. Access Keycloak at `http://<SERVER_DNS>/auth`
+3. Login with admin credentials from `.env`
+4. Create a realm named `dtaas` (or match your `KEYCLOAK_REALM`)
+5. Create an OIDC client named `dtaas-workspace`
+6. Create users in Keycloak
+7. Update `.env` with the client secret
+8. Restart services
+
+### Disable Realm SSL Requirement (HTTP only)
+
+Keycloak defaults all realms to `sslRequired=external`, which rejects HTTP
+requests arriving from non-localhost addresses. Since this composition runs
+over plain HTTP behind Traefik, you must disable the SSL requirement for
+the **master** realm and any new realm you create.
+
+Using the Keycloak CLI inside the container:
+
+```bash
+# Authenticate to the Keycloak admin CLI
+docker exec dtaas-keycloak-1 /opt/keycloak/bin/kcadm.sh \
+  config credentials --server http://localhost:8080/auth \
+  --realm master --user <KEYCLOAK_ADMIN> --password <KEYCLOAK_ADMIN_PASSWORD>
+
+# Disable SSL on the master realm
+docker exec dtaas-keycloak-1 /opt/keycloak/bin/kcadm.sh \
+  update realms/master -s sslRequired=NONE
+
+# Disable SSL on the dtaas realm (after creating it)
+docker exec dtaas-keycloak-1 /opt/keycloak/bin/kcadm.sh \
+  update realms/dtaas -s sslRequired=NONE
+```
+
+Replace `<KEYCLOAK_ADMIN>` and `<KEYCLOAK_ADMIN_PASSWORD>` with the values
+from your `.env` file.
+
+Alternatively, you can do this via the Keycloak Admin Console:
+1. Go to **Realm Settings** → **General**
+2. Set **Require SSL** to **None**
+3. Save. Repeat for each realm.
 
 ## :technologist: Accessing Workspaces
 
@@ -172,7 +206,8 @@ specified in `.env`:
 To stop all services:
 
 ```bash
-docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env down
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+  --env-file workspaces/test/dtaas/config/.env down
 ```
 
 ## 🔧 Customization
@@ -218,6 +253,7 @@ And, setup the base structure of the persistent directories for the new user:
 
 ```bash
 cp -r workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/user3
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ### Using a Different OAuth Provider
@@ -271,20 +307,41 @@ and uses some insecure settings:
 - No TLS/HTTPS encryption
 - Debug logging enabled
 
-For setting up a composition that includes TLS/HTTPS, see [TRAEFIK_TLS.md](./TRAEFIK_TLS.md).
+For setting up a composition that includes TLS/HTTPS, see [TRAEFIK_TLS.md](TRAEFIK_TLS.md).
 
 ## 🔍 Troubleshooting
+
+### Keycloak "HTTPS Required" Error
+
+If Keycloak displays "We are sorry... HTTPS required" when accessed via HTTP:
+
+1. This is caused by the per-realm `sslRequired` setting (defaults to `external`),
+   which rejects HTTP from non-localhost clients
+2. Fix it by disabling SSL requirement on the affected realm(s) — see
+   [Disable Realm SSL Requirement](#disable-realm-ssl-requirement-http-only) above
+3. If you previously ran the TLS composition (`compose.traefik.secure.tls.yml`),
+   the `keycloak-data` volume may retain old SSL settings. Remove it and restart:
+   ```bash
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+     --env-file workspaces/test/dtaas/config/.env down
+   docker volume rm dtaas_keycloak-data
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+     --env-file workspaces/test/dtaas/config/.env up -d
+   ```
+   Then re-apply the SSL disable steps after Keycloak starts.
 
 ### Keycloak Not Accessible
 
 1. Check Keycloak is running:
    ```bash
-   docker compose -f compose.traefik.secure.yml ps keycloak
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+     --env-file workspaces/test/dtaas/config/.env ps keycloak
    ```
 
 2. Check Keycloak logs:
    ```bash
-   docker compose -f compose.traefik.secure.yml logs keycloak
+   docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+     --env-file workspaces/test/dtaas/config/.env logs keycloak
    ```
 
 3. Wait for Keycloak to fully start (first startup can take 1-2 minutes)

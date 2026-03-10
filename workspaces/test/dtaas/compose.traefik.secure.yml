@@ -1,8 +1,9 @@
 # ⚠️ DEVELOPMENT ONLY - INSECURE CONFIGURATION ⚠️
+# This configuration uses Traefik for multi-user scenario. The traefik forward-auth is used for user authorization.
 # This configuration uses HTTP (not HTTPS) and insecure flags for development/testing.
 # For production deployments with TLS/HTTPS, use compose.traefik.secure.tls.yml instead.
 
-name: workspace-traefik-secure
+name: dtaas
 
 services:
   traefik:
@@ -39,11 +40,8 @@ services:
     environment:
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      - KC_HOSTNAME=${SERVER_DNS:-localhost}
-      - KC_HOSTNAME_STRICT=false
-      - KC_HTTP_ENABLED=true  # DEV ONLY - use HTTPS in production
+      - KC_HTTP_ENABLED=true  # HTTP connection from Traefik (HTTPS is terminated at Traefik)
       - KC_PROXY_HEADERS=xforwarded  # Enable proxy headers for Traefik
-      - KC_HTTP_RELATIVE_PATH=/auth
     volumes:
       - keycloak-data:/opt/keycloak/data
     healthcheck:
@@ -64,12 +62,14 @@ services:
   traefik-forward-auth:
     image: thomseddon/traefik-forward-auth:2.2.0
     restart: unless-stopped
+    extra_hosts:
+      - "localhost:host-gateway"  # Resolve localhost to Docker host so OIDC discovery reaches Keycloak on port 8080
     volumes:
       - ./config/conf:/conf
     environment:
       - LOG_LEVEL=trace
       - DEFAULT_PROVIDER=oidc
-      - PROVIDERS_OIDC_ISSUER_URL=${KEYCLOAK_ISSUER_URL:-http://keycloak:8080/auth/realms/${KEYCLOAK_REALM:-dtaas}}
+      - PROVIDERS_OIDC_ISSUER_URL=${KEYCLOAK_ISSUER_URL:-http://${SERVER_DNS:-localhost}:8080/auth/realms/${KEYCLOAK_REALM:-dtaas}}
       - PROVIDERS_OIDC_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
       - PROVIDERS_OIDC_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
       - SECRET=${OAUTH_SECRET}
@@ -90,11 +90,10 @@ services:
       - frontend
       - users
     depends_on:
-      keycloak:
-        condition: service_healthy
+      - keycloak
 
   client:
-    image: intocps/dtaas-web:latest
+    image: intocps/dtaas-web:new-workspace
     restart: unless-stopped
     volumes:
       - ./config/client.js:/dtaas/client/build/env.js
@@ -108,7 +107,7 @@ services:
       - frontend
 
   user1:
-    image: workspace:latest
+    image: intocps/workspace:latest
     restart: unless-stopped
     build:
       context: ../..
