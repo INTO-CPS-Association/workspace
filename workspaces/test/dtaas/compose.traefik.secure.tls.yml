@@ -42,12 +42,9 @@ services:
     environment:
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      - KC_HOSTNAME=${SERVER_DNS:-localhost}
       - KC_HOSTNAME_STRICT=false
       - KC_PROXY_HEADERS=xforwarded
       - KC_HTTP_ENABLED=true  # HTTP connection from Traefik (HTTPS is terminated at Traefik)
-      - KC_HOSTNAME_URL=https://${SERVER_DNS:-localhost}/auth
-      - KC_HOSTNAME_ADMIN_URL=https://${SERVER_DNS:-localhost}/auth
     volumes:
       - keycloak-data:/opt/keycloak/data
     healthcheck:
