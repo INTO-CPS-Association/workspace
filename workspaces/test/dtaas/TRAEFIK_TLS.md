@@ -67,7 +67,7 @@ Once all services are running, access the workspaces through Traefik with HTTPS:
 
 ### User1 Workspace (workspace)
 
-- **VNC Desktop**: `https://yourdomain.com/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify`
+- **VNC Desktop**: `https://yourdomain.com/user1/tools/vnc`
 - **VS Code**: `https://yourdomain.com/user1/tools/vscode`
 - **Jupyter Notebook**: `https://yourdomain.com/user1`
 - **Jupyter Lab**: `https://yourdomain.com/user1/lab`
@@ -91,7 +91,7 @@ curl https://yourdomain.com/user1/services
   "desktop": {
     "name": "Desktop",
     "description": "Virtual Desktop Environment",
-    "endpoint": "tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify"
+    "endpoint": "tools/vnc"
   },
   "vscode": {
     "name": "VS Code",
