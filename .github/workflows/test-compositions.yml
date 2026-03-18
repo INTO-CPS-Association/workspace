@@ -63,9 +63,9 @@ jobs:
           push: false
           platforms: ${{ matrix.arch.platform }}
           cache-from: |
-            type=gha
+            type=gha,scope=${{ matrix.arch.platform }}
           cache-to: |
-            type=gha,mode=max
+            type=gha,mode=max,scope=${{ matrix.arch.platform }}
 
   test-traefik:
     name: Test Traefik with Workspace
@@ -103,7 +103,7 @@ jobs:
           platforms: ${{ matrix.arch.platform }}
           tags: workspace:latest
           cache-from: |
-            type=gha
+            type=gha,scope=${{ matrix.arch.platform }}
 
       - name: Start Traefik and workspace services
         run: |
@@ -204,7 +204,7 @@ jobs:
           platforms: ${{ matrix.arch.platform }}
           tags: workspace:latest
           cache-from: |
-            type=gha
+            type=gha,scope=${{ matrix.arch.platform }}
 
       - name: Pull the docker images used in compose files
         run: |
@@ -342,7 +342,7 @@ jobs:
           platforms: ${{ matrix.arch.platform }}
           tags: workspace:latest
           cache-from: |
-            type=gha
+            type=gha,scope=${{ matrix.arch.platform }}
 
       - name: Generate self-signed certificates for testing
         run: |
