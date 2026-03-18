@@ -109,7 +109,7 @@ jobs:
         run: |
           docker compose -f workspaces/test/dtaas/compose.traefik.yml up -d
           echo "⏳ Waiting for services to be ready..."
-          sleep 30
+          sleep 90
 
       - name: Check service health
         run: |
@@ -228,7 +228,7 @@ jobs:
             --env-file workspaces/test/dtaas/config/.env \
             up -d
           echo "⏳ Waiting for services to be ready..."
-          sleep 30
+          sleep 90
 
       - name: Check service health (HTTP)
         run: |
@@ -388,7 +388,7 @@ jobs:
             --env-file workspaces/test/dtaas/config/.env \
             up -d
           echo "⏳ Waiting for services to be ready..."
-          sleep 30
+          sleep 90
 
       - name: Check service health (TLS)
         run: |
