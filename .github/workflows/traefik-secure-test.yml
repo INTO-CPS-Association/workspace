@@ -97,9 +97,9 @@ jobs:
             -f workspaces/test/dtaas/compose.traefik.secure.yml \
             --env-file workspaces/test/dtaas/config/.env \
             ps
-            echo "Traefik forward-auth depends on keycloak" \
-              "configuration and hence it keeps" \
-              "restarting, so stop the service"
+          echo "Traefik forward-auth depends on keycloak" \
+            "configuration and hence it keeps" \
+            "restarting, so stop the service"
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.yml \
             --env-file workspaces/test/dtaas/config/.env stop traefik-forward-auth
