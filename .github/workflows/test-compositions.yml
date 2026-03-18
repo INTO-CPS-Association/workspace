@@ -59,6 +59,7 @@ jobs:
         with:
           context: ./workspaces
           file: workspaces/Dockerfile.ubuntu.noble.gnome
+          build-args: INSTALLATION=minimal
           push: false
           platforms: ${{ matrix.arch.platform }}
           cache-from: |
@@ -96,6 +97,7 @@ jobs:
         with:
           context: ./workspaces
           file: workspaces/Dockerfile.ubuntu.noble.gnome
+          build-args: INSTALLATION=minimal
           push: false
           load: true
           platforms: ${{ matrix.arch.platform }}
@@ -196,6 +198,7 @@ jobs:
         with:
           context: ./workspaces
           file: workspaces/Dockerfile.ubuntu.noble.gnome
+          build-args: INSTALLATION=minimal
           push: false
           load: true
           platforms: ${{ matrix.arch.platform }}
@@ -333,6 +336,7 @@ jobs:
         with:
           context: ./workspaces
           file: workspaces/Dockerfile.ubuntu.noble.gnome
+          build-args: INSTALLATION=minimal
           push: false
           load: true
           platforms: ${{ matrix.arch.platform }}
