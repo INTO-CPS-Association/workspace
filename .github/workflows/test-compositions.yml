@@ -164,6 +164,8 @@ jobs:
             if [ "$response" = "200" ] || [ "$response" = "302" ] || \
                [ "$response" = "301" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
+              echo "Content of user1/services:"
+              curl -s http://localhost/user1/services
               break
             fi
             
