@@ -6,12 +6,26 @@ and build process.
 
 ## Table of Contents
 
+- [Available Images](#available-images)
 - [Docker Build Arguments](#docker-build-arguments)
 - [Dockerfile Environment Variables](#dockerfile-environment-variables)
 - [Runtime Environment Variables](#runtime-environment-variables)
 - [Multi-Architecture Build](#multi-architecture-build)
 - [Installation Scripts](#installation-scripts)
 - [Startup Scripts](#startup-scripts)
+
+## Available Images
+
+The workspace provides two Dockerfile variants:
+
+| Dockerfile | Base Image | Desktop | Ubuntu Version | Image Size |
+| --- | --- | --- | --- | --- |
+| `Dockerfile.ubuntu.noble.gnome` | `kasmweb/core-ubuntu-noble:1.18.0` | GNOME | 24.04 (Noble) | ~1.3 GB |
+| `Dockerfile.ubuntu.jammy.xfce` | `kasmweb/core-ubuntu-jammy:1.18.0` | XFCE | 22.04 (Jammy) | ~1.1 GB |
+
+The lightweight `Dockerfile.ubuntu.jammy.xfce` variant is approximately 200 MB
+smaller and is recommended for low-resource environments. Both images expose
+identical services and URL endpoints (API-compatible).
 
 ## Docker Build Arguments
 

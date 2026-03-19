@@ -9,18 +9,35 @@ working is subject to change.
 
 Pre-built Docker images are available from:
 
+### Standard Workspace (Ubuntu 24.04 Noble + GNOME)
+
 - **GitHub Container Registry**:
   `ghcr.io/into-cps-association/workspace:latest`
 - **Docker Hub**: `intocps/workspace:latest`
 
-You can pull the image directly:
+### Lightweight Workspace (Ubuntu 22.04 Jammy + XFCE)
+
+- **GitHub Container Registry**:
+  `ghcr.io/into-cps-association/workspace-xfce:latest`
+- **Docker Hub**: `intocps/workspace-xfce:latest`
+
+The lightweight image is based on Ubuntu 22.04 Jammy with the XFCE desktop
+environment. It is approximately 200 MB smaller than the standard image,
+making it suitable for low-resource environments. Both images expose the
+same services and URL endpoints.
+
+You can pull the images directly:
 
 ```bash
-# From GitHub Container Registry
+# Standard image from GitHub Container Registry
 docker pull ghcr.io/into-cps-association/workspace:latest
+
+# Lightweight image from GitHub Container Registry
+docker pull ghcr.io/into-cps-association/workspace-xfce:latest
 
 # From Docker Hub
 docker pull intocps/workspace:latest
+docker pull intocps/workspace-xfce:latest
 ```
 
 ## 🦾 Build Workspace Image
@@ -33,7 +50,11 @@ If you want to build the image locally instead of using pre-built images, then:
 Using plain `docker` command:
 
 ```ps1
+# Standard workspace (Ubuntu 24.04 + GNOME)
 docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
+
+# Lightweight workspace (Ubuntu 22.04 + XFCE)
+docker build -t workspace-xfce:latest -f workspaces/Dockerfile.ubuntu.jammy.xfce ./workspaces
 ```
 
 **Or**
@@ -51,11 +72,18 @@ To build images for multiple architectures (amd64 and arm64):
 # Create and use a multi-platform builder (one-time setup)
 docker buildx create --name multiarch --use
 
-# Build for multiple platforms
+# Build standard image for multiple platforms
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t workspace:latest \
   -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  ./workspaces
+
+# Build lightweight image for multiple platforms
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t workspace-xfce:latest \
+  -f workspaces/Dockerfile.ubuntu.jammy.xfce \
   ./workspaces
 
 # To build and push to a registry (e.g., Docker Hub or GHCR)
@@ -212,6 +240,27 @@ This is done by adding the setting the build argument `INSTALLATION` to `minimal
 ```
 docker build -t workspace:latest \
   -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  --build-arg INSTALLATION=minimal \
+  ./workspaces
+```
+
+### Lightweight Workspace Image
+
+For low-resource environments, a lightweight workspace image based on Ubuntu 22.04
+Jammy with the XFCE desktop environment is available. It uses the same services and
+URL endpoints as the standard image but has a smaller footprint (~200 MB less).
+
+```
+docker build -t workspace-xfce:latest \
+  -f workspaces/Dockerfile.ubuntu.jammy.xfce \
+  ./workspaces
+```
+
+The minimal installation variant is also supported:
+
+```
+docker build -t workspace-xfce:latest \
+  -f workspaces/Dockerfile.ubuntu.jammy.xfce \
   --build-arg INSTALLATION=minimal \
   ./workspaces
 ```

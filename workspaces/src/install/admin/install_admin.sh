@@ -23,9 +23,10 @@ if [[ ! -f /opt/admin/pyproject.toml ]]; then
 fi
 
 # Build the wheel package
+# --only main requires poetry >= 1.2.0; Ubuntu 22.04 ships 1.1.x which uses --no-dev instead
 cd /opt/admin
 poetry config virtualenvs.in-project true
-poetry install --only main --no-root
+poetry install --only main --no-root || poetry install --no-dev --no-root
 poetry build
 
 # Install the wheel package using pipx
