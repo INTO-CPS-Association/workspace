@@ -40,7 +40,7 @@ def create_app(path_prefix: str = "") -> FastAPI:
     fastapi_app = FastAPI(
         title="Workspace Admin Service",
         description="Service discovery and management for DTaaS workspace",
-        version="{APP_VERSION}"
+        version=APP_VERSION
     )
 
     # Create router for our endpoints
@@ -51,7 +51,7 @@ def create_app(path_prefix: str = "") -> FastAPI:
         """Root endpoint providing service information."""
         return {
             "service": "Workspace Admin Service",
-            "version": "{APP_VERSION}",
+            "version": APP_VERSION,
             "endpoints": {
                 "/services": "Get list of available workspace services",
                 "/health": "Health check endpoint"
@@ -152,7 +152,7 @@ def cli():
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s {APP_VERSION}"
+        version="%(prog)s " + APP_VERSION
     )
 
     args = parser.parse_args()
