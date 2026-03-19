@@ -27,8 +27,12 @@ jobs:
 
       - name: Validate ${{ matrix.compose-file }} syntax
         run: |
-          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
-          docker compose -f workspaces/test/dtaas/${{ matrix.compose-file }} --env-file workspaces/test/dtaas/config/.env config > /dev/null
+          cp ./workspaces/test/dtaas/config/.env.example \
+            ./workspaces/test/dtaas/config/.env
+          docker compose \
+            -f workspaces/test/dtaas/${{ matrix.compose-file }} \
+            --env-file workspaces/test/dtaas/config/.env \
+            config -quiet
           echo "✅ ${{ matrix.compose-file }} syntax is valid"
 
   test-traefik-secure:

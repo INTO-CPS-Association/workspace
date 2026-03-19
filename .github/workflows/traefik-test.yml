@@ -113,14 +113,20 @@ jobs:
 
           if [ $attempt -eq $max_attempts ]; then
             echo "⚠️ Workspace not fully accessible, checking service health..."
-            docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
-            docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 traefik
-            docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 user1
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.yml ps
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.yml logs \
+              --tail=50 traefik
+            docker compose \
+              -f workspaces/test/dtaas/compose.traefik.yml logs \
+              --tail=50 user1
             echo "Note: Workspace may need more time to fully initialize"
           fi
 
       - name: Cleanup
         if: always()
         run: |
-          docker compose -f workspaces/test/dtaas/compose.traefik.yml down -v
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.yml down -v
           docker system prune -f

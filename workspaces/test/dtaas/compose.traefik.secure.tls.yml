@@ -27,8 +27,10 @@ services:
       - "./dynamic/tls.yml:/etc/traefik/tls.yml"
       - "./certs:/etc/traefik-certs"
     networks:
-      - frontend
-      - users
+      frontend:
+        aliases:
+          - "${SERVER_DNS}"  # Allows other containers on this network to reach Traefik via the public domain name
+      users:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.7
@@ -120,8 +122,6 @@ services:
     image: thomseddon/traefik-forward-auth:latest
     #image: traefik-forward-auth-local:latest
     restart: unless-stopped
-    extra_hosts:
-      - "${DOCKER_HOST_HOSTNAME:-localhost}:host-gateway"  # Maps hostname to Docker host IP for OIDC discovery
     volumes:
       - "./config/conf:/conf"
     environment:

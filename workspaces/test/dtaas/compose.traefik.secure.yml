@@ -31,8 +31,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - frontend
-      - users
+      frontend:
+        aliases:
+          - "${SERVER_DNS}"  # Allows other containers on this network to reach Traefik via the public domain name
+      users:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.7
