@@ -530,7 +530,7 @@ jobs:
 
             # Test HTTPS (will show cert warning but should connect)
             response=$(curl -v -k -o /dev/null -w "%{http_code}" \
-              https://localhost || "000")
+              https://localhost || echo "000")
 
             # We expect 302 (redirect to OAuth) or 200
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
@@ -555,7 +555,7 @@ jobs:
         run: |
           echo "Testing HTTP to HTTPS redirect..."
           response=$(curl -k -v -o /dev/null -w "%{http_code}" \
-            -L --max-redirs 1 http://localhost/ || "000")
+            -L --max-redirs 1 http://localhost/ || echo "000")
 
           if [ "$response" = "301" ] || [ "$response" = "308" ]; then
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
