@@ -150,10 +150,10 @@ jobs:
       - name: Test workspace routing through Traefik
         run: |
           echo "Testing workspace accessibility through Traefik..."
-          echo "TESTESTESTET $(( (max_attempts - 1) * time_between_attempts ))"
           max_attempts=10
           attempt=0
           time_between_attempts=10
+          echo "TESTESTESTET $(( (max_attempts - 1) * time_between_attempts ))"
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
             printf "\nAttempt $attempt out of $max_attempts\n"
@@ -161,8 +161,7 @@ jobs:
             response=$(curl -s -o /dev/null -w "%{http_code}" \
               http://localhost/user1/services 2>/dev/null)
 
-            if [ "$response" = "200" ] || [ "$response" = "302" ] || \
-               [ "$response" = "301" ]; then
+            if [ "$response" = "200" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
               echo "Content of user1/services:"
               curl -s http://localhost/user1/services | json_pp -json_opt pretty,canonical
@@ -173,19 +172,35 @@ jobs:
 
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              echo "Failure diagnostics:"
-              printf "\n----- Current service status -----\n"
-              docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
-              printf "\n---------- Traefik logs ----------\n"
-              docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 traefik
-              printf "\n--------- Workspace logs ---------\n"
-              docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 user1
               exit 1
             fi
 
             echo "⏳ trying again in $time_between_attempts seconds"
             sleep $time_between_attempts
           done
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "TEST FAILED - PRINTING DIAGNOSTICS:"
+          echo ""
+          echo "========================================"
+          echo "|           Services Status            |"
+          echo "========================================"
+          docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
+          echo ""
+          echo "========================================"
+          echo "|             Traefik Logs             |"
+          echo "========================================"
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.yml \
+            logs traefik
+          echo ""
+          echo "========================================"
+          echo "|            Workspace Logs            |"
+          echo "========================================"
+          docker compose -f workspaces/test/dtaas/compose.traefik.yml \
+            logs user1
 
       - name: Cleanup
         if: always()
@@ -255,7 +270,7 @@ jobs:
             --env-file workspaces/test/dtaas/config/.env \
             up -d
 
-      - name: Check service health (HTTP)
+      - name: Check service health
         run: |
           echo "📊 Checking service status..."
           max_attempts=10
@@ -290,11 +305,6 @@ jobs:
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
               echo "$FAILED"
-              echo "Showing logs:"
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs
               exit 1
             fi
 
@@ -304,7 +314,7 @@ jobs:
             sleep $time_between_attempts
           done
 
-      - name: Test service accessibility (HTTP)
+      - name: Test service accessibility
         run: |
           echo "Testing HTTP connectivity..."
           max_attempts=10
@@ -317,11 +327,11 @@ jobs:
             # Test if services respond (will get auth redirect)
             response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/user1/services 2>/dev/null)
 
-            # We expect 302 (redirect to OAuth) or 200 if auth middleware is not fully configured
+            # We expect 302 (redirect to OAuth)
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
               echo "Content of user1/services:"
-              curl -s http://localhost/user1/services | json_pp -json_opt pretty,canonical
+              curl -s http://localhost/user1/services
               break
             fi
 
@@ -329,31 +339,47 @@ jobs:
 
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              echo "Failure diagnostics:"
-              printf "\n----- Current service status -----\n"
-              docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                ps
-              printf "\n---------- Traefik logs ----------\n"
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs traefik
-              printf "\n---- Traefik Forward Auth logs ---\n"
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs traefik-forward-auth
-              printf "\n--------- Workspace logs ---------\n"
-              docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs user1
               exit 1
             fi
 
             echo "⏳ trying again in $time_between_attempts seconds"
             sleep $time_between_attempts
           done
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "TEST FAILED - PRINTING DIAGNOSTICS:"
+          echo ""
+          echo "========================================"
+          echo "|           Services Status            |"
+          echo "========================================"
+          docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+                --env-file workspaces/test/dtaas/config/.env \
+                ps
+          echo ""
+          echo "========================================"
+          echo "|             Traefik Logs             |"
+          echo "========================================"
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik
+          echo ""
+          echo "========================================"
+          echo "|      Traefik Forward Auth Logs       |"
+          echo "========================================"
+          docker compose \
+            -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs traefik-forward-auth
+          echo ""
+          echo "========================================"
+          echo "|            Workspace Logs            |"
+          echo "========================================"
+          docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+            --env-file workspaces/test/dtaas/config/.env \
+            logs user1
 
       - name: Cleanup (HTTP)
         if: always()
@@ -483,11 +509,6 @@ jobs:
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
               echo "$FAILED"
-              echo "Showing logs:"
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs
               exit 1
             fi
 
@@ -515,8 +536,7 @@ jobs:
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
               echo "✅ HTTPS is working correctly"
               echo "Content of user1/services:"
-              curl -s https://localhost/user1/services | json_pp -json_opt pretty,canonical
-              break
+              curl -s https://localhost/user1/services
               break
             fi
 
@@ -524,25 +544,6 @@ jobs:
 
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              echo "Failure diagnostics:"
-              printf "\n----- Current service status -----\n"
-              docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                ps
-              printf "\n---------- Traefik logs ----------\n"
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs traefik
-              printf "\n---- Traefik Forward Auth logs ---\n"
-              docker compose \
-                -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs traefik-forward-auth
-              printf "\n--------- Workspace logs ---------\n"
-              docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-                --env-file workspaces/test/dtaas/config/.env \
-                logs user1
               exit 1
             fi
 
@@ -554,7 +555,7 @@ jobs:
         run: |
           echo "Testing HTTP to HTTPS redirect..."
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -L --max-redirs 0 http://localhost/ 2>/dev/null || echo "000")
+            -L --max-redirs 0 http://localhost/ 2>/dev/null)
 
           if [ "$response" = "301" ] || [ "$response" = "308" ]; then
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
@@ -576,21 +577,37 @@ jobs:
       - name: Show service logs on failure
         if: failure()
         run: |
-          echo "=== Traefik Logs ==="
+          echo "TEST FAILED - PRINTING DIAGNOSTICS:"
+          echo ""
+          echo "========================================"
+          echo "|           Services Status            |"
+          echo "========================================"
+          docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+                --env-file workspaces/test/dtaas/config/.env \
+                ps
+          echo ""
+          echo "========================================"
+          echo "|             Traefik Logs             |"
+          echo "========================================"
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
             --env-file workspaces/test/dtaas/config/.env \
             logs traefik
-          echo "=== Traefik Forward Auth Logs ==="
+          echo ""
+          echo "========================================"
+          echo "|      Traefik Forward Auth Logs       |"
+          echo "========================================"
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
             --env-file workspaces/test/dtaas/config/.env \
             logs traefik-forward-auth
-          echo "=== User1 Logs ==="
+          echo ""
+          echo "========================================"
+          echo "|            Workspace Logs            |"
+          echo "========================================"
           docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
             --env-file workspaces/test/dtaas/config/.env \
-            logs user1 \
-            | tail -50
+            logs user1
 
       - name: Cleanup (TLS)
         if: always()
