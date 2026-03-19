@@ -6,7 +6,7 @@ on:
       # the workflow names must match exactly with those in the required workflow files
       - "Dockerfile Lint"
       - "Lint Scripts"
-      - "Test Docker Image Compositions"
+      - "Test All Compose Files"
     types:
       - completed
     branches:

@@ -1,4 +1,4 @@
-name: Test Docker Image Compositions
+name: Test All Compose Files
 
 on:
   push:
