@@ -173,7 +173,7 @@ jobs:
 
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              echo "Failure diagnostics:\n"
+              printf "Failure diagnostics:\n"
               echo "----- Current service status -----"
               docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
               printf "\n---------- Traefik logs ----------"
