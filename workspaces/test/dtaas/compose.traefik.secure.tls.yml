@@ -14,7 +14,7 @@ x-forward-auth-common: &forward-auth-common
     - PROVIDERS_GENERIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
     - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
     - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
-    - SECRET= "${OAUTH_SECRET}"
+    - SECRET=${OAUTH_SECRET}
     - CONFIG=/conf
   networks:
     - frontend
@@ -97,16 +97,13 @@ services:
       - users
 
   # ── Standard upstream image (valid / production TLS certificates) ──────────
+  # Default service – starts without any --profile flag.
   # Use when Traefik serves a certificate from a trusted CA (Let's Encrypt,
   # ZeroSSL, etc.).  The standard thomseddon image does not need to trust any
   # extra root CA.
-  #
-  # Enable with:  docker compose --profile valid-certs -f ... up -d
   traefik-forward-auth:
     <<: *forward-auth-common
     image: thomseddon/traefik-forward-auth:2.2.0
-    profiles:
-      - valid-certs
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.redirect.entryPoints=web-secure"

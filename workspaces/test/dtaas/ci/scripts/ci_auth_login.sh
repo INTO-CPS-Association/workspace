@@ -35,14 +35,20 @@ BASE_URL="${1:-http://localhost}"
 USERNAME="${2:-user1}"
 DEX_BASE_URL="${3:-http://dex:5556}"
 PASSWORD="${4:-password}"
-# Extra curl flags, e.g. "-k" to bypass self-signed certificate validation
-CURL_OPTS="${5:-}"
 EMAIL="${USERNAME}@localhost"
 
-COOKIE_JAR="$(mktemp /tmp/dex_cookies.XXXXXX)"
-LOGIN_HTML="$(mktemp /tmp/dex_login.XXXXXX.html)"
-AFTER_LOGIN_HTML="$(mktemp /tmp/dex_after_login.XXXXXX.html)"
+# Build curl options as an array to prevent word-splitting and command injection.
+# The 5th argument accepts a single extra flag (e.g. "-k" for self-signed certs).
+CURL_OPTS=()
+if [[ -n "${5:-}" ]]; then
+    read -ra CURL_OPTS <<< "${5}"
+fi
 
+COOKIE_JAR="$(mktemp /tmp/dex_cookies.XXXXXX)"
+LOGIN_HTML="$(mktemp --suffix=.html /tmp/dex_login.XXXXXX)"
+AFTER_LOGIN_HTML="$(mktemp --suffix=.html /tmp/dex_after_login.XXXXXX)"
+
+# shellcheck disable=SC2317  # cleanup is called via trap
 cleanup() {
     rm -f "${COOKIE_JAR}" "${LOGIN_HTML}" "${AFTER_LOGIN_HTML}"
 }
@@ -51,10 +57,9 @@ trap cleanup EXIT
 PROTECTED_URL="${BASE_URL}/${USERNAME}/"
 
 echo "=== Step 1: Follow redirects to Dex login page ==="
-# shellcheck disable=SC2086
 curl --silent \
     --location \
-    ${CURL_OPTS} \
+    "${CURL_OPTS[@]}" \
     --cookie-jar "${COOKIE_JAR}" \
     --cookie "${COOKIE_JAR}" \
     --output "${LOGIN_HTML}" \
@@ -83,10 +88,9 @@ echo "=== Step 3: POST credentials to Dex, follow redirects ==="
 # After a successful login Dex redirects to /_oauth which traefik-forward-auth
 # handles.  The -L flag makes curl follow all redirects automatically so we end
 # up back at the protected URL and the _forward_auth cookie gets stored.
-# shellcheck disable=SC2086
 HTTP_CODE="$(curl --silent \
     --location \
-    ${CURL_OPTS} \
+    "${CURL_OPTS[@]}" \
     --cookie-jar "${COOKIE_JAR}" \
     --cookie "${COOKIE_JAR}" \
     --request POST \
@@ -99,22 +103,21 @@ HTTP_CODE="$(curl --silent \
 echo "  HTTP code after credential POST + redirect chain: ${HTTP_CODE}"
 
 echo "=== Step 4: Access protected resource with session cookie ==="
-# shellcheck disable=SC2086
-AUTH_CODE="$(curl --silent \
-    ${CURL_OPTS} \
+AUTH_HTTP_CODE="$(curl --silent \
+    "${CURL_OPTS[@]}" \
     --cookie-jar "${COOKIE_JAR}" \
     --cookie "${COOKIE_JAR}" \
     --output /dev/null \
     --write-out "%{http_code}" \
     "${PROTECTED_URL}")"
 
-echo "  HTTP code for authenticated request: ${AUTH_CODE}"
+echo "  HTTP code for authenticated request: ${AUTH_HTTP_CODE}"
 
-if [[ "${AUTH_CODE}" == "200" ]]; then
+if [[ "${AUTH_HTTP_CODE}" == "200" ]]; then
     echo "✅ Authenticated access to ${PROTECTED_URL} succeeded (HTTP 200)"
     exit 0
 else
-    echo "❌ Expected HTTP 200 but got ${AUTH_CODE}"
+    echo "❌ Expected HTTP 200 but got ${AUTH_HTTP_CODE}"
     echo "--- Dex login page ---"
     cat "${LOGIN_HTML}"
     echo "--- Response after login POST ---"

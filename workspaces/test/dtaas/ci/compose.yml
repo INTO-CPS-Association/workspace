@@ -53,8 +53,14 @@ services:
       - users
 
   # ── traefik-forward-auth (OIDC via Dex) ───────────────────────────────────
+  # NOTE: thomseddon/traefik-forward-auth:2.2.0 has a bug where it fails to
+  # handle the /_oauth callback when the route is also protected by the
+  # traefik-forward-auth middleware itself ("self-middleware" issue). The
+  # fix-dont-require-self-middleware-test1 tag contains the fix for this.
+  # Track https://github.com/thomseddon/traefik-forward-auth/issues for a
+  # stable release containing this fix.
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:2.2.0
+    image: thomseddon/traefik-forward-auth:fix-dont-require-self-middleware-test1
     restart: unless-stopped
     environment:
       - LOG_LEVEL=trace
