@@ -555,7 +555,7 @@ jobs:
         run: |
           echo "Testing HTTP to HTTPS redirect..."
           response=$(curl -k -v -o /dev/null -w "%{http_code}" \
-            -L --max-redirs 1 http://localhost/ || true)
+            -L --max-redirs 0 http://localhost/ || true)
 
           if [ "$response" = "301" ] || [ "$response" = "308" ]; then
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
