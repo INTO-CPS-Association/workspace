@@ -147,14 +147,14 @@ def login(
 
     print(f"  HTTP code for authenticated request: {resp.status_code}")
 
-    if resp.status_code == 200:
+    success = resp.status_code == 200
+    if success:
         print(f"✅ Authenticated access to {protected_url} succeeded (HTTP 200)")
-        return True
-
-    print(f"❌ Expected HTTP 200 but got {resp.status_code}")
-    print("--- Response content (first 2000 chars) ---")
-    print(resp.text[:2000])
-    return False
+    else:
+        print(f"❌ Expected HTTP 200 but got {resp.status_code}")
+        print("--- Response content (first 2000 chars) ---")
+        print(resp.text[:2000])
+    return success
 
 
 def main() -> int:
