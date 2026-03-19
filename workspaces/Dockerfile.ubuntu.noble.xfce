@@ -32,6 +32,10 @@ WORKDIR $HOME
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     rm -rf /var/lib/locales/supported.d/*
 
+RUN apt-get update \
+    && apt-get remove -y gnome* \
+    && apt-get autoremove -y
+
 COPY ./src/install/ ${INST_DIR}
 COPY ./src/admin/ ${ADMIN_DIR}
 
