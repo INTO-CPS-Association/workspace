@@ -108,38 +108,52 @@ jobs:
       - name: Start Traefik and workspace services
         run: |
           docker compose -f workspaces/test/dtaas/compose.traefik.yml up -d
-          echo "⏳ Waiting for services to be ready..."
-          sleep 90
 
       - name: Check service health
         run: |
           echo "📊 Checking service status..."
-          docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
-          echo "---"
-          # Check if all services are running
-          SERVICES=$(docker compose -f workspaces/test/dtaas/compose.traefik.yml ps --format json)
-          if echo "$SERVICES" | head -1 | grep -q '^\['; then
-            # JSON array format
-            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
-          else
-            # Newline-delimited JSON format
-            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
-          fi
-          if [ -n "$FAILED" ]; then
-            echo "❌ Some services are not running:"
+          max_attempts=10
+          attempt=0
+          time_between_attempts=10
+          while [ $attempt -lt $ $max_attempts ]; do
+            docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
+            echo "---"
+            # Check if all services are running
+            SERVICES=$(docker compose -f workspaces/test/dtaas/compose.traefik.yml ps --format json)
+            if echo "$SERVICES" | head -1 | grep -q '^\['; then
+              # JSON array format
+              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+            else
+              # Newline-delimited JSON format
+              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+            fi
+            if [ ! -n "$FAILED" ]; then
+              echo "✅ All services are running"
+              break
+            fi
+            attempt=$((attempt + 1))
+            if [ $attempt -eq $max_attempts ]; then
+              echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
+              echo "$FAILED"
+              exit 1
+            fi
+            echo ⏳ Some services are not yet running:"
             echo "$FAILED"
-            exit 1
-          fi
-          echo "✅ All services are running"
+            echo "Attempt $attempt out of $max_attempts - trying again in $time_between_attempts seconds"
+            sleep $time_between_attempts
+          done
 
       - name: Test workspace routing through Traefik
         run: |
           echo "Testing workspace accessibility through Traefik..."
-          max_attempts=5
+          max_attempts=10
           attempt=0
+          time_between_attempts=10
           while [ $attempt -lt $max_attempts ]; do
             response=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://localhost/user1/ 2>/dev/null || echo "000")
+              http://localhost/user1/services 2>/dev/null || echo "000")
+
+            echo "Got HTTP response $response"
 
             if [ "$response" = "200" ] || [ "$response" = "302" ] || \
                [ "$response" = "301" ]; then
@@ -148,17 +162,21 @@ jobs:
             fi
 
             attempt=$((attempt + 1))
-            echo "Attempt $attempt/$max_attempts - Got HTTP $response"
-            sleep 5
-          done
+            if [ $attempt -eq $max_attempts ]; then
+              echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
+              echo "Failure diagnostics:\n"
+              echo "----- Current service status -----"
+              docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
+              echo "\n---------- Traefik logs ----------"
+              docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 traefik
+              echo "\n--------- Workspace logs ---------"
+              docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 user1
+              exit 1
+            fi
 
-          if [ $attempt -eq $max_attempts ]; then
-            echo "⚠️ Workspace not fully accessible, checking service health..."
-            docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
-            docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 traefik
-            docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 user1
-            echo "Note: Workspace may need more time to fully initialize"
-          fi
+            echo "Attempt $attempt out of $max_attempts - trying again in $time_between_attempts seconds"
+            sleep $time_between_attempts
+          done
 
       - name: Cleanup
         if: always()
