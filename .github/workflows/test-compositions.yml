@@ -561,7 +561,7 @@ jobs:
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
           else
             echo "❌ Unexpected redirect behavior (HTTP $response)"
-            curl -k -v -L --max-redirs 0 http://localhost/
+            curl -k -v -L http://localhost/
             exit 1
           fi
 
