@@ -554,7 +554,7 @@ jobs:
       - name: Test HTTP to HTTPS redirect
         run: |
           echo "Testing HTTP to HTTPS redirect..."
-          response=$(curl -v -o /dev/null -w "%{http_code}" \
+          response=$(curl -k -v -o /dev/null -w "%{http_code}" \
             -L --max-redirs 1 http://localhost/)
 
           if [ "$response" = "301" ] || [ "$response" = "308" ]; then
@@ -575,7 +575,7 @@ jobs:
             | grep -i "certificate" || echo "No certificate messages in logs"
 
       - name: Show service logs on failure
-        if: failure()
+        if: always() #failure()
         run: |
           echo "TEST FAILED - PRINTING DIAGNOSTICS:"
           echo ""
