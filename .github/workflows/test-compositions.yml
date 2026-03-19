@@ -127,17 +127,21 @@ jobs:
               # Newline-delimited JSON format
               FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
             fi
+
             if [ ! -n "$FAILED" ]; then
               echo "✅ All services are running"
               break
             fi
+
             attempt=$((attempt + 1))
+
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
               echo "$FAILED"
               exit 1
             fi
-            echo ⏳ Some services are not yet running:"
+
+            echo "⏳ Some services are not yet running:"
             echo "$FAILED"
             echo "Attempt $attempt out of $max_attempts - trying again in $time_between_attempts seconds"
             sleep $time_between_attempts
@@ -153,8 +157,6 @@ jobs:
             response=$(curl -s -o /dev/null -w "%{http_code}" \
               http://localhost/user1/services 2>/dev/null || echo "000")
 
-            echo "Got HTTP response $response"
-
             if [ "$response" = "200" ] || [ "$response" = "302" ] || \
                [ "$response" = "301" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
@@ -162,6 +164,8 @@ jobs:
             fi
 
             attempt=$((attempt + 1))
+            echo "Got unexpected HTTP response: $response"
+
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
               echo "Failure diagnostics:\n"
@@ -174,7 +178,7 @@ jobs:
               exit 1
             fi
 
-            echo "Attempt $attempt out of $max_attempts - trying again in $time_between_attempts seconds"
+            echo "⏳ Attempt $attempt out of $max_attempts - trying again in $time_between_attempts seconds"
             sleep $time_between_attempts
           done
 
