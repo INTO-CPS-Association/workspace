@@ -529,14 +529,14 @@ jobs:
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             # Test HTTPS (will show cert warning but should connect)
-            response=$(curl -v -k -o /dev/null -w "%{http_code}" \
-              https://localhost || true)
+            response=$(curl -s -k -o /dev/null -w "%{http_code}" \
+              https://localhost 2>/dev/null || true)
 
             # We expect 302 (redirect to OAuth) or 200
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
               echo "✅ HTTPS is working correctly (HTTP $response)"
               echo "Content of user1/services:"
-              curl -v -k https://localhost
+              curl -s -k https://localhost
               break
             fi
 
@@ -554,14 +554,14 @@ jobs:
       - name: Test HTTP to HTTPS redirect
         run: |
           echo "Testing HTTP to HTTPS redirect..."
-          response=$(curl -k -v -o /dev/null -w "%{http_code}" \
-            -L --max-redirs 0 http://localhost/ || true)
+          response=$(curl -k -s -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 0 http://localhost/ 2>/dev/null || true)
 
-          if [ "$response" = "301" ] || [ "$response" = "308" ]; then
+          if [ "$response" = "307" ] || [ "$response" = "308" ]; then
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
           else
             echo "❌ Unexpected redirect behavior (HTTP $response)"
-            echo "This might be expected if Traefik is still initializing"
+            curl -k -v -L --max-redirs 0 http://localhost/
             exit 1
           fi
 
