@@ -115,7 +115,10 @@ jobs:
           max_attempts=10
           attempt=0
           time_between_attempts=10
-          while [ $attempt -lt $ $max_attempts ]; do
+          while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            echo "\nAttempt $attempt out of $max_attempts"
+
             docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
             echo "---"
             # Check if all services are running
@@ -133,8 +136,6 @@ jobs:
               break
             fi
 
-            attempt=$((attempt + 1))
-
             if [ $attempt -eq $max_attempts ]; then
               echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
               echo "$FAILED"
@@ -143,7 +144,7 @@ jobs:
 
             echo "⏳ Some services are not yet running:"
             echo "$FAILED"
-            echo "Attempt $attempt out of $max_attempts - trying again in $time_between_attempts seconds"
+            echo "Trying again in $time_between_attempts seconds"
             sleep $time_between_attempts
           done
 
@@ -154,16 +155,18 @@ jobs:
           attempt=0
           time_between_attempts=10
           while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            echo "\nAttempt $attempt out of $max_attempts"
+
             response=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://localhost/user1/services 2>/dev/null || echo "000")
+              http://localhost/user1/services 2>/dev/null)
 
             if [ "$response" = "200" ] || [ "$response" = "302" ] || \
                [ "$response" = "301" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
               break
             fi
-
-            attempt=$((attempt + 1))
+            
             echo "Got unexpected HTTP response: $response"
 
             if [ $attempt -eq $max_attempts ]; then
@@ -178,7 +181,7 @@ jobs:
               exit 1
             fi
 
-            echo "⏳ Attempt $attempt out of $max_attempts - trying again in $time_between_attempts seconds"
+            echo "⏳ trying again in $time_between_attempts seconds"
             sleep $time_between_attempts
           done
 
