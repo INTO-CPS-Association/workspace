@@ -31,5 +31,7 @@ jobs:
           # Find and lint all compose files
           for file in $(find . -name "compose*.yaml" -o -name "compose*.yml"); do
             echo "Linting $file"
-            docker compose -f "$file" config --quiet
+            docker compose -f "$file" \
+              --env-file workspaces/test/dtaas/config/.env.example \
+              config --quiet
           done
