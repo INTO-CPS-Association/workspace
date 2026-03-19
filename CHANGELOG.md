@@ -6,17 +6,12 @@ The main changes made so far are listed here.
 
 ### Added
 
-* Lightweight workspace image `Dockerfile.ubuntu.jammy.xfce` based on
-  `kasmweb/core-ubuntu-jammy:1.18.0` (Ubuntu 22.04 + XFCE desktop)
+* Lightweight workspace image `Dockerfile.ubuntu.noble.xfce` based on
+  `kasmweb/core-ubuntu-noble:1.18.0` (Ubuntu 24.04 + XFCE desktop)
 * The new image is API-compatible with the existing `Dockerfile.ubuntu.noble.gnome`
-  and approximately 200 MB smaller, making it suitable for low-resource environments
-
-### Changed
-
-* `install_jupyter.sh` updated to work on both Ubuntu 22.04 (pip without
-  `--break-system-packages`) and Ubuntu 24.04 (pip with PEP 668 enforcement)
-* `install_admin.sh` updated to support both Poetry 1.1.x (`--no-dev`) on
-  Ubuntu 22.04 and Poetry 1.2.x+ (`--only main`) on Ubuntu 24.04
+  and uses a lighter XFCE desktop manager, making it suitable for low-resource environments
+* Both Dockerfiles are now tested in the CI GitHub Actions
+  (`traefik-test.yml`, `traefik-secure-test.yml`)
 
 ## Week of 10-Feb-2026
 

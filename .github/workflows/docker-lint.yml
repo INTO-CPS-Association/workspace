@@ -26,10 +26,10 @@ jobs:
           dockerfile: workspaces/Dockerfile.ubuntu.noble.gnome
           failure-threshold: error
 
-      - name: Run hadolint on jammy/xfce Dockerfile
+      - name: Run hadolint on noble/xfce Dockerfile
         uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
         with:
-          dockerfile: workspaces/Dockerfile.ubuntu.jammy.xfce
+          dockerfile: workspaces/Dockerfile.ubuntu.noble.xfce
           failure-threshold: error
 
       - name: Lint Docker Compose files

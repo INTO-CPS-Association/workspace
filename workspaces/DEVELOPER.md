@@ -18,14 +18,15 @@ and build process.
 
 The workspace provides two Dockerfile variants:
 
-| Dockerfile | Base Image | Desktop | Ubuntu Version | Image Size |
-| --- | --- | --- | --- | --- |
-| `Dockerfile.ubuntu.noble.gnome` | `kasmweb/core-ubuntu-noble:1.18.0` | GNOME | 24.04 (Noble) | ~1.3 GB |
-| `Dockerfile.ubuntu.jammy.xfce` | `kasmweb/core-ubuntu-jammy:1.18.0` | XFCE | 22.04 (Jammy) | ~1.1 GB |
+| Dockerfile | Base Image | Desktop | Ubuntu Version |
+| --- | --- | --- | --- |
+| `Dockerfile.ubuntu.noble.gnome` | `kasmweb/core-ubuntu-noble:1.18.0` | GNOME | 24.04 (Noble) |
+| `Dockerfile.ubuntu.noble.xfce` | `kasmweb/core-ubuntu-noble:1.18.0` | XFCE | 24.04 (Noble) |
 
-The lightweight `Dockerfile.ubuntu.jammy.xfce` variant is approximately 200 MB
-smaller and is recommended for low-resource environments. Both images expose
-identical services and URL endpoints (API-compatible).
+The lightweight `Dockerfile.ubuntu.noble.xfce` variant uses the XFCE desktop
+environment instead of GNOME, making it more suitable for low-resource environments.
+Both images are based on Ubuntu 24.04 (Noble) and expose identical services and
+URL endpoints (API-compatible).
 
 ## Docker Build Arguments
 

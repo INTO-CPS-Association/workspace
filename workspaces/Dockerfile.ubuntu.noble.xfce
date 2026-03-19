@@ -1,6 +1,6 @@
 ARG INSTALLATION="full"
 
-FROM kasmweb/core-ubuntu-jammy:1.18.0 AS configure
+FROM kasmweb/core-ubuntu-noble:1.18.0 AS configure
 
 # Docker build arguments for multi-architecture support
 # These are automatically set by Docker Buildx during multi-platform builds

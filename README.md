@@ -15,15 +15,15 @@ Pre-built Docker images are available from:
   `ghcr.io/into-cps-association/workspace:latest`
 - **Docker Hub**: `intocps/workspace:latest`
 
-### Lightweight Workspace (Ubuntu 22.04 Jammy + XFCE)
+### Lightweight Workspace (Ubuntu 24.04 Noble + XFCE)
 
 - **GitHub Container Registry**:
   `ghcr.io/into-cps-association/workspace-xfce:latest`
 - **Docker Hub**: `intocps/workspace-xfce:latest`
 
-The lightweight image is based on Ubuntu 22.04 Jammy with the XFCE desktop
-environment. It is approximately 200 MB smaller than the standard image,
-making it suitable for low-resource environments. Both images expose the
+The lightweight image is based on Ubuntu 24.04 Noble with the XFCE desktop
+environment. It uses a lighter desktop manager than the standard GNOME-based
+image, making it suitable for low-resource environments. Both images expose the
 same services and URL endpoints.
 
 You can pull the images directly:
@@ -53,8 +53,8 @@ Using plain `docker` command:
 # Standard workspace (Ubuntu 24.04 + GNOME)
 docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
 
-# Lightweight workspace (Ubuntu 22.04 + XFCE)
-docker build -t workspace-xfce:latest -f workspaces/Dockerfile.ubuntu.jammy.xfce ./workspaces
+# Lightweight workspace (Ubuntu 24.04 + XFCE)
+docker build -t workspace-xfce:latest -f workspaces/Dockerfile.ubuntu.noble.xfce ./workspaces
 ```
 
 **Or**
@@ -83,7 +83,7 @@ docker buildx build \
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t workspace-xfce:latest \
-  -f workspaces/Dockerfile.ubuntu.jammy.xfce \
+  -f workspaces/Dockerfile.ubuntu.noble.xfce \
   ./workspaces
 
 # To build and push to a registry (e.g., Docker Hub or GHCR)
@@ -246,13 +246,13 @@ docker build -t workspace:latest \
 
 ### Lightweight Workspace Image
 
-For low-resource environments, a lightweight workspace image based on Ubuntu 22.04
-Jammy with the XFCE desktop environment is available. It uses the same services and
-URL endpoints as the standard image but has a smaller footprint (~200 MB less).
+For low-resource environments, a lightweight workspace image based on Ubuntu 24.04
+Noble with the XFCE desktop environment is available. It uses the same services and
+URL endpoints as the standard image but uses a lighter desktop manager.
 
 ```
 docker build -t workspace-xfce:latest \
-  -f workspaces/Dockerfile.ubuntu.jammy.xfce \
+  -f workspaces/Dockerfile.ubuntu.noble.xfce \
   ./workspaces
 ```
 
@@ -260,7 +260,7 @@ The minimal installation variant is also supported:
 
 ```
 docker build -t workspace-xfce:latest \
-  -f workspaces/Dockerfile.ubuntu.jammy.xfce \
+  -f workspaces/Dockerfile.ubuntu.noble.xfce \
   --build-arg INSTALLATION=minimal \
   ./workspaces
 ```
