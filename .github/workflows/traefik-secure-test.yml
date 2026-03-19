@@ -12,41 +12,31 @@ permissions:
 
 jobs:
   validate-compose:
-    name: Validate Secure Compose Files
+    name: Validate Compose Files
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      matrix:
-        compose-file:
-          - compose.traefik.secure.yml
-          - compose.traefik.secure.tls.yml
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Validate ${{ matrix.compose-file }} syntax
+      - name: Validate production compose files syntax
         run: |
           cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
-          docker compose -f workspaces/test/dtaas/${{ matrix.compose-file }} --env-file workspaces/test/dtaas/config/.env config > /dev/null
-          echo "✅ ${{ matrix.compose-file }} syntax is valid"
+          for f in compose.traefik.secure.yml compose.traefik.secure.tls.yml; do
+            docker compose \
+              -f "workspaces/test/dtaas/${f}" \
+              --env-file workspaces/test/dtaas/config/.env \
+              config > /dev/null
+            echo "✅ ${f} syntax is valid"
+          done
 
-      - name: Validate CI overlay compose files syntax
+      - name: Validate CI compose files syntax
         run: |
-          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            config > /dev/null
-          echo "✅ compose.ci.override.yml syntax is valid"
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            config > /dev/null
-          echo "✅ compose.ci.tls.override.yml syntax is valid"
+          docker compose -f workspaces/test/dtaas/ci/compose.yml config > /dev/null
+          echo "✅ ci/compose.yml syntax is valid"
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml config > /dev/null
+          echo "✅ ci/compose.tls.yml syntax is valid"
 
   test-traefik-secure:
     name: Test Traefik Secure Setup
@@ -84,75 +74,47 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Pull the docker images used in compose files
+      - name: Pull docker images
         run: |
           docker pull traefik:v3.6.4
           docker pull thomseddon/traefik-forward-auth:2.2.0
           docker pull dexidp/dex:v2.41.1
-          docker pull intocps/dtaas-web:latest || \
-            echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
 
-      - name: Create DTaaS configuration files
-        run: |
-          set -e
-          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
-          cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
-          cp ./workspaces/test/dtaas/config/client.js.example ./workspaces/test/dtaas/config/client.js
-
       # Make the Dex Docker service name resolvable from the CI runner host.
-      # This is required because traefik-forward-auth redirects the browser to
-      # http://dex:5556/dex/auth?... and curl (running on the host) must be
-      # able to follow that redirect.
+      # traefik-forward-auth redirects to http://dex:5556/dex/auth?... and curl
+      # (running on the host) must be able to follow that redirect.
       - name: Add Dex hostname to /etc/hosts
         run: echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
 
-      - name: Start services (with CI Dex OIDC override)
+      - name: Start services
         run: |
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            up -d
+          docker compose -f workspaces/test/dtaas/ci/compose.yml up -d
           echo "⏳ Waiting for services to be ready..."
           sleep 90
 
-      - name: Check service health (HTTP)
+      - name: Check service health
         run: |
           echo "📊 Checking service status..."
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            ps
+          docker compose -f workspaces/test/dtaas/ci/compose.yml ps
           echo "---"
-          # Check if all services are running
-          SERVICES=$(docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
+          SERVICES=$(docker compose -f workspaces/test/dtaas/ci/compose.yml \
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
-            # JSON array format
             FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
           else
-            # Newline-delimited JSON format
             FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
           fi
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
             echo "$FAILED"
-            docker compose \
-              -f workspaces/test/dtaas/compose.traefik.secure.yml \
-              -f workspaces/test/dtaas/compose.ci.override.yml \
-              --env-file workspaces/test/dtaas/config/.env \
-              logs
+            docker compose -f workspaces/test/dtaas/ci/compose.yml logs
             exit 1
           fi
           echo "✅ All services are running"
 
-      # Verify traefik-forward-auth is actually enforcing auth (unrequested
-      # access should redirect to Dex, not return 200 directly).
+      # Verify traefik-forward-auth is enforcing auth:
+      # unauthenticated requests must be redirected, not served directly.
       - name: Verify auth is enforced (expect redirect, not 200)
         run: |
           echo "Verifying that unauthenticated requests are redirected..."
@@ -163,53 +125,34 @@ jobs:
             echo "✅ Auth middleware is active (unauthenticated -> redirect)"
           else
             echo "❌ Expected 302/307 redirect but got $response"
-            docker compose \
-              -f workspaces/test/dtaas/compose.traefik.secure.yml \
-              -f workspaces/test/dtaas/compose.ci.override.yml \
-              --env-file workspaces/test/dtaas/config/.env \
+            docker compose -f workspaces/test/dtaas/ci/compose.yml \
               logs traefik traefik-forward-auth dex
             exit 1
           fi
 
-      # Perform the full automated OAuth2 login flow and verify that an
-      # authenticated request reaches the workspace service (HTTP 200).
+      # Full automated OAuth2 login flow via Dex → traefik-forward-auth.
       - name: Test automated OAuth2 login via Dex (user1)
         run: |
-          chmod +x workspaces/test/dtaas/scripts/ci_auth_login.sh
-          workspaces/test/dtaas/scripts/ci_auth_login.sh \
+          chmod +x workspaces/test/dtaas/ci/scripts/ci_auth_login.sh
+          workspaces/test/dtaas/ci/scripts/ci_auth_login.sh \
             http://localhost user1 http://dex:5556 password
 
       - name: Show service logs on failure
         if: failure()
         run: |
           echo "=== Traefik Logs ==="
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs traefik
+          docker compose -f workspaces/test/dtaas/ci/compose.yml logs traefik
           echo "=== Traefik Forward Auth Logs ==="
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs traefik-forward-auth
+          docker compose -f workspaces/test/dtaas/ci/compose.yml logs traefik-forward-auth
           echo "=== Dex Logs ==="
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs dex
+          docker compose -f workspaces/test/dtaas/ci/compose.yml logs dex
 
-      - name: Cleanup (HTTP)
+      - name: Cleanup
         if: always()
         run: |
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            down -v
+          docker compose -f workspaces/test/dtaas/ci/compose.yml down -v
           docker system prune -f
+
 
   test-traefik-secure-tls:
     name: Test Traefik with TLS
@@ -250,12 +193,12 @@ jobs:
       - name: Install mkcert and generate TLS certificates
         run: |
           set -e
-          # ── Install mkcert (version-pinned, architecture-aware) ──────────
+          # Install mkcert (version-pinned, architecture-aware)
           ARCH=$(uname -m)
           case "${ARCH}" in
             x86_64)  MKCERT_ARCH="linux-amd64" ;;
             aarch64) MKCERT_ARCH="linux-arm64" ;;
-            *)        echo "❌ Unsupported architecture: ${ARCH}"; exit 1 ;;
+            *)        echo "Unsupported architecture: ${ARCH}"; exit 1 ;;
           esac
           MKCERT_VERSION="v1.4.4"
           curl -fsSL \
@@ -264,213 +207,131 @@ jobs:
           chmod +x /tmp/mkcert
           sudo mv /tmp/mkcert /usr/local/bin/mkcert
 
-          # ── Install the mkcert root CA into the system trust store ───────
+          # Install the mkcert root CA into the system trust store
           mkcert -install
 
-          # ── Generate certificate for localhost ───────────────────────────
-          # Write directly to the file names that Traefik expects (see
-          # dynamic/tls.yml: certFile=fullchain.pem, keyFile=privkey.pem).
-          mkdir -p workspaces/test/dtaas/certs
+          # Generate certificate for localhost.
+          # ci/compose.tls.yml mounts ci/certs/ as /etc/traefik-certs and
+          # ci/dynamic/tls.yml references fullchain.pem / privkey.pem.
           mkcert \
-            -cert-file workspaces/test/dtaas/certs/fullchain.pem \
-            -key-file  workspaces/test/dtaas/certs/privkey.pem \
+            -cert-file workspaces/test/dtaas/ci/certs/fullchain.pem \
+            -key-file  workspaces/test/dtaas/ci/certs/privkey.pem \
             localhost 127.0.0.1 ::1
-          chmod 644 workspaces/test/dtaas/certs/fullchain.pem
-          chmod 600 workspaces/test/dtaas/certs/privkey.pem
-          echo "✅ mkcert certificates generated"
+          chmod 644 workspaces/test/dtaas/ci/certs/fullchain.pem
+          chmod 600 workspaces/test/dtaas/ci/certs/privkey.pem
+          echo "TLS certificates generated"
 
-          # ── Copy the root CA for the traefik-forward-auth-local Docker build
-          cp "$(mkcert -CAROOT)/rootCA.pem" \
-            workspaces/test/dtaas/certs/rootCA.crt
+          # Copy root CA for the traefik-forward-auth-local Docker build
+          CAROOT=$(mkcert -CAROOT)
+          cp "${CAROOT}/rootCA.pem" workspaces/test/dtaas/ci/certs/rootCA.crt
 
-          # ── Build traefik-forward-auth-local (embeds the local root CA) ──
+          # Build traefik-forward-auth-local (embeds the local root CA)
           docker build \
             -t traefik-forward-auth-local:latest \
-            workspaces/test/dtaas/certs/
-          echo "✅ traefik-forward-auth-local image built"
+            workspaces/test/dtaas/ci/certs/
+          echo "traefik-forward-auth-local image built"
 
-      - name: Verify TLS configuration file
+      - name: Pull docker images
         run: |
-          if [ -f workspaces/test/dtaas/dynamic/tls.yml ]; then
-            echo "✅ TLS configuration file exists"
-            cat workspaces/test/dtaas/dynamic/tls.yml
-          else
-            echo "❌ TLS configuration file not found"
-            exit 1
-          fi
-
-      - name: Create DTaaS configuration files
-        run: |
-          set -e
-          cp ./workspaces/test/dtaas/config/.env.ci.example \
-            ./workspaces/test/dtaas/config/.env
-          cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
-          cp ./workspaces/test/dtaas/config/client.js.example ./workspaces/test/dtaas/config/client.js
+          docker pull traefik:v3.6.4
+          docker pull thomseddon/traefik-forward-auth:fix-dont-require-self-middleware-test1
+          docker pull dexidp/dex:v2.41.1
+          docker pull mltooling/ml-workspace-minimal:0.13.2
 
       # Make the Dex Docker service name resolvable from the CI runner host.
-      # This is required because traefik-forward-auth redirects the browser to
-      # http://dex:5556/dex/auth?... and curl (running on the host) must be
-      # able to follow that redirect.
+      # traefik-forward-auth redirects to http://dex:5556/dex/auth?... and
+      # Python requests (running on the host) must be able to follow it.
       - name: Add Dex hostname to /etc/hosts
         run: echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
 
-      - name: Pull the docker images used in compose files
+      - name: Start services (TLS)
         run: |
-          docker pull traefik:v3.6.4
-          # Pre-pull the base image layer used inside certs/Dockerfile
-          docker pull thomseddon/traefik-forward-auth:fix-dont-require-self-middleware-test1
-          docker pull dexidp/dex:v2.41.1
-          docker pull intocps/dtaas-web:latest || \
-            echo "⚠️ DTaaS web image not available, will skip"
-          docker pull mltooling/ml-workspace-minimal:0.13.2
-
-      - name: Start services (with CI Dex OIDC override, TLS)
-        run: |
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            up -d
-          echo "⏳ Waiting for services to be ready..."
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml up -d
+          echo "Waiting for services to be ready..."
           sleep 180
 
       - name: Check service health (TLS)
         run: |
-          echo "📊 Checking service status..."
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            ps
+          echo "Checking service status..."
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml ps
           echo "---"
-          # Check if all services are running
-          SERVICES=$(docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
+          SERVICES=$(docker compose -f workspaces/test/dtaas/ci/compose.tls.yml \
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
-            # JSON array format
             FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
           else
-            # Newline-delimited JSON format
             FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
           fi
           if [ -n "$FAILED" ]; then
-            echo "❌ Some services are not running:"
+            echo "Some services are not running:"
             echo "$FAILED"
-            docker compose \
-              --profile local-certs \
-              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-              -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-              --env-file workspaces/test/dtaas/config/.env \
-              logs
+            docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs
             exit 1
           fi
-          echo "✅ All services are running"
+          echo "All services are running"
 
-      # Verify traefik-forward-auth is actually enforcing auth (unrequested
-      # access should redirect to Dex, not return 200 directly).
+      # Verify traefik-forward-auth is enforcing auth over HTTPS.
       - name: Verify auth is enforced (expect redirect, not 200)
         run: |
           echo "Verifying that unauthenticated requests are redirected..."
+          CAROOT=$(mkcert -CAROOT)
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            --cacert "$(mkcert -CAROOT)/rootCA.pem" \
+            --cacert "${CAROOT}/rootCA.pem" \
             --max-redirs 0 https://localhost/user1/ 2>/dev/null || echo "000")
           echo "Unauthenticated response code: $response"
           if [ "$response" = "302" ] || [ "$response" = "307" ]; then
-            echo "✅ Auth middleware is active (unauthenticated -> redirect)"
+            echo "Auth middleware is active (unauthenticated -> redirect)"
           else
-            echo "❌ Expected 302/307 redirect but got $response"
-            docker compose \
-              --profile local-certs \
-              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-              -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-              --env-file workspaces/test/dtaas/config/.env \
+            echo "Expected 302/307 redirect but got $response"
+            docker compose -f workspaces/test/dtaas/ci/compose.tls.yml \
               logs traefik traefik-forward-auth dex
             exit 1
           fi
 
-      # Perform the full automated OAuth2 login flow over HTTPS and verify
-      # that an authenticated request reaches the workspace service (HTTP 200).
-      # The mkcert root CA is passed so that Python requests validates the
-      # certificate instead of bypassing verification.
+      # Full automated OAuth2 login flow over HTTPS via Dex -> traefik-forward-auth.
       - name: Test automated OAuth2 login via Dex (user1, TLS)
         run: |
           pip install --quiet requests
-          python3 workspaces/test/dtaas/scripts/ci_auth_login.py \
+          CAROOT=$(mkcert -CAROOT)
+          python3 workspaces/test/dtaas/ci/scripts/ci_auth_login.py \
             https://localhost user1 http://dex:5556 password \
-            --ca-bundle "$(mkcert -CAROOT)/rootCA.pem"
+            --ca-bundle "${CAROOT}/rootCA.pem"
 
       - name: Test HTTP to HTTPS redirect
         run: |
           echo "Testing HTTP to HTTPS redirect..."
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -L --max-redirs 0 http://localhost/ 2>/dev/null || echo "000")
-
+            --max-redirs 0 http://localhost/ 2>/dev/null || echo "000")
           if [ "$response" = "301" ] || [ "$response" = "308" ]; then
-            echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
+            echo "HTTP to HTTPS redirect is working (HTTP $response)"
           else
-            echo "⚠️ Unexpected redirect behavior (HTTP $response)"
+            echo "Unexpected redirect behavior (HTTP $response)"
             echo "This might be expected if Traefik is still initializing"
           fi
 
       - name: Verify TLS certificate is loaded
         run: |
           echo "Checking Traefik logs for TLS certificate loading..."
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs traefik \
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs traefik \
             | grep -i "certificate" || echo "No certificate messages in logs"
 
       - name: Show service logs on failure
         if: failure()
         run: |
           echo "=== Traefik Logs ==="
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs traefik
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs traefik
           echo "=== Traefik Forward Auth Logs ==="
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs traefik-forward-auth
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs traefik-forward-auth
           echo "=== Dex Logs ==="
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs dex
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs dex
           echo "=== User1 Logs ==="
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            logs user1 \
-            | tail -50
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs user1 | tail -50
 
       - name: Cleanup (TLS)
         if: always()
         run: |
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            --env-file workspaces/test/dtaas/config/.env \
-            down -v
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml down -v
           docker system prune -f
-          rm -rf workspaces/test/dtaas/certs/*.pem
-          rm -f workspaces/test/dtaas/certs/rootCA.crt
+          rm -f workspaces/test/dtaas/ci/certs/fullchain.pem \
+                workspaces/test/dtaas/ci/certs/privkey.pem \
+                workspaces/test/dtaas/ci/certs/rootCA.crt

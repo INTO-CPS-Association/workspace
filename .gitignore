@@ -84,6 +84,9 @@ workspaces/test/dtaas/files/**
 workspaces/test/dtaas/certs/**
 !workspaces/test/dtaas/certs/Dockerfile
 !workspaces/test/dtaas/certs/README.md
+# ignore CI certs (generated at runtime) but keep the Dockerfile
+workspaces/test/dtaas/ci/certs/**
+!workspaces/test/dtaas/ci/certs/Dockerfile
 
 # temp files for workspace
 .workspace

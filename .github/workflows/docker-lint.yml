@@ -26,27 +26,28 @@ jobs:
           dockerfile: workspaces/Dockerfile.ubuntu.noble.gnome
           failure-threshold: error
 
+      - name: Lint CI certs Dockerfile
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+        with:
+          dockerfile: workspaces/test/dtaas/ci/certs/Dockerfile
+          failure-threshold: error
+
       - name: Lint Docker Compose files
         run: |
-          # Validate standalone compose files.
-          # Skip CI overlay files (*.ci*.override.yml) – they extend a base
-          # compose file and cannot be validated in isolation.
-          for file in $(find . \( -name "compose*.yaml" -o -name "compose*.yml" \) \
-              | grep -v '\.ci.*\.override\.yml'); do
+          cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
+
+          # Validate production compose files (require .env for variable substitution).
+          for file in workspaces/test/dtaas/compose.traefik.yml \
+                      workspaces/test/dtaas/compose.yml \
+                      workspaces/test/dtaas/compose.traefik.secure.yml \
+                      workspaces/test/dtaas/compose.traefik.secure.tls.yml; do
             echo "Linting $file"
-            docker compose -f "$file" config --quiet
+            docker compose -f "$file" --env-file workspaces/test/dtaas/config/.env \
+              config --quiet
           done
 
-          # Validate CI overlay files together with their base compose files.
-          echo "Linting compose.ci.override.yml (with base)"
-          docker compose \
-            -f workspaces/test/dtaas/compose.traefik.secure.yml \
-            -f workspaces/test/dtaas/compose.ci.override.yml \
-            config --quiet
-
-          echo "Linting compose.ci.tls.override.yml (with base)"
-          docker compose \
-            --profile local-certs \
-            -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-            -f workspaces/test/dtaas/compose.ci.tls.override.yml \
-            config --quiet
+          # Validate self-contained CI compose files (no .env needed).
+          echo "Linting workspaces/test/dtaas/ci/compose.yml"
+          docker compose -f workspaces/test/dtaas/ci/compose.yml config --quiet
+          echo "Linting workspaces/test/dtaas/ci/compose.tls.yml"
+          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml config --quiet
