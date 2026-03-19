@@ -16,6 +16,7 @@ import uvicorn
 from fastapi import FastAPI, APIRouter
 from fastapi.responses import JSONResponse
 
+APP_VERSION = "0.1.1"
 
 def create_app(path_prefix: str = "") -> FastAPI:
     """
@@ -39,7 +40,7 @@ def create_app(path_prefix: str = "") -> FastAPI:
     fastapi_app = FastAPI(
         title="Workspace Admin Service",
         description="Service discovery and management for DTaaS workspace",
-        version="0.1.0"
+        version="{APP_VERSION}"
     )
 
     # Create router for our endpoints
@@ -50,7 +51,7 @@ def create_app(path_prefix: str = "") -> FastAPI:
         """Root endpoint providing service information."""
         return {
             "service": "Workspace Admin Service",
-            "version": "0.1.0",
+            "version": "{APP_VERSION}",
             "endpoints": {
                 "/services": "Get list of available workspace services",
                 "/health": "Health check endpoint"
@@ -65,7 +66,7 @@ def create_app(path_prefix: str = "") -> FastAPI:
         Returns:
             JSONResponse containing service information.
         """
-        services = load_services(os.environ["PATH_PREFIX"] if "PATH_PREFIX" in os.environ else "")
+        services = load_services(path_prefix)
         return JSONResponse(content=services)
 
     @router.get("/health")
@@ -101,9 +102,7 @@ def load_services(path_prefix: str = "") -> Dict[str, Any]:
     # Substitute {PATH_PREFIX} in endpoint values
     for _, service_info in services.items():
         if 'endpoint' in service_info:
-            service_info['endpoint'] = service_info['endpoint'].replace(
-                '{PATH_PREFIX}', path_prefix
-            )
+            service_info['endpoint'] = path_prefix + "/" + service_info['endpoint']
 
     return services
 
@@ -153,7 +152,7 @@ def cli():
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.0"
+        version="%(prog)s {APP_VERSION}"
     )
 
     args = parser.parse_args()
