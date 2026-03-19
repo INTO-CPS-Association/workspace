@@ -529,14 +529,14 @@ jobs:
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             # Test HTTPS (will show cert warning but should connect)
-            response=$(curl -k -o /dev/null -w "%{http_code}" \
+            response=$(curl -v -k -o /dev/null -w "%{http_code}" \
               https://localhost)
 
             # We expect 302 (redirect to OAuth) or 200
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
-              echo "✅ HTTPS is working correctly"
+              echo "✅ HTTPS is working correctly (HTTP $response)"
               echo "Content of user1/services:"
-              curl -k https://localhost
+              curl -v -k https://localhost
               break
             fi
 
@@ -554,8 +554,8 @@ jobs:
       - name: Test HTTP to HTTPS redirect
         run: |
           echo "Testing HTTP to HTTPS redirect..."
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -L --max-redirs 0 http://localhost/ 2>/dev/null)
+          response=$(curl -v -o /dev/null -w "%{http_code}" \
+            -L --max-redirs 0 http://localhost/)
 
           if [ "$response" = "301" ] || [ "$response" = "308" ]; then
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
