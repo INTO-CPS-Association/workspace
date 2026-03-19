@@ -13,7 +13,7 @@ The main changes made so far are listed here.
   * Extracted a dedicated `build-workspace-image` job in
     `traefik-secure-test.yml` so the workspace image is built once per
     architecture and reused by both `test-traefik-secure` and
-    `test-traefik-secure-tls`, eliminating four redundant builds per run
+    `test-traefik-secure-tls`, reducing full builds from four to two per run
   * Test jobs now use read-only cache (`cache-from` only) after the build
     job has populated the cache, further reducing write contention
   * Fixed inconsistent `docker/setup-buildx-action` version in

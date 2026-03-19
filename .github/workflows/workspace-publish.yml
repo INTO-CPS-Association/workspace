@@ -45,7 +45,7 @@ jobs:
 
           # Define required workflows
           # the workflow names must match exactly with those in the required workflow files
-          WORKFLOWS=("Dockerfile Lint" "Lint Scripts" "Test Traefik Configuration" "Test Traefik OAuth2 and TLS Configuration")
+          WORKFLOWS=("Dockerfile Lint" "Lint Scripts" "Test All Compose Files")
           ALL_SUCCESS=true
 
           for workflow in "${WORKFLOWS[@]}"; do
