@@ -557,10 +557,11 @@ jobs:
           response=$(curl -k -s -o /dev/null -w "%{http_code}" \
             -L --max-redirs 0 http://localhost/ 2>/dev/null || true)
 
-          if [ "$response" = "307" ] || [ "$response" = "308" ]; then
+          if [ "$response" = "301" ] || [ "$response" = "308" ]; then
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
           else
             echo "❌ Unexpected redirect behavior (HTTP $response)"
+            echo "Showing verbose curl call:"
             curl -k -v -L http://localhost/
             exit 1
           fi
@@ -575,7 +576,7 @@ jobs:
             | grep -i "certificate" || echo "No certificate messages in logs"
 
       - name: Show service logs on failure
-        if: always() #failure()
+        if: failure()
         run: |
           echo "TEST FAILED - PRINTING DIAGNOSTICS:"
           echo ""
@@ -609,7 +610,7 @@ jobs:
             --env-file workspaces/test/dtaas/config/.env \
             logs user1
 
-      - name: Cleanup (TLS)
+      - name: Cleanup
         if: always()
         run: |
           docker compose \
