@@ -144,6 +144,8 @@ services:
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
       - "traefik.http.services.traefik-forward-auth.loadbalancer.server.port=4181"
+    extra_hosts:
+      - "${DOCKER_HOST_HOSTNAME:-localhost}:host-gateway"  # Maps hostname to Docker host IP for OIDC discovery
     networks:
       - frontend
       - users
