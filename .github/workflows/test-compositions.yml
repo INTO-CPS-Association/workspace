@@ -153,7 +153,6 @@ jobs:
           max_attempts=10
           attempt=0
           time_between_attempts=10
-          echo "TESTESTESTET $(( (max_attempts - 1) * time_between_attempts ))"
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
             printf "\nAttempt $attempt out of $max_attempts\n"
@@ -164,6 +163,7 @@ jobs:
             if [ "$response" = "200" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
               echo "Content of user1/services:"
+              # We expect a json formatted document
               curl -s http://localhost/user1/services | json_pp -json_opt pretty,canonical
               break
             fi
@@ -314,9 +314,9 @@ jobs:
             sleep $time_between_attempts
           done
 
-      - name: Test service accessibility
+      - name: Test redirection to OAuth
         run: |
-          echo "Testing HTTP connectivity..."
+          echo "Testing redirection to OAuth..."
           max_attempts=10
           attempt=0
           time_between_attempts=10
@@ -327,10 +327,10 @@ jobs:
             # Test if services respond (will get auth redirect)
             response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/user1/services 2>/dev/null)
 
-            # We expect 302 (redirect to OAuth)
-            if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
-              echo "✅ Workspace routing works (HTTP $response)"
-              echo "Content of user1/services:"
+            # We expect a redirect to OAuth
+            if [ "$response" = "302" ] || [ "$response" = "307" ]; then
+              echo "✅ Redirect to OAuth as expected (HTTP $response)"
+              echo "Content of response:"
               curl -s http://localhost/user1/services
               break
             fi
@@ -338,7 +338,7 @@ jobs:
             echo "Got unexpected HTTP response: $response"
 
             if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
+              echo "❌ Redirection did not happen within $(( (max_attempts - 1) * time_between_attempts )) seconds"
               exit 1
             fi
 
@@ -467,14 +467,14 @@ jobs:
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
 
-      - name: Start Traefik and workspace services (TLS)
+      - name: Start Traefik and workspace services
         run: |
           docker compose \
             -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
             --env-file workspaces/test/dtaas/config/.env \
             up -d
 
-      - name: Check service health (TLS)
+      - name: Check service health
         run: |
           echo "📊 Checking service status..."
           max_attempts=10
@@ -529,8 +529,8 @@ jobs:
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             # Test HTTPS (will show cert warning but should connect)
-            response=$(curl -k -s -o /dev/null -w "%{http_code}" \
-              https://localhost/user1/services 2>/dev/null)
+            response=$(curl -k -o /dev/null -w "%{http_code}" \
+              https://localhost/user1/services)
 
             # We expect 302 (redirect to OAuth) or 200
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
