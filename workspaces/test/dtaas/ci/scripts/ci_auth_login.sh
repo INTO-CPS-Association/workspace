@@ -67,8 +67,9 @@ if ! grep -q 'action=' "${LOGIN_HTML}"; then
 fi
 
 echo "=== Step 2: Extract Dex login form action URL ==="
-# Dex renders: <form method="post" action="/dex/auth/local?req=XXXXX">
-FORM_PATH="$(grep -oP '(?<=action=")[^"]+' "${LOGIN_HTML}" | head -1)"
+# Dex renders: <form method="post" action="/dex/auth/local/login?back=&amp;state=XXXXX">
+# HTML-decode &amp; -> & so the POST URL is syntactically correct.
+FORM_PATH="$(grep -oP '(?<=action=")[^"]+' "${LOGIN_HTML}" | head -1 | sed 's/\&amp;/\&/g')"
 
 if [[ -z "${FORM_PATH}" ]]; then
     echo "❌ Could not extract form action from Dex login page."

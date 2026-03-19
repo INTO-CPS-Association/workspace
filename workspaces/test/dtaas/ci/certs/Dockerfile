@@ -7,7 +7,8 @@
 
 # Stage 1: prepare the updated CA bundle on Alpine
 FROM alpine:3.21 AS cert-builder
-RUN apk add --no-cache ca-certificates=20241121-r1
+# hadolint ignore=DL3018
+RUN apk add --no-cache ca-certificates
 COPY rootCA.crt /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
