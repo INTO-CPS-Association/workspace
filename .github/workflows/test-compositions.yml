@@ -536,7 +536,7 @@ jobs:
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
               echo "✅ HTTPS is working correctly"
               echo "Content of user1/services:"
-              curl https://localhost
+              curl -k https://localhost
               break
             fi
 
