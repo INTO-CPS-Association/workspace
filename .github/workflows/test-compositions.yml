@@ -117,7 +117,7 @@ jobs:
           time_between_attempts=10
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
-            echo "\nAttempt $attempt out of $max_attempts"
+            printf "\nAttempt $attempt out of $max_attempts"
 
             docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
             echo "---"
@@ -156,7 +156,7 @@ jobs:
           time_between_attempts=10
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
-            echo "\nAttempt $attempt out of $max_attempts"
+            printf "\nAttempt $attempt out of $max_attempts"
 
             response=$(curl -s -o /dev/null -w "%{http_code}" \
               http://localhost/user1/services 2>/dev/null)
@@ -165,10 +165,10 @@ jobs:
                [ "$response" = "301" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
               echo "Content of user1/services:"
-              curl -s http://localhost/user1/services
+              curl -s http://localhost/user1/services | json_pp -json_opt pretty,canonical
               break
             fi
-            
+
             echo "Got unexpected HTTP response: $response"
 
             if [ $attempt -eq $max_attempts ]; then
@@ -176,9 +176,9 @@ jobs:
               echo "Failure diagnostics:\n"
               echo "----- Current service status -----"
               docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
-              echo "\n---------- Traefik logs ----------"
+              printf "\n---------- Traefik logs ----------"
               docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 traefik
-              echo "\n--------- Workspace logs ---------"
+              printf "\n--------- Workspace logs ---------"
               docker compose -f workspaces/test/dtaas/compose.traefik.yml logs --tail=50 user1
               exit 1
             fi
