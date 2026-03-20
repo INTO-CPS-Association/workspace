@@ -52,6 +52,17 @@ docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome \
   ./workspaces
 ```
 
+## 📁 Create Workspace Directories
+
+Create directory for storing workspace files.
+
+```bash
+# create workspace directory if required
+cp -R workspaces/test/dtaas/files/user1 workspaces/test/dtaas/files/<USERNAME1>
+# set file permissions for use inside the container
+sudo chown -R 1000:100 workspaces/test/dtaas/files
+```
+
 ## :rocket: Start Services
 
 To start all services for a single user:
@@ -142,4 +153,4 @@ docker compose -f workspaces/test/dtaas/compose.yml --env-file workspaces/test/d
 ⚠️ **Important**: This configuration is designed for development and testing,
 and should not be reconfigured to be exposed to the internet.
 
-For setting up a composition that can be exposed to the internet, see [TRAEFIK_TLS.md](./TRAEFIK_TLS.md).
+For setting up a composition that can be exposed to the internet, see [TRAEFIK_TLS.md](TRAEFIK_TLS.md).
