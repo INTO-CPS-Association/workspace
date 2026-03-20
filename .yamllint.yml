@@ -18,5 +18,5 @@ rules:
     check-keys: true
 
 overrides:
-  ".github/workflows/docker-lint-build.yml":
+  ".github/workflows/*.yml":
     truthy: disable

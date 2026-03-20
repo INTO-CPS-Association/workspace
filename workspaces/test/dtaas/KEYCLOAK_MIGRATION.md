@@ -96,7 +96,7 @@ KEYCLOAK_ADMIN_PASSWORD=changeme
 KEYCLOAK_REALM=dtaas
 KEYCLOAK_CLIENT_ID=dtaas-workspace
 KEYCLOAK_CLIENT_SECRET=<from-keycloak>
-KEYCLOAK_ISSUER_URL=http://keycloak:8080/auth/realms/dtaas
+KEYCLOAK_ISSUER_URL=http://<SERVER_DNS>/auth/realms/dtaas
 ```
 
 ### Deprecated Variables (GitLab OAuth)
@@ -160,7 +160,7 @@ The configuration uses environment variables that make it easy to switch from em
 
 ```bash
 # Internal (default)
-KEYCLOAK_ISSUER_URL=http://keycloak:8080/auth/realms/dtaas
+KEYCLOAK_ISSUER_URL=https://<SERVER_DNS>/auth/realms/dtaas
 
 # External (just change the URL)
 KEYCLOAK_ISSUER_URL=https://keycloak.company.com/auth/realms/dtaas

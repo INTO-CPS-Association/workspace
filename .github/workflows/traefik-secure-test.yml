@@ -32,7 +32,7 @@ jobs:
           docker compose \
             -f workspaces/test/dtaas/${{ matrix.compose-file }} \
             --env-file workspaces/test/dtaas/config/.env \
-            config -quiet
+            config --quiet
           echo "✅ ${{ matrix.compose-file }} syntax is valid"
 
   test-traefik-secure:
