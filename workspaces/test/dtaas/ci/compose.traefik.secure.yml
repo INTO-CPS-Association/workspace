@@ -1,30 +1,26 @@
-# Self-contained CI compose for testing Traefik OAuth2 authorization over HTTPS.
+# Self-contained CI compose for testing Traefik OAuth2 authorization over HTTP.
 #
 # Intended ONLY for GitHub Actions – do NOT use in production.
 #
-# Prerequisites (handled automatically by the CI workflow):
-#   1. Generate mkcert certificates in workspaces/test/dtaas/ci/certs/
-#        fullchain.pem  (certificate)
-#        privkey.pem    (private key)
-#        rootCA.crt     (mkcert root CA, used to build the forward-auth image)
-#   2. Build the CA-aware traefik-forward-auth image:
-#        docker build -t traefik-forward-auth-local:latest \
-#            workspaces/test/dtaas/ci/certs/
+# Provides:
+#   - Dex OIDC provider (port 5556, plain HTTP)
+#   - Traefik reverse proxy (port 80)
+#   - traefik-forward-auth (OIDC, insecure cookie for HTTP)
+#   - user1 workspace (workspace:latest)
+#   - user2 workspace (mltooling/ml-workspace-minimal)
 #
 # Usage:
-#   docker compose -f workspaces/test/dtaas/ci/compose.tls.yml up -d
+#   docker compose -f workspaces/test/dtaas/ci/compose.traefik.secure.yml up -d
 #
 # The CI runner must add "127.0.0.1 dex" to /etc/hosts so that the OAuth
 # redirect from traefik-forward-auth (pointing at http://dex:5556/...) can be
-# followed by curl/Python running on the host.
+# followed by curl running on the host.
 
-name: workspace-ci-tls
+name: workspace-ci
 
 services:
 
   # ── Dex OIDC provider ──────────────────────────────────────────────────────
-  # Dex itself runs over plain HTTP on port 5556.  The redirect URI it issues
-  # back to the browser is https://localhost/_oauth (registered in dex.yml).
   dex:
     image: dexidp/dex:v2.41.1
     restart: unless-stopped
@@ -37,47 +33,43 @@ services:
       - frontend
       - users
 
-  # ── Traefik reverse proxy (HTTP → HTTPS redirect + TLS termination) ────────
+  # ── Traefik reverse proxy ──────────────────────────────────────────────────
   traefik:
     image: traefik:v3.6.4
     restart: unless-stopped
     command:
-      - "--log.level=DEBUG"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entryPoints.web.address=:80"
-      - "--entrypoints.web-secure.address=:443"
-      - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
-      - "--providers.file.directory=/etc/traefik"
-      - "--providers.file.watch=true"
+      - "--entrypoints.web.forwardedHeaders.insecure=true"
+      - "--entrypoints.web.proxyProtocol.insecure=true"
+      - "--log.level=DEBUG"
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./dynamic/tls.yml:/etc/traefik/tls.yml:ro
-      - ./certs:/etc/traefik-certs:ro
     networks:
       - frontend
       - users
 
-  # ── traefik-forward-auth (OIDC via Dex, CA-aware image) ───────────────────
-  # Uses a custom image that embeds the mkcert root CA so that HTTPS redirects
-  # through localhost are validated instead of rejected.
+  # ── traefik-forward-auth (OIDC via Dex) ───────────────────────────────────
+  # NOTE: thomseddon/traefik-forward-auth:2.2.0 has a bug where it fails to
+  # handle the /_oauth callback when the route is also protected by the
+  # traefik-forward-auth middleware itself ("self-middleware" issue). The
+  # fix-dont-require-self-middleware-test1 tag contains the fix for this.
+  # Track https://github.com/thomseddon/traefik-forward-auth/issues for a
+  # stable release containing this fix.
   traefik-forward-auth:
-    image: traefik-forward-auth-local:latest
+    image: thomseddon/traefik-forward-auth:fix-dont-require-self-middleware-test1
     restart: unless-stopped
     environment:
       - LOG_LEVEL=trace
       - DEFAULT_PROVIDER=oidc
-      # Internal Docker network URL for the OIDC discovery document fetch.
       - PROVIDERS_OIDC_ISSUER_URL=http://dex:5556/dex
       - PROVIDERS_OIDC_CLIENT_ID=traefik-forward-auth
       - PROVIDERS_OIDC_CLIENT_SECRET=ci-test-client-secret
       - SECRET=ci-test-hmac-secret-at-least-32-chars!!
-      # No INSECURE_COOKIE – cookies must be Secure over HTTPS.
+      - INSECURE_COOKIE=true
       - CONFIG=/conf
       - AUTH_HOST=localhost
       - COOKIE_DOMAIN=localhost
@@ -85,9 +77,8 @@ services:
       - ./config/conf:/conf
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.redirect.entryPoints=web-secure"
+      - "traefik.http.routers.redirect.entryPoints=web"
       - "traefik.http.routers.redirect.rule=Host(`localhost`) && PathPrefix(`/_oauth`)"
-      - "traefik.http.routers.redirect.tls=true"
       - "traefik.http.routers.redirect.middlewares=traefik-forward-auth"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
@@ -110,9 +101,8 @@ services:
     shm_size: 512m
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.u1.entryPoints=web-secure"
+      - "traefik.http.routers.u1.entryPoints=web"
       - "traefik.http.routers.u1.rule=Host(`localhost`) && PathPrefix(`/user1`)"
-      - "traefik.http.routers.u1.tls=true"
       - "traefik.http.routers.u1.middlewares=traefik-forward-auth"
     networks:
       - users
@@ -130,15 +120,14 @@ services:
     shm_size: "512m"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.u2.entryPoints=web-secure"
+      - "traefik.http.routers.u2.entryPoints=web"
       - "traefik.http.routers.u2.rule=Host(`localhost`) && PathPrefix(`/user2`)"
-      - "traefik.http.routers.u2.tls=true"
       - "traefik.http.routers.u2.middlewares=traefik-forward-auth"
     networks:
       - users
 
 networks:
   frontend:
-    name: dtaas-ci-tls-frontend
+    name: dtaas-ci-frontend
   users:
-    name: dtaas-ci-tls-users
+    name: dtaas-ci-users

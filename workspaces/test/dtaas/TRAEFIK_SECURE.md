@@ -298,68 +298,10 @@ To use an external Keycloak instance instead of the embedded one:
 
 **Minimal changes required!**
 
-## 🤖 Automated CI Testing (No Real OAuth Provider Needed)
+## 🤖 Automated CI Testing
 
-Running the OAuth2 authentication flow in a CI environment (e.g. GitHub Actions)
-is challenging because the standard authorization-code flow requires a human to
-open a browser, enter credentials, and click "Authorize".
-
-This project solves the problem by replacing the real identity provider with
-**[Dex](https://dexidp.io/)** – a lightweight, CNCF-standard OIDC server –
-and scripting the entire login flow with `curl`.
-
-### How it works
-
-```
-curl   →   Traefik   →   traefik-forward-auth   →   302 to Dex
- ↓                                                        ↓
-POST credentials to Dex form  (no approval screen)
- ↓
-302 to /_oauth?code=XXX   →   traefik-forward-auth exchanges code
- ↓
-Sets _forward_auth session cookie   →   302 to /user1/
- ↓
-GET /user1/ with cookie   →   HTTP 200  ✅
-```
-
-Two Dex settings make this fully headless:
-
-- `skipApprovalScreen: true` — no consent page is presented after login
-- `enablePasswordDB: true` — static username/password pairs in config
-
-### Using the CI compose setup locally
-
-```bash
-# Start the self-contained CI stack (Dex + Traefik + forward-auth + workspaces)
-docker compose -f workspaces/test/dtaas/ci/compose.yml up -d
-
-# Add local hostname resolution for Dex (needed so curl can follow OAuth redirects)
-echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
-
-# Run the automated login script
-workspaces/test/dtaas/ci/scripts/ci_auth_login.sh \
-  http://localhost user1 http://dex:5556 password
-```
-
-### Relevant files
-
-| File | Purpose |
-|---|---|
-| `ci/config/dex.yml` | Dex OIDC configuration with static test users |
-| `ci/compose.yml` | Self-contained CI stack (HTTP): Dex + Traefik + forward-auth |
-| `ci/compose.tls.yml` | Self-contained CI stack (HTTPS/TLS): same with mkcert certs |
-| `ci/scripts/ci_auth_login.sh` | Headless OAuth2 login script (curl-based) |
-| `ci/scripts/ci_auth_login.py` | Headless OAuth2 login script (Python, used for TLS tests) |
-
-### Static test users
-
-The test users are configured in `ci/config/dex.yml`. Emails must match the
-whitelist rules in `config/conf`. Default credentials:
-
-| Username | Email | Password |
-|---|---|---|
-| `user1` | `user1@localhost` | `password` |
-| `user2` | `user2@localhost` | `password` |
+For automated CI testing with Dex OIDC (no real OAuth provider needed),
+see the dedicated documentation in [`ci/TRAEFIK_SECURE.md`](ci/TRAEFIK_SECURE.md).
 
 ## :shield: Security Considerations
 

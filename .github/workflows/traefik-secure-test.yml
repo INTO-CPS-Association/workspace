@@ -45,7 +45,7 @@ jobs:
             runner: ubuntu-latest
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-    needs: validate-compose
+    needs: [validate-compose, test-ci-traefik-secure]
     runs-on: ${{ matrix.arch.runner }}
     permissions:
       contents: read
@@ -184,7 +184,7 @@ jobs:
             runner: ubuntu-latest
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-    needs: validate-compose
+    needs: [validate-compose, test-ci-traefik-secure-tls]
     runs-on: ${{ matrix.arch.runner }}
     permissions:
       contents: read
@@ -392,14 +392,16 @@ jobs:
 
       - name: Validate CI compose files syntax
         run: |
-          docker compose -f workspaces/test/dtaas/ci/compose.yml \
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
             config --quiet
-          echo "✅ ci/compose.yml syntax is valid"
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml \
+          echo "✅ ci/compose.traefik.secure.yml syntax is valid"
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
             config --quiet
-          echo "✅ ci/compose.tls.yml syntax is valid"
+          echo "✅ ci/compose.traefik.secure.tls.yml syntax is valid"
 
-  test-ci-auth:
+  test-ci-traefik-secure:
     name: Test CI OAuth2 via Dex (HTTP)
     strategy:
       fail-fast: false
@@ -447,26 +449,32 @@ jobs:
 
       - name: Start services
         run: |
-          docker compose -f workspaces/test/dtaas/ci/compose.yml up -d
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml up -d
           echo "⏳ Waiting for services to be ready..."
           sleep 180
 
       - name: Check service health
         run: |
           echo "📊 Checking service status..."
-          docker compose -f workspaces/test/dtaas/ci/compose.yml ps
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml ps
           echo "---"
-          SERVICES=$(docker compose -f workspaces/test/dtaas/ci/compose.yml \
+          SERVICES=$(docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
-            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | \
+              jq -r '.[] | select(.State != "running") | .Name')
           else
-            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | \
+              jq -r 'select(.State != "running") | .Name')
           fi
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
             echo "$FAILED"
-            docker compose -f workspaces/test/dtaas/ci/compose.yml logs
+            docker compose \
+              -f workspaces/test/dtaas/ci/compose.traefik.secure.yml logs
             exit 1
           fi
           echo "✅ All services are running"
@@ -475,40 +483,50 @@ jobs:
         run: |
           echo "Verifying that unauthenticated requests are redirected..."
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            --max-redirs 0 http://localhost/user1/ 2>/dev/null || echo "000")
+            --max-redirs 0 http://localhost/user1/ 2>/dev/null \
+            || echo "000")
           echo "Unauthenticated response code: $response"
           if [ "$response" = "302" ] || [ "$response" = "307" ]; then
             echo "✅ Auth middleware is active (unauthenticated -> redirect)"
           else
             echo "❌ Expected 302/307 redirect but got $response"
-            docker compose -f workspaces/test/dtaas/ci/compose.yml \
+            docker compose \
+              -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
               logs traefik traefik-forward-auth dex
             exit 1
           fi
 
       - name: Test automated OAuth2 login via Dex (user1)
         run: |
-          chmod +x workspaces/test/dtaas/ci/scripts/ci_auth_login.sh
-          workspaces/test/dtaas/ci/scripts/ci_auth_login.sh \
+          pip install --quiet requests
+          python3 workspaces/test/dtaas/ci/scripts/ci_auth_login.py \
             http://localhost user1 http://dex:5556 password
 
       - name: Show service logs on failure
         if: failure()
         run: |
           echo "=== Traefik Logs ==="
-          docker compose -f workspaces/test/dtaas/ci/compose.yml logs traefik
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
+            logs traefik
           echo "=== Traefik Forward Auth Logs ==="
-          docker compose -f workspaces/test/dtaas/ci/compose.yml logs traefik-forward-auth
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
+            logs traefik-forward-auth
           echo "=== Dex Logs ==="
-          docker compose -f workspaces/test/dtaas/ci/compose.yml logs dex
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
+            logs dex
 
       - name: Cleanup
         if: always()
         run: |
-          docker compose -f workspaces/test/dtaas/ci/compose.yml down -v
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
+            down -v
           docker system prune -f
 
-  test-ci-auth-tls:
+  test-ci-traefik-secure-tls:
     name: Test CI OAuth2 via Dex (TLS)
     strategy:
       fail-fast: false
@@ -590,26 +608,32 @@ jobs:
 
       - name: Start services (TLS)
         run: |
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml up -d
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml up -d
           echo "⏳ Waiting for services to be ready..."
           sleep 180
 
       - name: Check service health (TLS)
         run: |
           echo "📊 Checking service status..."
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml ps
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml ps
           echo "---"
-          SERVICES=$(docker compose -f workspaces/test/dtaas/ci/compose.tls.yml \
+          SERVICES=$(docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
-            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | \
+              jq -r '.[] | select(.State != "running") | .Name')
           else
-            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | \
+              jq -r 'select(.State != "running") | .Name')
           fi
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
             echo "$FAILED"
-            docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs
+            docker compose \
+              -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml logs
             exit 1
           fi
           echo "✅ All services are running"
@@ -620,13 +644,15 @@ jobs:
           CAROOT=$(mkcert -CAROOT)
           response=$(curl -s -o /dev/null -w "%{http_code}" \
             --cacert "${CAROOT}/rootCA.pem" \
-            --max-redirs 0 https://localhost/user1/ 2>/dev/null || echo "000")
+            --max-redirs 0 https://localhost/user1/ 2>/dev/null \
+            || echo "000")
           echo "Unauthenticated response code: $response"
           if [ "$response" = "302" ] || [ "$response" = "307" ]; then
             echo "✅ Auth middleware is active (unauthenticated -> redirect)"
           else
             echo "❌ Expected 302/307 redirect but got $response"
-            docker compose -f workspaces/test/dtaas/ci/compose.tls.yml \
+            docker compose \
+              -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
               logs traefik traefik-forward-auth dex
             exit 1
           fi
@@ -643,7 +669,8 @@ jobs:
         run: |
           echo "Testing HTTP to HTTPS redirect..."
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            --max-redirs 0 http://localhost/ 2>/dev/null || echo "000")
+            --max-redirs 0 http://localhost/ 2>/dev/null \
+            || echo "000")
           if [ "$response" = "301" ] || [ "$response" = "308" ]; then
             echo "✅ HTTP to HTTPS redirect is working (HTTP $response)"
           else
@@ -655,18 +682,28 @@ jobs:
         if: failure()
         run: |
           echo "=== Traefik Logs ==="
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs traefik
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
+            logs traefik
           echo "=== Traefik Forward Auth Logs ==="
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs traefik-forward-auth
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
+            logs traefik-forward-auth
           echo "=== Dex Logs ==="
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs dex
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
+            logs dex
           echo "=== User1 Logs ==="
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml logs user1 | tail -50
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
+            logs user1 | tail -50
 
       - name: Cleanup (TLS)
         if: always()
         run: |
-          docker compose -f workspaces/test/dtaas/ci/compose.tls.yml down -v
+          docker compose \
+            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
+            down -v
           docker system prune -f
           rm -f workspaces/test/dtaas/ci/certs/fullchain.pem \
                 workspaces/test/dtaas/ci/certs/privkey.pem \
