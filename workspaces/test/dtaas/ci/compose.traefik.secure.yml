@@ -60,7 +60,7 @@ services:
   # Track https://github.com/thomseddon/traefik-forward-auth/issues for a
   # stable release containing this fix.
   traefik-forward-auth:
-    image: thomseddon/traefik-forward-auth:fix-dont-require-self-middleware-test1
+    image: thomseddon/traefik-forward-auth:latest
     restart: unless-stopped
     environment:
       - LOG_LEVEL=trace
@@ -79,7 +79,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.redirect.entryPoints=web"
       - "traefik.http.routers.redirect.rule=Host(`localhost`) && PathPrefix(`/_oauth`)"
-      - "traefik.http.routers.redirect.middlewares=traefik-forward-auth"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.address=http://traefik-forward-auth:4181"
       - "traefik.http.middlewares.traefik-forward-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
       - "traefik.http.services.traefik-forward-auth.loadbalancer.server.port=4181"
