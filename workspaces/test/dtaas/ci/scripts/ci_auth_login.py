@@ -69,6 +69,66 @@ def extract_form_action(html: str) -> str:
     return match.group(1).replace("&amp;", "&")
 
 
+def _fetch_dex_login_page(
+    session: requests.Session, protected_url: str
+) -> str:
+    """Follow redirects to reach the Dex login page.
+
+    Returns the login page HTML, or an empty string on failure.
+    """
+    print("=== Step 1: Follow redirects to Dex login page ===")
+    try:
+        resp = session.get(protected_url, allow_redirects=True)
+    except RequestException as exc:
+        print(f"❌ Failed to reach {protected_url}: {exc}")
+        return ""
+
+    if "action=" not in resp.text:
+        print("❌ Did not reach Dex login page. HTML dump:")
+        print(resp.text)
+        return ""
+    return resp.text
+
+
+def _submit_credentials(
+    session: requests.Session, post_url: str, email: str, password: str
+) -> bool:
+    """POST credentials to Dex and follow the redirect chain."""
+    print("=== Step 3: POST credentials to Dex, follow redirects ===")
+    try:
+        resp = session.post(
+            post_url,
+            data={"login": email, "password": password},
+            allow_redirects=True,
+        )
+    except RequestException as exc:
+        print(f"❌ Failed to POST credentials to {post_url}: {exc}")
+        return False
+    print(f"  HTTP code after credential POST + redirect chain: {resp.status_code}")
+    return True
+
+
+def _verify_authenticated_access(
+    session: requests.Session, protected_url: str
+) -> bool:
+    """Access the protected resource and check for HTTP 200."""
+    print("=== Step 4: Access protected resource with session cookie ===")
+    try:
+        resp = session.get(protected_url, allow_redirects=True)
+    except RequestException as exc:
+        print(f"❌ Failed to GET {protected_url} after login: {exc}")
+        return False
+
+    print(f"  HTTP code for authenticated request: {resp.status_code}")
+    if resp.status_code == 200:
+        print(f"✅ Authenticated access to {protected_url} succeeded (HTTP 200)")
+        return True
+    print(f"❌ Expected HTTP 200 but got {resp.status_code}")
+    print("--- Response content (first 2000 chars) ---")
+    print(resp.text[:2000])
+    return False
+
+
 def login(
     base_url: str,
     username: str,
@@ -97,17 +157,8 @@ def login(
     session.verify = verify
 
     # ── Step 1 ─────────────────────────────────────────────────────────────
-    print("=== Step 1: Follow redirects to Dex login page ===")
-    try:
-        resp = session.get(protected_url, allow_redirects=True)
-    except RequestException as exc:
-        print(f"❌ Failed to reach {protected_url}: {exc}")
-        return False
-
-    login_html = resp.text
-    if "action=" not in login_html:
-        print("❌ Did not reach Dex login page. HTML dump:")
-        print(login_html)
+    login_html = _fetch_dex_login_page(session, protected_url)
+    if not login_html:
         return False
 
     # ── Step 2 ─────────────────────────────────────────────────────────────
@@ -117,47 +168,20 @@ def login(
         print("❌ Could not extract form action from Dex login page.")
         print(login_html)
         return False
-
     print(f"  Form action path: {form_path}")
 
-    # ── Step 3 ─────────────────────────────────────────────────────────────
-    print("=== Step 3: POST credentials to Dex, follow redirects ===")
     # Only accept relative paths to prevent SSRF via a compromised form action.
     if form_path.startswith("http"):
         print(f"❌ Refusing absolute URL in form action: {form_path}")
         return False
+
+    # ── Step 3 ─────────────────────────────────────────────────────────────
     post_url = f"{dex_base_url}{form_path}"
-
-    try:
-        resp = session.post(
-            post_url,
-            data={"login": email, "password": password},
-            allow_redirects=True,
-        )
-    except RequestException as exc:
-        print(f"❌ Failed to POST credentials to {post_url}: {exc}")
+    if not _submit_credentials(session, post_url, email, password):
         return False
-
-    print(f"  HTTP code after credential POST + redirect chain: {resp.status_code}")
 
     # ── Step 4 ─────────────────────────────────────────────────────────────
-    print("=== Step 4: Access protected resource with session cookie ===")
-    try:
-        resp = session.get(protected_url, allow_redirects=True)
-    except RequestException as exc:
-        print(f"❌ Failed to GET {protected_url} after login: {exc}")
-        return False
-
-    print(f"  HTTP code for authenticated request: {resp.status_code}")
-
-    success = resp.status_code == 200
-    if success:
-        print(f"✅ Authenticated access to {protected_url} succeeded (HTTP 200)")
-    else:
-        print(f"❌ Expected HTTP 200 but got {resp.status_code}")
-        print("--- Response content (first 2000 chars) ---")
-        print(resp.text[:2000])
-    return success
+    return _verify_authenticated_access(session, protected_url)
 
 
 def main() -> int:

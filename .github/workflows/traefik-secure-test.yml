@@ -274,9 +274,7 @@ jobs:
       - name: Verify auth is enforced (expect redirect, not 200)
         run: |
           echo "Verifying that unauthenticated requests are redirected..."
-          CAROOT=$(mkcert -CAROOT)
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            --cacert "${CAROOT}/rootCA.pem" \
+          response=$(curl -sk -o /dev/null -w "%{http_code}" \
             --max-redirs 0 https://localhost/user1/ 2>/dev/null \
             || echo "000")
           echo "Unauthenticated response code: $response"
@@ -293,10 +291,8 @@ jobs:
       - name: Test automated OAuth2 login via Dex (user1, TLS)
         run: |
           pip install --quiet requests
-          CAROOT=$(mkcert -CAROOT)
           python3 workspaces/test/dtaas/ci/scripts/ci_auth_login.py \
-            https://localhost user1 http://dex:5556 password \
-            --ca-bundle "${CAROOT}/rootCA.pem"
+            --no-verify https://localhost user1 http://dex:5556 password
 
       - name: Test HTTP to HTTPS redirect
         run: |

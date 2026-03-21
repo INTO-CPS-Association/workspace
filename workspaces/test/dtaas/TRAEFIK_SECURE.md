@@ -1,8 +1,8 @@
 # Workspace with Traefik Forward Auth (OIDC/Keycloak Security)
 
 This guide explains how to use the workspace container with Traefik reverse proxy
-and OIDC authentication via Keycloak and traefik-forward-auth for secure multi-user deployments
-in the DTaaS installation.
+and OIDC authentication via Keycloak and traefik-forward-auth for secure
+multi-user deployments in the DTaaS installation.
 
 ## ❓ Prerequisites
 
@@ -23,7 +23,6 @@ The `compose.traefik.secure.yml` file sets up:
 - Two Docker networks: `dtaas-frontend` and `dtaas-users`
 
 ## ⚙️ Initial Configuration
-
 
 Please follow the steps in [`CONFIGURATION.md`](CONFIGURATION.md)
 for the `compose.traefik.secure.yml` composition AND the setup instructions
@@ -108,6 +107,7 @@ Replace `<KEYCLOAK_ADMIN>` and `<KEYCLOAK_ADMIN_PASSWORD>` with the values
 from your `.env` file.
 
 Alternatively, you can do this via the Keycloak Admin Console:
+
 1. Go to **Realm Settings** → **General**
 2. Set **Require SSL** to **None**
 3. Save. Repeat for each realm.
@@ -266,6 +266,7 @@ traefik-forward-auth supports multiple OAuth providers including GitLab, Google,
 **To use GitLab instead of Keycloak:**
 
 1. Update the traefik-forward-auth environment in `compose.traefik.secure.yml`:
+
    ```yaml
    environment:
      - DEFAULT_PROVIDER=generic-oauth
@@ -276,6 +277,7 @@ traefik-forward-auth supports multiple OAuth providers including GitLab, Google,
      - PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
      - PROVIDERS_GENERIC_OAUTH_SCOPE=read_user
    ```
+
 2. Remove the `keycloak` service from the compose file
 3. Configure GitLab OAuth application (see [CONFIGURATION.md](CONFIGURATION.md))
 4. Update `.env` with GitLab OAuth credentials
@@ -289,9 +291,11 @@ See [traefik-forward-auth documentation][tfa-docs] for other providers.
 To use an external Keycloak instance instead of the embedded one:
 
 1. Update `KEYCLOAK_ISSUER_URL` in `.env`:
+
    ```bash
    KEYCLOAK_ISSUER_URL=https://keycloak.example.com/auth/realms/dtaas
    ```
+
 2. Remove the `keycloak` service from compose file (optional)
 3. Configure the client in your external Keycloak
 4. Update `.env` with client credentials
@@ -329,6 +333,7 @@ If Keycloak displays "We are sorry... HTTPS required" when accessed via HTTP:
    [Disable Realm SSL Requirement](#disable-realm-ssl-requirement-http-only) above
 3. If you previously ran the TLS composition (`compose.traefik.secure.tls.yml`),
    the `keycloak-data` volume may retain old SSL settings. Remove it and restart:
+
    ```bash
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
      --env-file workspaces/test/dtaas/config/.env down
@@ -336,17 +341,20 @@ If Keycloak displays "We are sorry... HTTPS required" when accessed via HTTP:
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
      --env-file workspaces/test/dtaas/config/.env up -d
    ```
+
    Then re-apply the SSL disable steps after Keycloak starts.
 
 ### Keycloak Not Accessible
 
 1. Check Keycloak is running:
+
    ```bash
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
      --env-file workspaces/test/dtaas/config/.env ps keycloak
    ```
 
 2. Check Keycloak logs:
+
    ```bash
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
      --env-file workspaces/test/dtaas/config/.env logs keycloak
