@@ -305,7 +305,7 @@ To use an external Keycloak instance instead of the embedded one:
 ## 🤖 Automated CI Testing
 
 For automated CI testing with Dex OIDC (no real OAuth provider needed),
-see the dedicated documentation in [`ci/TRAEFIK_SECURE.md`](ci/TRAEFIK_SECURE.md).
+see the dedicated documentation in [`ci/README.md`](ci/README.md).
 
 ## :shield: Security Considerations
 

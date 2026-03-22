@@ -44,6 +44,9 @@ import re
 import sys
 from typing import Union
 
+# Seconds to wait for any single HTTP request/redirect chain before giving up.
+REQUEST_TIMEOUT = 30
+
 try:
     import requests
     import urllib3
@@ -78,7 +81,7 @@ def _fetch_dex_login_page(
     """
     print("=== Step 1: Follow redirects to Dex login page ===")
     try:
-        resp = session.get(protected_url, allow_redirects=True)
+        resp = session.get(protected_url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
     except RequestException as exc:
         print(f"❌ Failed to reach {protected_url}: {exc}")
         return ""
@@ -100,6 +103,7 @@ def _submit_credentials(
             post_url,
             data={"login": email, "password": password},
             allow_redirects=True,
+            timeout=REQUEST_TIMEOUT,
         )
     except RequestException as exc:
         print(f"❌ Failed to POST credentials to {post_url}: {exc}")
@@ -114,7 +118,7 @@ def _verify_authenticated_access(
     """Access the protected resource and check for HTTP 200."""
     print("=== Step 4: Access protected resource with session cookie ===")
     try:
-        resp = session.get(protected_url, allow_redirects=True)
+        resp = session.get(protected_url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
     except RequestException as exc:
         print(f"❌ Failed to GET {protected_url} after login: {exc}")
         return False
