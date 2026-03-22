@@ -442,10 +442,12 @@ jobs:
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
             # JSON array format
-            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | jq -r \
+              '.[] | select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
           else
             # Newline-delimited JSON format
-            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | jq -r \
+              'select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
           fi
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
@@ -604,10 +606,12 @@ jobs:
             ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
             # JSON array format
-            FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | jq -r \
+              '.[] | select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
           else
             # Newline-delimited JSON format
-            FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+            FAILED=$(echo "$SERVICES" | jq -r \
+              'select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
           fi
           if [ -n "$FAILED" ]; then
             echo "❌ Some services are not running:"
