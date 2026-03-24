@@ -41,8 +41,6 @@ docker compose -f test/dtaas/compose.yml build
 ```
 
 ## :running: Run it
-From `workspaces/`:
-
 
 *Either*  
 Using plain `docker` command:
