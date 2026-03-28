@@ -60,28 +60,21 @@ Override admin user and password explicitly:
 powershell -ExecutionPolicy Bypass -File .\scripts\keycloak\test\test_keycloak_scripts.ps1 -AdminUser "admin" -AdminPass "replace-this-value"
 ```
 
-## Running configure_keycloak_windows.ps1 With Secure Password
+## Running configure_keycloak_rest.sh Directly
 
-The script [scripts/keycloak/configure_keycloak_windows.ps1](scripts/keycloak/configure_keycloak_windows.ps1) now expects a secure password input.
-
-Option 1: Prompt securely
+Run the supported Keycloak configuration script directly from repository root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\keycloak\configure_keycloak_windows.ps1 -KeycloakBaseUrl "http://localhost" -KeycloakContextPath "/" -KeycloakRealm "dtaas" -KeycloakClientId "dtaas-workspace" -KeycloakAdmin "admin"
-```
-
-Option 2: Pass SecureString directly
-
-```powershell
-$securePass = Read-Host "Enter Keycloak admin password" -AsSecureString
-powershell -ExecutionPolicy Bypass -File .\scripts\keycloak\configure_keycloak_windows.ps1 -KeycloakBaseUrl "http://localhost" -KeycloakContextPath "/" -KeycloakRealm "dtaas" -KeycloakClientId "dtaas-workspace" -KeycloakAdmin "admin" -KeycloakAdminPassword $securePass
-```
-
-Option 3: Use environment variable (for CI and non-interactive execution)
-
-```powershell
-$env:KEYCLOAK_ADMIN_PASSWORD = "replace-this-value"
-powershell -ExecutionPolicy Bypass -File .\scripts\keycloak\configure_keycloak_windows.ps1 -KeycloakBaseUrl "http://localhost" -KeycloakContextPath "/" -KeycloakRealm "dtaas" -KeycloakClientId "dtaas-workspace" -KeycloakAdmin "admin"
+docker run --rm `
+	-v "${PWD}/scripts/keycloak:/scripts" `
+	-e KEYCLOAK_BASE_URL="http://host.docker.internal:18080" `
+	-e KEYCLOAK_CONTEXT_PATH="/" `
+	-e KEYCLOAK_REALM="dtaas" `
+	-e KEYCLOAK_CLIENT_ID="dtaas-workspace" `
+	-e KEYCLOAK_ADMIN="admin" `
+	-e KEYCLOAK_ADMIN_PASSWORD="replace-this-value" `
+	debian:bookworm-slim `
+	sh -c "apt-get -qq update && apt-get -qq install -y curl jq >/dev/null 2>&1 && sh /scripts/configure_keycloak_rest.sh"
 ```
 
 ## Troubleshooting

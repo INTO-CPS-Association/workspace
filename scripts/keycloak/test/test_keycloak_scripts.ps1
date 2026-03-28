@@ -1,8 +1,8 @@
 #!/usr/bin/env powershell
 #Requires -Version 5.1
-# Integration test for all three Keycloak configuration scripts.
+# Integration test for the REST-based Keycloak configuration script.
 # Spins up a Keycloak dev-mode container, seeds a test realm + client, runs
-# each script, and verifies protocol mappers and scope assignment were created.
+# the script, and verifies protocol mappers and scope assignment were created.
 
 [CmdletBinding()]
 param(
@@ -179,26 +179,8 @@ try {
     New-TestRealm
     New-TestClient
 
-    # ── Test 1: configure_keycloak_windows.ps1 (PowerShell 7 in Docker) ──────
-    Write-Step "Running configure_keycloak_windows.ps1"
-    docker run --rm `
-        -v "${ScriptDir}:/scripts" `
-        -e KEYCLOAK_BASE_URL="http://host.docker.internal:$Port" `
-        -e KEYCLOAK_CONTEXT_PATH="/" `
-        -e KEYCLOAK_REALM=$Realm `
-        -e KEYCLOAK_CLIENT_ID=$ClientId `
-        -e KEYCLOAK_SHARED_SCOPE_NAME=$SharedScope `
-        -e KEYCLOAK_ADMIN=$AdminUser `
-        -e KEYCLOAK_ADMIN_PASSWORD=$AdminPass `
-        -e PROFILE_BASE_URL="https://localhost/gitlab" `
-        mcr.microsoft.com/powershell:7.4-ubuntu-22.04 `
-        pwsh -NoProfile -NonInteractive -File /scripts/configure_keycloak_windows.ps1
-    if ($LASTEXITCODE -ne 0) { throw "configure_keycloak_windows.ps1 exited with code $LASTEXITCODE" }
-    Test-ScriptResults -ScriptLabel "configure_keycloak_windows.ps1"
-
-    # ── Test 2: configure_keycloak_rest.sh (via Docker/WSL) ───────────────────
+    # ── Test: configure_keycloak_rest.sh (via Docker/WSL) ─────────────────────
     Write-Step "Running configure_keycloak_rest.sh"
-    Remove-SharedScope  # reset so the script creates it fresh
 
     # On Docker Desktop (Windows/Mac) host.docker.internal resolves to the host.
     # On Linux fall back to the container gateway.
