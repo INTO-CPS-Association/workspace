@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import time
 import unittest
 import uuid
@@ -32,6 +33,7 @@ def http_json(
     data: dict[str, Any] | None = None,
     content_type: str = "application/json",
 ) -> Any:
+    """Execute an HTTP request and parse JSON response payload."""
     headers: dict[str, str] = {"Content-Type": content_type}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -50,6 +52,7 @@ def http_json(
 
 
 def admin_token(base_url: str, username: str, password: str) -> str:
+    """Request admin token for the temporary Keycloak instance."""
     response = http_json(
         f"{base_url}/realms/master/protocol/openid-connect/token",
         method="POST",
@@ -68,6 +71,7 @@ def admin_token(base_url: str, username: str, password: str) -> str:
 
 
 def create_realm(base_url: str, token: str, realm: str) -> None:
+    """Create the test realm used by the integration flow."""
     http_json(
         f"{base_url}/admin/realms",
         method="POST",
@@ -77,6 +81,7 @@ def create_realm(base_url: str, token: str, realm: str) -> None:
 
 
 def create_client(base_url: str, token: str, realm: str, client_id: str) -> str:
+    """Create target client and return the internal Keycloak UUID."""
     http_json(
         f"{base_url}/admin/realms/{realm}/clients",
         method="POST",
@@ -98,6 +103,7 @@ def create_client(base_url: str, token: str, realm: str, client_id: str) -> str:
 
 
 def create_user(base_url: str, token: str, realm: str, username: str) -> str:
+    """Create test user with existing custom attribute for merge assertions."""
     http_json(
         f"{base_url}/admin/realms/{realm}/users",
         method="POST",
@@ -134,6 +140,7 @@ def resolve_client_uuid(base_url: str, token: str, realm: str, client_id: str) -
 def create_admin_service_account_client(
     base_url: str, token: str, client_id: str
 ) -> tuple[str, str]:
+    """Create service-account admin client and grant required realm roles."""
     http_json(
         f"{base_url}/admin/realms/master/clients",
         method="POST",
@@ -200,8 +207,11 @@ def create_admin_service_account_client(
     "Set RUN_KEYCLOAK_INTEGRATION=1 to run real Keycloak integration tests.",
 )
 class KeycloakIntegrationTests(unittest.TestCase):
+    """Run end-to-end claims configuration against real Keycloak container."""
+
     @classmethod
     def setUpClass(cls) -> None:
+        """Create and bootstrap the temporary Keycloak test environment."""
         cls.admin_user = "admin"
         cls.admin_password = "admin"
         cls.container_name = f"keycloak-int-{uuid.uuid4().hex[:8]}"
@@ -231,10 +241,12 @@ class KeycloakIntegrationTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        """Always cleanup the temporary Keycloak container."""
         cls.cleanup_container()
 
     @classmethod
     def cleanup_container(cls) -> None:
+        """Best-effort removal of integration-test container."""
         subprocess.run(
             ["docker", "rm", "-f", cls.container_name],
             check=False,
@@ -244,6 +256,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
 
     @classmethod
     def start_container(cls) -> None:
+        """Start Keycloak container in dev mode for integration testing."""
         result = subprocess.run(
             [
                 "docker",
@@ -270,6 +283,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
 
     @classmethod
     def wait_until_ready(cls) -> None:
+        """Wait for Keycloak readiness endpoint with diagnostics on timeout."""
         deadline = time.time() + cls.startup_timeout
         while time.time() < deadline:
             if not cls.container_running():
@@ -285,7 +299,13 @@ class KeycloakIntegrationTests(unittest.TestCase):
                 try:
                     with urlopen(f"{cls.base_url}/realms/master", timeout=5):
                         return
-                except (HTTPError, URLError, ConnectionResetError, TimeoutError, OSError):
+                except (
+                    HTTPError,
+                    URLError,
+                    ConnectionResetError,
+                    TimeoutError,
+                    OSError,
+                ):
                     time.sleep(3)
         logs = cls.container_logs_tail()
         raise RuntimeError(
@@ -295,6 +315,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
 
     @classmethod
     def container_running(cls) -> bool:
+        """Check whether integration-test container is still running."""
         result = subprocess.run(
             ["docker", "inspect", "-f", "{{.State.Running}}", cls.container_name],
             check=False,
@@ -305,6 +326,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
 
     @classmethod
     def container_logs_tail(cls) -> str:
+        """Return the most recent container logs for debugging output."""
         result = subprocess.run(
             ["docker", "logs", "--tail", "80", cls.container_name],
             check=False,
@@ -314,6 +336,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
         return result.stdout or result.stderr or "<no logs available>"
 
     def test_script_configures_claims_via_service_account(self) -> None:
+        """Validate end-to-end claims setup via service-account auth path."""
         env = os.environ.copy()
         env.update(
             {
@@ -328,7 +351,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
         )
 
         result = subprocess.run(
-            ["py", "workspaces/test/dtaas/keycloak/configure_keycloak_rest.py"],
+            [sys.executable, "workspaces/test/dtaas/keycloak/configure_keycloak_rest.py"],
             check=False,
             capture_output=True,
             text=True,

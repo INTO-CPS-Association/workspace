@@ -14,8 +14,8 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-# A list of dictionaries. Each dictionary is a Keycloak mapper definition that will be sent as-is to the Keycloak
-# API as JSON.
+# A list of dictionaries. Each dictionary is a Keycloak mapper definition
+# that will be sent as-is to the Keycloak API as JSON.
 MAPPERS: list[dict[str, Any]] = [
     {
         "name": "profile",
@@ -108,6 +108,7 @@ class KeycloakRestConfigurator:
         self.admin_url = f"{self.server_url}/admin/realms"
 
     def run(self) -> None:
+        """Run the full claims-configuration workflow."""
         token = self.get_access_token()
         client_uuid = self.get_client_uuid(token)
         scope_id = self.get_or_create_scope_id(token)
@@ -121,6 +122,7 @@ class KeycloakRestConfigurator:
         self.update_user_profiles(token)
 
     def get_access_token(self) -> str:
+        """Get an admin token using service account or username/password."""
         if self.settings.keycloak_admin_client_id:
             payload = {
                 "grant_type": "client_credentials",
@@ -148,6 +150,7 @@ class KeycloakRestConfigurator:
         return token
 
     def get_client_uuid(self, token: str) -> str:
+        """Resolve the target client UUID from configured clientId."""
         clients = self._request_json(
             f"{self.admin_url}/{self.settings.keycloak_realm}/clients?max=200",
             token=token,
@@ -160,6 +163,7 @@ class KeycloakRestConfigurator:
         raise RuntimeError(f"Client not found: {self.settings.keycloak_client_id}")
 
     def get_or_create_scope_id(self, token: str) -> str:
+        """Resolve shared scope ID, creating the scope when missing."""
         scope_name = self.settings.keycloak_shared_scope_name
         scopes = self._request_json(
             f"{self.admin_url}/{self.settings.keycloak_realm}/client-scopes"
@@ -188,6 +192,7 @@ class KeycloakRestConfigurator:
         raise RuntimeError(f"Failed to resolve shared scope: {scope_name}")
 
     def ensure_mapper(self, token: str, scope_id: str, mapper: dict[str, Any]) -> None:
+        """Upsert mapper by name in the shared scope."""
         endpoint = (
             f"{self.admin_url}/{self.settings.keycloak_realm}/client-scopes/{scope_id}"
             "/protocol-mappers/models"
@@ -215,6 +220,7 @@ class KeycloakRestConfigurator:
     def ensure_user_profile_attribute(
         self, token: str, attr_name: str, display_name: str
     ) -> None:
+        """Ensure a realm user-profile attribute exists with expected settings."""
         endpoint = f"{self.admin_url}/{self.settings.keycloak_realm}/users/profile"
         profile = self._request_json(endpoint, token=token)
         attributes = profile.get("attributes", [])
@@ -243,6 +249,7 @@ class KeycloakRestConfigurator:
         self._request_empty(endpoint, method="PUT", json_data=profile, token=token)
 
     def ensure_scope_assigned(self, token: str, client_uuid: str, scope_id: str) -> None:
+        """Ensure shared scope is assigned as a default scope on the client."""
         assigned = self._request_json(
             f"{self.admin_url}/{self.settings.keycloak_realm}/clients/{client_uuid}"
             "/default-client-scopes",
@@ -259,6 +266,7 @@ class KeycloakRestConfigurator:
         )
 
     def update_user_profiles(self, token: str) -> None:
+        """Merge and update each user's profile attribute URL."""
         if not self.settings.profile_base_url:
             return
 
@@ -298,6 +306,7 @@ class KeycloakRestConfigurator:
         content_type: str = "application/json",
         token: str | None = None,
     ) -> Any:
+        """Execute an HTTP request and return parsed JSON or empty object."""
         headers: dict[str, str] = {}
         if content_type:
             headers["Content-Type"] = content_type
@@ -305,7 +314,13 @@ class KeycloakRestConfigurator:
             headers["Authorization"] = f"Bearer {token}"
         request = Request(url, method=method, headers=headers, data=data)
         with urlopen(request) as response:  # noqa: S310 - explicit admin URL target
-            return json.loads(response.read().decode("utf-8"))
+            raw_body = response.read()
+            if not raw_body:
+                return {}
+            decoded = raw_body.decode("utf-8")
+            if not decoded.strip():
+                return {}
+            return json.loads(decoded)
 
     def _request_empty(
         self,
@@ -314,6 +329,7 @@ class KeycloakRestConfigurator:
         token: str,
         json_data: dict[str, Any] | None = None,
     ) -> None:
+        """Execute a request where only success status is relevant."""
         data = None
         content_type = "application/json"
         if json_data is not None:

@@ -237,10 +237,14 @@ if [ -n "${PROFILE_BASE_URL}" ]; then
 
     if [ -n "$USER_ID" ] && [ -n "$USERNAME" ]; then
       echo "  Setting profile for ${USERNAME} ..."
+      USER_DETAILS="$(curl -fsS "${ADMIN_URL}/${KEYCLOAK_REALM}/users/${USER_ID}" \
+        -H "Authorization: Bearer ${ACCESS_TOKEN}")"
+      UPDATED_USER="$(echo "$USER_DETAILS" | jq --arg p "${PROFILE_BASE_URL}/${USERNAME}" \
+        '.attributes = (.attributes // {}) | .attributes.profile = [$p]')"
       curl -fsS -X PUT "${ADMIN_URL}/${KEYCLOAK_REALM}/users/${USER_ID}" \
         -H "Authorization: Bearer ${ACCESS_TOKEN}" \
         -H "Content-Type: application/json" \
-        -d "{\"attributes\":{\"profile\":[\"${PROFILE_BASE_URL}/${USERNAME}\"]}}" >/dev/null
+        -d "$UPDATED_USER" >/dev/null
     fi
   done
 fi

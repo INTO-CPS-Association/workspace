@@ -6,7 +6,14 @@ import json
 from urllib.parse import parse_qs
 import unittest
 
-from configure_keycloak_rest import KeycloakRestConfigurator, Settings, normalize_path
+try:
+    from workspaces.test.dtaas.keycloak.configure_keycloak_rest import (
+        KeycloakRestConfigurator,
+        Settings,
+        normalize_path,
+    )
+except ImportError:
+    from configure_keycloak_rest import KeycloakRestConfigurator, Settings, normalize_path
 
 
 class FakeConfigurator(KeycloakRestConfigurator):
@@ -59,9 +66,11 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         scope_id = self.config.get_or_create_scope_id("token")
 
         self.assertEqual(scope_id, "scope-1")
-        self.assertFalse(
-            any(call[0] == "POST" and call[1].endswith("/client-scopes") for call in self.config.calls)
+        created_scope = any(
+            call[0] == "POST" and call[1].endswith("/client-scopes")
+            for call in self.config.calls
         )
+        self.assertFalse(created_scope)
 
     def test_get_or_create_scope_id_creates_when_missing(self) -> None:
         name = self.config.settings.keycloak_shared_scope_name
@@ -75,7 +84,11 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         scope_id = self.config.get_or_create_scope_id("token")
 
         self.assertEqual(scope_id, "scope-2")
-        self.assertTrue(any(call[0] == "POST" and call[1] == create_url for call in self.config.calls))
+        created_scope = any(
+            call[0] == "POST" and call[1] == create_url
+            for call in self.config.calls
+        )
+        self.assertTrue(created_scope)
 
     def test_ensure_mapper_replaces_existing_mapper(self) -> None:
         endpoint = (
@@ -87,10 +100,16 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
 
         self.config.ensure_mapper("token", "scope-1", {"name": "profile"})
 
-        self.assertTrue(
-            any(call[0] == "PUT" and call[1] == f"{endpoint}/mapper-1" for call in self.config.calls)
+        updated_mapper = any(
+            call[0] == "PUT" and call[1] == f"{endpoint}/mapper-1"
+            for call in self.config.calls
         )
-        self.assertFalse(any(call[0] == "POST" and call[1] == endpoint for call in self.config.calls))
+        created_mapper = any(
+            call[0] == "POST" and call[1] == endpoint
+            for call in self.config.calls
+        )
+        self.assertTrue(updated_mapper)
+        self.assertFalse(created_mapper)
 
     def test_get_access_token_uses_client_credentials_if_configured(self) -> None:
         configured = FakeConfigurator()
@@ -153,7 +172,10 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         self.assertEqual(len(user_puts), 1)
         put_body = json.loads(user_puts[0][2].decode("utf-8"))
         self.assertEqual(put_body["attributes"]["department"], ["eng"])
-        self.assertEqual(put_body["attributes"]["profile"], ["https://localhost/gitlab/alice"])
+        self.assertEqual(
+            put_body["attributes"]["profile"],
+            ["https://localhost/gitlab/alice"],
+        )
 
 
 if __name__ == "__main__":

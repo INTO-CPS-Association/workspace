@@ -150,8 +150,8 @@ function Start-KeycloakContainer {
     Write-Step "Starting Keycloak container '$ContainerName' on port $Port"
     docker run -d --name $ContainerName `
         -p "${Port}:8080" `
-        -e KEYCLOAK_ADMIN=$AdminUser `
-        -e KEYCLOAK_ADMIN_PASSWORD=$AdminPass `
+        -e KC_BOOTSTRAP_ADMIN_USERNAME=$AdminUser `
+        -e KC_BOOTSTRAP_ADMIN_PASSWORD=$AdminPass `
         $KeycloakImage start-dev
     if ($LASTEXITCODE -ne 0) { throw "Failed to start Keycloak container." }
     Write-Info "Container started."

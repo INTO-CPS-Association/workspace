@@ -1,6 +1,6 @@
 # Run Keycloak Script Tests
 
-This guide explains how to run the integration test script in [scripts/keycloak/test/test_keycloak_scripts.ps1](scripts/keycloak/test/test_keycloak_scripts.ps1).
+This guide explains how to run the integration test script in [test_keycloak_scripts.ps1](test_keycloak_scripts.ps1).
 
 ## What The Test Verifies
 
