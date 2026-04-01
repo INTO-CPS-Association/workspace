@@ -156,8 +156,24 @@ def wait_for_client_availability(
         except RuntimeError as exc:
             last_error = exc
             time.sleep(1)
+    visible_clients: list[str] = []
+    try:
+        clients = http_json(
+            f"{base_url}/admin/realms/{realm}/clients?max=200", token=token
+        )
+        visible_clients = [
+            str(client.get("clientId", "")) for client in clients if client.get("clientId")
+        ]
+    except RuntimeError:
+        visible_clients = []
+
+    visible_clients.sort()
+    preview = ", ".join(visible_clients[:25]) if visible_clients else "<none>"
     if last_error:
-        raise last_error
+        raise RuntimeError(
+            f"{last_error} after waiting {timeout}s. "
+            f"Visible clients in realm '{realm}': {preview}"
+        ) from last_error
     raise RuntimeError(
         f"Timeout waiting for client '{client_id}' in realm '{realm}'"
     )
@@ -256,8 +272,15 @@ class KeycloakIntegrationTests(unittest.TestCase):
 
             token = admin_token(cls.base_url, cls.admin_user, cls.admin_password)
             # Ensure built-in master realm clients are available before proceeding
+            client_wait_timeout = int(
+                os.getenv("KEYCLOAK_CLIENT_AVAILABILITY_TIMEOUT", "180")
+            )
             wait_for_client_availability(
-                cls.base_url, token, "master", "realm-management", timeout=30
+                cls.base_url,
+                token,
+                "master",
+                "realm-management",
+                timeout=client_wait_timeout,
             )
             create_realm(cls.base_url, token, cls.realm)
             create_client(cls.base_url, token, cls.realm, cls.target_client_id)
