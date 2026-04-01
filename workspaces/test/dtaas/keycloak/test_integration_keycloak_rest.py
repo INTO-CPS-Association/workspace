@@ -46,9 +46,15 @@ def http_json(
             body = json.dumps(data).encode("utf-8")
 
     request = Request(url, method=method, headers=headers, data=body)
-    with urlopen(request) as response:  # noqa: S310 - integration test target is controlled
-        raw = response.read().decode("utf-8")
-        return json.loads(raw) if raw else {}
+    try:
+        with urlopen(request) as response:  # noqa: S310 - integration test target is controlled
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else {}
+    except HTTPError as exc:
+        error_body = exc.read().decode("utf-8") if exc else ""
+        raise RuntimeError(
+            f"HTTP {exc.code} from {url}: {error_body}"
+        ) from exc
 
 
 def admin_token(base_url: str, username: str, password: str) -> str:
@@ -135,6 +141,26 @@ def resolve_client_uuid(base_url: str, token: str, realm: str, client_id: str) -
         if client.get("clientId") == client_id:
             return client["id"]
     raise RuntimeError(f"Could not resolve client UUID for clientId '{client_id}'")
+
+
+def wait_for_client_availability(
+    base_url: str, token: str, realm: str, client_id: str, timeout: int = 60
+) -> None:
+    """Wait for a client to be available in Keycloak (e.g., realm-management)."""
+    deadline = time.time() + timeout
+    last_error = None
+    while time.time() < deadline:
+        try:
+            resolve_client_uuid(base_url, token, realm, client_id)
+            return
+        except RuntimeError as exc:
+            last_error = exc
+            time.sleep(1)
+    if last_error:
+        raise last_error
+    raise RuntimeError(
+        f"Timeout waiting for client '{client_id}' in realm '{realm}'"
+    )
 
 
 def create_admin_service_account_client(
@@ -229,6 +255,10 @@ class KeycloakIntegrationTests(unittest.TestCase):
             cls.wait_until_ready()
 
             token = admin_token(cls.base_url, cls.admin_user, cls.admin_password)
+            # Ensure built-in master realm clients are available before proceeding
+            wait_for_client_availability(
+                cls.base_url, token, "master", "realm-management", timeout=30
+            )
             create_realm(cls.base_url, token, cls.realm)
             create_client(cls.base_url, token, cls.realm, cls.target_client_id)
             create_user(cls.base_url, token, cls.realm, cls.username)
