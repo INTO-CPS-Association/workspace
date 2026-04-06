@@ -241,11 +241,38 @@ keycloak:
 
 ### Custom Claims and Scopes
 
-To access custom user attributes:
+The DTaaS workspace uses a `dtaas-shared` client scope with four protocol mappers
+that enrich tokens with group membership and user profile information.
 
-1. In Keycloak, create client scopes with mappers
-2. Assign scopes to the client
-3. Configure traefik-forward-auth to request additional scopes
+Use the automation script to configure this idempotently against any Keycloak instance:
+
+```bash
+# Shell script (Linux / macOS / WSL)
+KEYCLOAK_BASE_URL=https://your-keycloak \
+KEYCLOAK_CONTEXT_PATH=/auth \
+KEYCLOAK_REALM=dtaas \
+KEYCLOAK_CLIENT_ID=dtaas-workspace \
+KEYCLOAK_ADMIN=admin \
+KEYCLOAK_ADMIN_PASSWORD=changeme \
+./scripts/keycloak/configure_keycloak_rest.sh
+```
+
+The script creates (or reuses):
+
+| Mapper | Claim name | Access token | Userinfo |
+|--------|-----------|:---:|:---:|
+| `profile` | `profile` | — | ✓ |
+| `groups` | `groups` | ✓ | ✓ |
+| `groups_owner` | `https://gitlab.org/claims/groups/owner` | ✓ | ✓ |
+| `sub_legacy` | `sub_legacy` | — | ✓ |
+
+It also ensures the `profile` and `sub_legacy` user profile attributes exist in
+the realm, and sets each user's `profile` attribute to
+`<PROFILE_BASE_URL>/<username>` (merge-safe — other existing attributes are
+preserved).
+
+See [scripts/keycloak/CONFIGURE_KEYCLOAK.md](../../scripts/keycloak/CONFIGURE_KEYCLOAK.md)
+for full environment variable reference.
 
 ### Role-Based Access Control (RBAC)
 

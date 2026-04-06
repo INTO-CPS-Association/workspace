@@ -290,7 +290,8 @@ class KeycloakRestConfigurator:
                 f"{self.settings.profile_base_url}/{username}"
             ]
 
-            payload = {"attributes": merged_attributes}
+            payload = dict(user_details)
+            payload["attributes"] = merged_attributes
             self._request_empty(
                 f"{self.admin_url}/{self.settings.keycloak_realm}/users/{user_id}",
                 method="PUT",

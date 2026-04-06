@@ -10,6 +10,7 @@ import sys
 import time
 import unittest
 import uuid
+import base64
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -51,7 +52,8 @@ def http_json(
             raw = response.read().decode("utf-8")
             return json.loads(raw) if raw else {}
     except HTTPError as exc:
-        error_body = exc.read().decode("utf-8") if exc else ""
+        with exc:
+            error_body = exc.read().decode("utf-8")
         raise RuntimeError(
             f"HTTP {exc.code} from {url}: {error_body}"
         ) from exc
@@ -108,22 +110,132 @@ def create_client(base_url: str, token: str, realm: str, client_id: str) -> str:
     return clients[0]["id"]
 
 
-def create_user(base_url: str, token: str, realm: str, username: str) -> str:
-    """Create test user with existing custom attribute for merge assertions."""
+def create_user(
+    base_url: str,
+    token: str,
+    realm: str,
+    username: str,
+    attributes: dict | None = None,
+) -> str:
+    """Create a test user, optionally with pre-existing custom attributes."""
     http_json(
         f"{base_url}/admin/realms/{realm}/users",
         method="POST",
         token=token,
         data={
             "username": username,
+            "email": f"{username}@test.local",
+            "firstName": "Test",
+            "lastName": "User",
             "enabled": True,
-            "attributes": {"department": ["eng"]},
+            "emailVerified": True,
+            "requiredActions": [],
+            **(({"attributes": attributes}) if attributes else {}),
         },
     )
     users = http_json(
         f"{base_url}/admin/realms/{realm}/users?username={username}", token=token
     )
     return users[0]["id"]
+
+
+def set_user_password(
+    base_url: str, token: str, realm: str, user_id: str, password: str
+) -> None:
+    """Set non-temporary password for the test user."""
+    http_json(
+        f"{base_url}/admin/realms/{realm}/users/{user_id}/reset-password",
+        method="PUT",
+        token=token,
+        data={"type": "password", "value": password, "temporary": False},
+    )
+
+
+def ensure_group(base_url: str, token: str, realm: str, group_name: str) -> str:
+    """Ensure a group exists and return its id."""
+    existing = http_json(
+        f"{base_url}/admin/realms/{realm}/groups?search={group_name}", token=token
+    )
+    for group in existing:
+        if group.get("name") == group_name and group.get("id"):
+            return group["id"]
+
+    http_json(
+        f"{base_url}/admin/realms/{realm}/groups",
+        method="POST",
+        token=token,
+        data={"name": group_name},
+    )
+    created = http_json(
+        f"{base_url}/admin/realms/{realm}/groups?search={group_name}", token=token
+    )
+    for group in created:
+        if group.get("name") == group_name and group.get("id"):
+            return group["id"]
+    raise RuntimeError(f"Could not resolve group id for '{group_name}'")
+
+
+def add_user_to_group(
+    base_url: str, token: str, realm: str, user_id: str, group_id: str
+) -> None:
+    """Add user to group for groups claim assertions."""
+    http_json(
+        f"{base_url}/admin/realms/{realm}/users/{user_id}/groups/{group_id}",
+        method="PUT",
+        token=token,
+    )
+
+
+def user_token(
+    base_url: str, realm: str, client_id: str, username: str, password: str
+) -> str:
+    """Request user access token using direct access grant in integration env."""
+    response = http_json(
+        f"{base_url}/realms/{realm}/protocol/openid-connect/token",
+        method="POST",
+        data={
+            "grant_type": "password",
+            "client_id": client_id,
+            "username": username,
+            "password": password,
+            "scope": "openid profile",
+        },
+        content_type="application/x-www-form-urlencoded",
+    )
+    token = response.get("access_token", "")
+    if not token:
+        raise RuntimeError("Failed to retrieve user access token")
+    return token
+
+
+def userinfo(base_url: str, realm: str, access_token: str) -> dict[str, Any]:
+    """Fetch userinfo claims for the provided access token."""
+    payload = http_json(
+        f"{base_url}/realms/{realm}/protocol/openid-connect/userinfo",
+        token=access_token,
+    )
+    return payload if isinstance(payload, dict) else {}
+
+
+def claim_value(claims: dict[str, Any], claim_name: str) -> Any:
+    """Read a claim using flat lookup then Keycloak-style dot-split nesting.
+
+    Keycloak's oidc mappers split claim names on '.' to build nested objects,
+    so 'https://gitlab.org/claims/groups/owner' appears in the JWT as
+    {"https://gitlab": {"org/claims/groups/owner": value}}.
+    """
+    if claim_name in claims:
+        return claims[claim_name]
+    # Traverse the dot-split path that Keycloak creates
+    parts = claim_name.split(".")
+    if len(parts) > 1:
+        current: Any = claims
+        for part in parts:
+            if not isinstance(current, dict):
+                return None
+            current = current.get(part)
+        return current
+    return None
 
 
 def resolve_client_uuid(base_url: str, token: str, realm: str, client_id: str) -> str:
@@ -323,6 +435,10 @@ class KeycloakIntegrationTests(unittest.TestCase):
         cls.target_client_id = f"dtaas-workspace-{uuid.uuid4().hex[:6]}"
         cls.admin_client_id = f"dtaas-admin-automation-{uuid.uuid4().hex[:6]}"
         cls.username = f"alice-{uuid.uuid4().hex[:4]}"
+        cls.user_password = uuid.uuid4().hex
+        cls.clean_username = f"bob-{uuid.uuid4().hex[:4]}"
+        cls.clean_user_password = uuid.uuid4().hex
+        cls.group_name = "dtaas-users"
         cls.startup_timeout = int(os.getenv("KEYCLOAK_INTEGRATION_TIMEOUT", "300"))
 
         cls.start_container()
@@ -342,7 +458,24 @@ class KeycloakIntegrationTests(unittest.TestCase):
             )
             create_realm(cls.base_url, token, cls.realm)
             create_client(cls.base_url, token, cls.realm, cls.target_client_id)
-            create_user(cls.base_url, token, cls.realm, cls.username)
+            # User with pre-existing custom attribute (merge-safety case)
+            user_id = create_user(
+                cls.base_url, token, cls.realm, cls.username,
+                attributes={"department": ["eng"]},
+            )
+            set_user_password(
+                cls.base_url, token, cls.realm, user_id, cls.user_password,
+            )
+            group_id = ensure_group(cls.base_url, token, cls.realm, cls.group_name)
+            add_user_to_group(cls.base_url, token, cls.realm, user_id, group_id)
+            # User with no prior custom attributes
+            clean_user_id = create_user(
+                cls.base_url, token, cls.realm, cls.clean_username,
+            )
+            set_user_password(
+                cls.base_url, token, cls.realm, clean_user_id, cls.clean_user_password,
+            )
+            add_user_to_group(cls.base_url, token, cls.realm, clean_user_id, group_id)
             _, cls.admin_client_secret = create_admin_service_account_client(
                 cls.base_url, token, cls.admin_client_id
             )
@@ -406,18 +539,20 @@ class KeycloakIntegrationTests(unittest.TestCase):
             try:
                 with urlopen(f"{cls.base_url}/health/ready", timeout=5):
                     return
-            except (HTTPError, URLError, ConnectionResetError, TimeoutError, OSError):
-                try:
-                    with urlopen(f"{cls.base_url}/realms/master", timeout=5):
-                        return
-                except (
-                    HTTPError,
-                    URLError,
-                    ConnectionResetError,
-                    TimeoutError,
-                    OSError,
-                ):
-                    time.sleep(3)
+            except HTTPError as exc:
+                exc.close()
+            except (URLError, ConnectionResetError, TimeoutError, OSError):
+                pass
+            else:
+                return
+            try:
+                with urlopen(f"{cls.base_url}/realms/master", timeout=5):
+                    return
+            except HTTPError as exc:
+                exc.close()
+            except (URLError, ConnectionResetError, TimeoutError, OSError):
+                pass
+            time.sleep(3)
         logs = cls.container_logs_tail()
         raise RuntimeError(
             f"Keycloak did not become ready in {cls.startup_timeout}s.\n"
@@ -447,7 +582,13 @@ class KeycloakIntegrationTests(unittest.TestCase):
         return result.stdout or result.stderr or "<no logs available>"
 
     def test_script_configures_claims_via_service_account(self) -> None:
-        """Validate end-to-end claims setup via service-account auth path."""
+        """Validate end-to-end claims setup via service-account auth path.
+
+        Three users are exercised:
+        - A user with a pre-existing custom attribute (department) that must
+          survive the script run unchanged (merge-safety).
+        - A user with no prior custom attributes who should receive profile.
+        """
         token = admin_token(self.base_url, self.admin_user, self.admin_password)
         users_before = http_json(
             f"{self.base_url}/admin/realms/{self.realm}/users?username={self.username}",
@@ -514,6 +655,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
         )
         self.assertIn(scope_id, {item["id"] for item in defaults})
 
+        # --- User with pre-existing attribute: profile set, department preserved ---
         users = http_json(
             f"{self.base_url}/admin/realms/{self.realm}/users?username={self.username}",
             token=token,
@@ -529,6 +671,45 @@ class KeycloakIntegrationTests(unittest.TestCase):
         self.assertEqual(
             attributes.get("profile"), [f"https://localhost/gitlab/{self.username}"]
         )
+
+        # --- User with no prior custom attributes: profile set from scratch ---
+        clean_users = http_json(
+            f"{self.base_url}/admin/realms/{self.realm}/users"
+            f"?username={self.clean_username}",
+            token=token,
+        )
+        clean_user_details = http_json(
+            f"{self.base_url}/admin/realms/{self.realm}/users/{clean_users[0]['id']}",
+            token=token,
+        )
+        clean_attrs = clean_user_details.get("attributes", {})
+        self.assertEqual(
+            clean_attrs.get("profile"),
+            [f"https://localhost/gitlab/{self.clean_username}"],
+        )
+
+        access_token = user_token(
+            self.base_url,
+            self.realm,
+            self.target_client_id,
+            self.username,
+            self.user_password,
+        )
+        token_payload = access_token.split(".")[1]
+        token_payload += "=" * ((4 - len(token_payload) % 4) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(token_payload).decode("utf-8"))
+
+        self.assertEqual(decoded.get("preferred_username"), self.username)
+        self.assertIn(self.group_name, decoded.get("groups", []))
+        owners_claim = claim_value(decoded, "https://gitlab.org/claims/groups/owner")
+        self.assertIn(self.group_name, owners_claim or [])
+
+        user_info = userinfo(self.base_url, self.realm, access_token)
+        self.assertEqual(
+            user_info.get("profile"), f"https://localhost/gitlab/{self.username}"
+        )
+        self.assertEqual(user_info.get("preferred_username"), self.username)
+        self.assertIn(self.group_name, user_info.get("groups", []))
 
 
 if __name__ == "__main__":

@@ -129,21 +129,39 @@ Configured manually in Keycloak:
 
 ## Custom Claims on Both Clients
 
-The `dtaas-shared` Keycloak scope (configured by `configure_keycloak_rest.py`)
-is assigned to the workspace client and adds these claims to the access token:
+The `dtaas-shared` Keycloak scope (configured by `configure_keycloak_rest.py`
+or `scripts/keycloak/configure_keycloak_rest.sh`) is assigned to both clients
+and contributes the following claims. Note that not all claims appear in every
+token type — the mapper flags control this.
+
+**Access token** (`groups` and `groups_owner` mappers, `access.token.claim: true`):
 
 ```json
 {
-  "sub": "887093bc-41a3-4f3b-846c-a8fa94088fe4",
   "preferred_username": "sandra",
   "groups": ["dtaas-users"],
-  "https://gitlab.org/claims/groups/owner": ["dtaas-users"],
-  "profile": "https://shared.dtaas-digitaltwin.com/auth/sandra"
+  "https://gitlab.org/claims/groups/owner": ["dtaas-users"]
 }
 ```
 
+**Userinfo endpoint** (`profile`, `groups`, `groups_owner`, `sub_legacy` mappers,
+`userinfo.token.claim: true`):
+
+```json
+{
+  "preferred_username": "sandra",
+  "groups": ["dtaas-users"],
+  "https://gitlab.org/claims/groups/owner": ["dtaas-users"],
+  "profile": "https://shared.dtaas-digitaltwin.com/gitlab/sandra",
+  "sub_legacy": "<legacy-sub-value>"
+}
+```
+
+> **Note**: `profile` and `sub_legacy` are userinfo-only — they are intentionally
+> excluded from the access token (`access.token.claim: false`).
+
 The same scope should be assigned to `dtaas-client` in Keycloak so the React
-SPA also receives group membership and profile claims in its tokens.
+SPA also receives group membership and profile claims.
 
 ---
 

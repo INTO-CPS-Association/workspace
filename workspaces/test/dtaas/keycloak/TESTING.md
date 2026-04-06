@@ -14,7 +14,8 @@ The Python script configures a Keycloak realm by:
 4. Creating the required protocol mappers.
 5. Ensuring the `profile` and `sub_legacy` user profile attributes exist.
 6. Assigning the shared scope to the target client.
-7. Updating each user's `profile` attribute.
+7. Updating each user's `profile` attribute without clobbering other
+   existing attributes (merge-safe).
 
 ## Prerequisites
 
@@ -151,6 +152,12 @@ If users exist in the realm:
 1. Open a user.
 2. Check the user's attributes.
 3. Confirm `profile` is set to `<PROFILE_BASE_URL>/<username>`.
+4. Confirm any pre-existing attributes on the user are still present and unchanged.
+
+> **Note**: The script performs a merge — it reads existing attributes first and
+> only adds or overwrites `profile`. It does not replace the full attribute map.
+> Any custom attributes already set on a user (e.g. `department`, `team`) will
+> be preserved.
 
 ## Run the Unit Tests Too
 
@@ -168,16 +175,23 @@ The integration test lives in
 It starts a disposable Keycloak container, creates:
 
 1. A test realm.
-2. A target client.
-3. A test user with an existing custom attribute.
+2. A target client (public, direct-access grants enabled).
+3. A test user with a pre-existing custom attribute (`department`), a login password,
+   and membership in the `dtaas-users` group. The pre-existing attribute is there to
+   assert that `update_user_profiles` merges rather than replaces — it must survive
+   the script run unchanged.
 4. A dedicated admin automation client (service account) with required roles.
 
 Then it runs `configure_keycloak_rest.py` using `client_credentials` and verifies:
 
-1. Required shared scope exists.
-2. Required mappers exist.
-3. Shared scope is assigned to the target client.
-4. Existing user attributes are preserved while `profile` is updated.
+1. Required shared scope (`dtaas-shared`) exists.
+2. All four required mappers exist: `profile`, `groups`, `groups_owner`, `sub_legacy`.
+3. Shared scope is assigned to the target client as a default scope.
+4. Pre-existing user attributes (e.g. `department`) are preserved while `profile`
+   is set to `<PROFILE_BASE_URL>/<username>` — verifying merge safety.
+5. Access token contains `preferred_username`, `groups`, and the
+   `https://gitlab.org/claims/groups/owner` claim populated from the user's group.
+6. Userinfo endpoint returns `profile`, `preferred_username`, and `groups` claims.
 
 Run it explicitly:
 

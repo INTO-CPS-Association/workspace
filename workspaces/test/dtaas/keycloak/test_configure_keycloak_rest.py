@@ -9,11 +9,17 @@ import unittest
 try:
     from workspaces.test.dtaas.keycloak.configure_keycloak_rest import (
         KeycloakRestConfigurator,
+        MAPPERS,
         Settings,
         normalize_path,
     )
 except ImportError:
-    from configure_keycloak_rest import KeycloakRestConfigurator, Settings, normalize_path
+    from configure_keycloak_rest import (
+        KeycloakRestConfigurator,
+        MAPPERS,
+        Settings,
+        normalize_path,
+    )
 
 
 class FakeConfigurator(KeycloakRestConfigurator):
@@ -110,6 +116,38 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         )
         self.assertTrue(updated_mapper)
         self.assertFalse(created_mapper)
+
+    def test_mapper_definitions_include_expected_claim_contract(self) -> None:
+        """Validate claim names and emission targets used by mapper definitions."""
+        by_name = {mapper["name"]: mapper for mapper in MAPPERS}
+
+        self.assertIn("profile", by_name)
+        self.assertIn("groups", by_name)
+        self.assertIn("groups_owner", by_name)
+        self.assertIn("sub_legacy", by_name)
+
+        groups_cfg = by_name["groups"]["config"]
+        self.assertEqual(groups_cfg.get("claim.name"), "groups")
+        self.assertEqual(groups_cfg.get("access.token.claim"), "true")
+        self.assertEqual(groups_cfg.get("userinfo.token.claim"), "true")
+
+        owners_cfg = by_name["groups_owner"]["config"]
+        self.assertEqual(
+            owners_cfg.get("claim.name"),
+            "https://gitlab.org/claims/groups/owner",
+        )
+        self.assertEqual(owners_cfg.get("access.token.claim"), "true")
+        self.assertEqual(owners_cfg.get("userinfo.token.claim"), "true")
+
+        profile_cfg = by_name["profile"]["config"]
+        self.assertEqual(profile_cfg.get("claim.name"), "profile")
+        self.assertEqual(profile_cfg.get("access.token.claim"), "false")
+        self.assertEqual(profile_cfg.get("userinfo.token.claim"), "true")
+
+        legacy_cfg = by_name["sub_legacy"]["config"]
+        self.assertEqual(legacy_cfg.get("claim.name"), "sub_legacy")
+        self.assertEqual(legacy_cfg.get("access.token.claim"), "false")
+        self.assertEqual(legacy_cfg.get("userinfo.token.claim"), "true")
 
     def test_get_access_token_uses_client_credentials_if_configured(self) -> None:
         configured = FakeConfigurator()
