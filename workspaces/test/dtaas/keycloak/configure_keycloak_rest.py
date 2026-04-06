@@ -87,7 +87,7 @@ class Settings:
     keycloak_admin_client_secret: str = ""
     keycloak_admin: str = "admin"
     keycloak_admin_password: str = "admin"
-    profile_base_url: str = "https://localhost/gitlab"
+    profile_base_url: str = ""
 
 
 def normalize_path(path: str) -> str:
@@ -359,7 +359,7 @@ def settings_from_env() -> Settings:
         keycloak_admin_client_secret=os.getenv("KEYCLOAK_ADMIN_CLIENT_SECRET", ""),
         keycloak_admin=os.getenv("KEYCLOAK_ADMIN", "admin"),
         keycloak_admin_password=os.getenv("KEYCLOAK_ADMIN_PASSWORD", "admin"),
-        profile_base_url=os.getenv("PROFILE_BASE_URL", "https://localhost/gitlab"),
+        profile_base_url=os.getenv("PROFILE_BASE_URL", ""),
     )
 
 

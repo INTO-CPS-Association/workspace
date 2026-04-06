@@ -140,9 +140,15 @@ token type — the mapper flags control this.
 {
   "preferred_username": "sandra",
   "groups": ["dtaas-users"],
-  "https://gitlab.org/claims/groups/owner": ["dtaas-users"]
+  "https://gitlab": {
+    "org/claims/groups/owner": ["dtaas-users"]
+  }
 }
 ```
+
+> **Note**: Keycloak splits claim names on `.` when building nested JWT objects,
+> so `https://gitlab.org/claims/groups/owner` becomes
+> `token["https://gitlab"]["org/claims/groups/owner"]` in the raw JWT.
 
 **Userinfo endpoint** (`profile`, `groups`, `groups_owner`, `sub_legacy` mappers,
 `userinfo.token.claim: true`):
@@ -151,7 +157,9 @@ token type — the mapper flags control this.
 {
   "preferred_username": "sandra",
   "groups": ["dtaas-users"],
-  "https://gitlab.org/claims/groups/owner": ["dtaas-users"],
+  "https://gitlab": {
+    "org/claims/groups/owner": ["dtaas-users"]
+  },
   "profile": "https://shared.dtaas-digitaltwin.com/gitlab/sandra",
   "sub_legacy": "<legacy-sub-value>"
 }

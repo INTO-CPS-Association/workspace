@@ -584,7 +584,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
     def test_script_configures_claims_via_service_account(self) -> None:
         """Validate end-to-end claims setup via service-account auth path.
 
-        Three users are exercised:
+        Two users are exercised:
         - A user with a pre-existing custom attribute (department) that must
           survive the script run unchanged (merge-safety).
         - A user with no prior custom attributes who should receive profile.
