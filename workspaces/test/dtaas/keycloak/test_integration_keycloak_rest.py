@@ -589,6 +589,7 @@ class KeycloakIntegrationTests(unittest.TestCase):
           survive the script run unchanged (merge-safety).
         - A user with no prior custom attributes who should receive profile.
         """
+        # pylint: disable=too-many-locals
         token = admin_token(self.base_url, self.admin_user, self.admin_password)
         users_before = http_json(
             f"{self.base_url}/admin/realms/{self.realm}/users?username={self.username}",

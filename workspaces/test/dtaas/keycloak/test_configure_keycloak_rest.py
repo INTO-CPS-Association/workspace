@@ -31,9 +31,10 @@ class FakeConfigurator(KeycloakRestConfigurator):
         self.calls: list[tuple[str, str, object | None]] = []
 
     def push(self, url: str, payload: object) -> None:
+        """Queue a canned response for the given URL."""
         self.responses.setdefault(url, []).append(payload)
 
-    def _request_json(  # type: ignore[override]
+    def _request_json(  # type: ignore[override]  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         url: str,
         method: str = "GET",
@@ -41,6 +42,7 @@ class FakeConfigurator(KeycloakRestConfigurator):
         content_type: str = "application/json",
         token: str | None = None,
     ) -> object:
+        """Record the call and return the next queued response."""
         self.calls.append((method, url, data))
         queue = self.responses.get(url, [])
         if queue:
@@ -49,22 +51,29 @@ class FakeConfigurator(KeycloakRestConfigurator):
 
 
 class NormalizePathTests(unittest.TestCase):
+    """Tests for the normalize_path helper."""
+
     def test_normalize_path_root_and_empty(self) -> None:
+        """Root paths and empty strings should normalize to empty."""
         self.assertEqual(normalize_path(""), "")
         self.assertEqual(normalize_path("/"), "")
 
     def test_normalize_path_trailing_slash(self) -> None:
+        """Trailing slashes should be stripped; non-slash paths stay unchanged."""
         self.assertEqual(normalize_path("/auth/"), "/auth")
         self.assertEqual(normalize_path("/auth"), "/auth")
 
 
 class ConfiguratorBehaviorTests(unittest.TestCase):
+    """Behavioural unit tests for KeycloakRestConfigurator via FakeConfigurator."""
+
     def setUp(self) -> None:
         self.config = FakeConfigurator()
         self.realm = self.config.settings.keycloak_realm
         self.admin_url = self.config.admin_url
 
     def test_get_or_create_scope_id_reuses_existing(self) -> None:
+        """Existing scope is reused without creating a new one."""
         name = self.config.settings.keycloak_shared_scope_name
         url = f"{self.admin_url}/{self.realm}/client-scopes?q={name}"
         self.config.push(url, [{"name": name, "id": "scope-1"}])
@@ -79,6 +88,7 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         self.assertFalse(created_scope)
 
     def test_get_or_create_scope_id_creates_when_missing(self) -> None:
+        """Scope is created via POST when not already present."""
         name = self.config.settings.keycloak_shared_scope_name
         query_url = f"{self.admin_url}/{self.realm}/client-scopes?q={name}"
         create_url = f"{self.admin_url}/{self.realm}/client-scopes"
@@ -97,6 +107,7 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         self.assertTrue(created_scope)
 
     def test_ensure_mapper_replaces_existing_mapper(self) -> None:
+        """Existing mapper is updated in-place rather than created again."""
         endpoint = (
             f"{self.admin_url}/{self.realm}/client-scopes/scope-1"
             "/protocol-mappers/models"
@@ -150,6 +161,7 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         self.assertEqual(legacy_cfg.get("userinfo.token.claim"), "true")
 
     def test_get_access_token_uses_client_credentials_if_configured(self) -> None:
+        """Client credentials grant is used when client ID and secret are set."""
         configured = FakeConfigurator()
         configured.settings = Settings(
             keycloak_admin_client_id="admin-client",
@@ -176,6 +188,7 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         self.assertEqual(parsed.get("client_secret"), ["admin-secret"])
 
     def test_ensure_scope_assigned_is_noop_if_already_assigned(self) -> None:
+        """Scope assignment is skipped if the scope is already present."""
         url = (
             f"{self.admin_url}/{self.realm}/clients/client-1/default-client-scopes"
         )
@@ -187,6 +200,7 @@ class ConfiguratorBehaviorTests(unittest.TestCase):
         self.assertEqual(put_calls, [])
 
     def test_update_user_profiles_updates_valid_users(self) -> None:
+        """Valid users get a profile URL; users with missing id or username are skipped."""
         self.config.settings = Settings(profile_base_url="https://localhost/gitlab")
         users_url = f"{self.admin_url}/{self.realm}/users?max=200"
         user_details_url = f"{self.admin_url}/{self.realm}/users/u-1"

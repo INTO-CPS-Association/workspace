@@ -77,7 +77,9 @@ MAPPERS: list[dict[str, Any]] = [
 
 
 @dataclass(frozen=True)
-class Settings:
+class Settings:  # pylint: disable=too-many-instance-attributes
+    """Configuration settings loaded from environment variables."""
+
     keycloak_base_url: str = "http://localhost"
     keycloak_context_path: str = "/auth"
     keycloak_realm: str = "dtaas"
@@ -299,7 +301,7 @@ class KeycloakRestConfigurator:
                 token=token,
             )
 
-    def _request_json(
+    def _request_json(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         url: str,
         method: str = "GET",
