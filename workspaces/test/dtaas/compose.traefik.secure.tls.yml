@@ -150,7 +150,8 @@ services:
       - frontend
       - users
     depends_on:
-      - keycloak
+      keycloak:
+        condition: service_healthy
 
 networks:
   frontend:
