@@ -334,9 +334,9 @@ jobs:
             sleep $time_between_attempts
           done
 
-      - name: Test redirection to OAuth
+      - name: Test service accessibility (HTTP)
         run: |
-          echo "Testing redirection to OAuth..."
+          echo "Testing HTTP connectivity..."
           max_attempts=10
           attempt=0
           time_between_attempts=10
@@ -345,13 +345,13 @@ jobs:
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             # Test if services respond (will get auth redirect)
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/user1/services 2>/dev/null)
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/auth 2>/dev/null)
 
-            # We expect a redirect to OAuth
+            # We expect a redirect to Keycloak
             if [ "$response" = "302" ] || [ "$response" = "307" ]; then
-              echo "✅ Redirect to OAuth as expected (HTTP $response)"
+              echo "✅ Redirect to Keycloak as expected (HTTP $response)"
               echo "Content of response:"
-              curl -s http://localhost/user1/services
+              curl -s http://localhost/auth
               break
             fi
 
@@ -550,13 +550,13 @@ jobs:
 
             # Test HTTPS (will show cert warning but should connect)
             response=$(curl -s -k -o /dev/null -w "%{http_code}" \
-              https://localhost 2>/dev/null || true)
+              https://localhost/auth 2>/dev/null || true)
 
-            # We expect 302 (redirect to OAuth) or 200
+            # We expect 302 (redirect to Keycloak) or 200
             if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "307" ]; then
               echo "✅ HTTPS is working correctly (HTTP $response)"
               echo "Content of user1/services:"
-              curl -s -k https://localhost
+              curl -s -k https://localhost/auth
               break
             fi
 
