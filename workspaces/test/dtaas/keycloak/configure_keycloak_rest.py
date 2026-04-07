@@ -319,7 +319,11 @@ class KeycloakRestConfigurator:
             headers["Authorization"] = f"Bearer {token}"
         request = Request(url, method=method, headers=headers, data=data)
         try:
-            with urlopen(request, timeout=30) as response:  # noqa: S310 - explicit admin URL target
+            # noqa: S310 - explicit admin URL target
+            with urlopen(
+                request,
+                timeout=30,
+            ) as response:
                 raw_body = response.read()
                 if not raw_body:
                     return {}
@@ -370,7 +374,9 @@ def settings_from_env() -> Settings:
         keycloak_admin_client_secret=os.getenv("KEYCLOAK_ADMIN_CLIENT_SECRET", ""),
         keycloak_admin=os.getenv("KEYCLOAK_ADMIN", "admin"),
         keycloak_admin_password=os.getenv("KEYCLOAK_ADMIN_PASSWORD", "admin"),
-        profile_base_url=os.getenv("PROFILE_BASE_URL", ""),
+        profile_base_url=os.getenv(
+            "PROFILE_BASE_URL", ""
+        ),
     )
 
 
