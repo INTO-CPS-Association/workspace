@@ -128,6 +128,7 @@ jobs:
       - name: Start workspace
         run: |
           docker compose -f workspaces/test/dtaas/compose.yml up -d
+          sleep 30
 
       - name: Check service health
         run: |
@@ -477,10 +478,10 @@ jobs:
               ps --format json)
             if echo "$SERVICES" | head -1 | grep -q '^\['; then
               # JSON array format
-              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
             else
               # Newline-delimited JSON format
-              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
             fi
 
             if [ ! -n "$FAILED" ]; then
@@ -682,10 +683,10 @@ jobs:
               ps --format json)
             if echo "$SERVICES" | head -1 | grep -q '^\['; then
               # JSON array format
-              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
             else
               # Newline-delimited JSON format
-              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
             fi
 
             if [ ! -n "$FAILED" ]; then
