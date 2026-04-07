@@ -129,6 +129,44 @@ jobs:
         run: |
           docker compose -f workspaces/test/dtaas/compose.yml up -d
 
+      - name: Check service health
+        run: |
+          echo "📊 Checking service status..."
+          max_attempts=10
+          attempt=0
+          time_between_attempts=10
+          while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            printf "\nAttempt $attempt out of $max_attempts\n"
+
+            docker compose -f workspaces/test/dtaas/compose.yml ps
+            echo "---"
+            SERVICES=$(docker compose -f workspaces/test/dtaas/compose.yml ps --format json)
+            if echo "$SERVICES" | head -1 | grep -q '^\['; then
+              # JSON array format
+              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
+            else
+              # Newline-delimited JSON format
+              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
+            fi
+
+            if [ ! -n "$FAILED" ]; then
+              echo "✅ All services are running"
+              break
+            fi
+
+            if [ $attempt -eq $max_attempts ]; then
+              echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
+              echo "$FAILED"
+              exit 1
+            fi
+
+            echo "⏳ Some services are not yet running:"
+            echo "$FAILED"
+            echo "Trying again in $time_between_attempts seconds"
+            sleep $time_between_attempts
+          done
+
       - name: Test service endpoint
         run: |
           echo "Testing service endpoint accesibility..."
@@ -398,7 +436,7 @@ jobs:
       - name: Pull the docker images used in compose files
         run: |
           docker pull traefik:v3.6.4
-          docker pull thomseddon/traefik-forward-auth:2.2.0
+          docker pull thomseddon/traefik-forward-auth:latest
           docker pull intocps/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
@@ -610,7 +648,7 @@ jobs:
       - name: Pull the docker images used in compose files
         run: |
           docker pull traefik:v3.6.4
-          docker pull thomseddon/traefik-forward-auth:2.2.0
+          docker pull thomseddon/traefik-forward-auth:latest
           docker pull intocps/dtaas-web:latest || \
             echo "⚠️ DTaaS web image not available, will skip"
           docker pull mltooling/ml-workspace-minimal:0.13.2
