@@ -129,8 +129,8 @@ Configured manually in Keycloak:
 
 ## Custom Claims on Both Clients
 
-The `dtaas-shared` Keycloak scope (configured by `configure_keycloak_rest.py`
-or `scripts/keycloak/configure_keycloak_rest.sh`) is assigned to both clients
+The `dtaas-shared` Keycloak scope (configured by `configure_keycloak_rest.py`)
+is assigned to both clients
 and contributes the following claims. Note that not all claims appear in every
 token type — the mapper flags control this.
 
