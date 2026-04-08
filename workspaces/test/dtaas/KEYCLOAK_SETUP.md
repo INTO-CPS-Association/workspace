@@ -257,19 +257,24 @@ KEYCLOAK_ADMIN_PASSWORD=changeme \
 python3 workspaces/test/dtaas/keycloak/configure_keycloak_rest.py
 ```
 
-The script creates (or reuses):
+The script creates (or reuses) the following protocol mapper:
 
 | Mapper | Claim name | Access token | Userinfo |
 |--------|-----------|:---:|:---:|
 | `profile` | `profile` | — | ✓ |
-| `groups` | `groups` | ✓ | ✓ |
-| `groups_owner` | `https://gitlab.org/claims/groups/owner` | ✓ | ✓ |
-| `sub_legacy` | `sub_legacy` | — | ✓ |
 
-It also ensures the `profile` and `sub_legacy` user profile attributes exist in
-the realm, and sets each user's `profile` attribute to
-`<PROFILE_BASE_URL>/<username>` (merge-safe — other existing attributes are
-preserved).
+By default, the mapper is placed directly on the `dtaas-workspace` client. Optionally,
+you can enable `KEYCLOAK_USE_SHARED_SCOPE=true` to place it on a shared client scope
+instead (see `.env.example` for configuration).
+
+The script also sets each user's `profile` attribute to `<PROFILE_BASE_URL>/<username>`
+(if `KEYCLOAK_PROFILE_BASE_URL` and `KEYCLOAK_USER_PROFILES` are configured).
+This operation is merge-safe — other existing attributes are preserved.
+
+> **Note**: `groups` is a built-in Keycloak mapper; the script does not create it.
+> To ensure group membership claims appear in tokens, assign the default `groups`
+> scope to your client or manually add the `groups` mapper if needed. The `groups_owner`
+> and `sub_legacy` mappers are not currently configured by this script.
 
 For the full environment variable reference, run the configurator with `--help`
 or see the inline documentation in

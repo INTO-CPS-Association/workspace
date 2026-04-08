@@ -13,8 +13,11 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-# A list of dictionaries. Each dictionary is a Keycloak mapper definition
-# that will be sent as-is to the Keycloak API as JSON.
+# Protocol mappers to configure on the Keycloak client or shared scope.
+# Currently includes only the `profile` mapper, which maps the user's `profile`
+# attribute to a userinfo-only claim. Additional mappers like `groups`,
+# `groups_owner`, and `sub_legacy` are not currently configured by this script;
+# they can be added manually in the Keycloak admin console if needed.
 MAPPERS: list[dict[str, Any]] = [
     {
         "name": "profile",
@@ -48,6 +51,8 @@ class Settings:  # pylint: disable=too-many-instance-attributes
     keycloak_admin: str = "admin"
     keycloak_admin_password: str = "admin"
     use_shared_scope: bool = False
+    profile_base_url: str = ""
+    user_profiles: list[str] = None  # type: ignore
 
 
 def normalize_path(path: str) -> str:
@@ -67,6 +72,34 @@ class KeycloakRestConfigurator:
         )
         self.admin_url = f"{self.server_url}/admin/realms"
 
+    def update_user_profiles(self, token: str) -> None:
+        """Set profile attributes on specified users."""
+        if not self.settings.user_profiles:
+            return
+
+        for username in self.settings.user_profiles:
+            users = self._request_json(
+                f"{self.admin_url}/{self.settings.keycloak_realm}"
+                f"/users?username={username}",
+                token=token,
+            )
+            if not users:
+                print(f"Warning: User '{username}' not found.", file=sys.stderr)
+                continue
+
+            user_id = users[0].get("id")
+            if not user_id:
+                print(f"Warning: Could not resolve ID for user '{username}'.", file=sys.stderr)
+                continue
+
+            profile_url = self._build_profile_url(username)
+            self._request_empty(
+                f"{self.admin_url}/{self.settings.keycloak_realm}/users/{user_id}",
+                method="PUT",
+                json_data={"attributes": {"profile": [profile_url]}},
+                token=token,
+            )
+
     def run(self) -> None:
         """Run the full claims-configuration workflow."""
         token = self.get_access_token()
@@ -85,6 +118,16 @@ class KeycloakRestConfigurator:
         else:
             for mapper in MAPPERS:
                 self.ensure_mapper_on_client(token, client_uuid, mapper)
+
+        self.update_user_profiles(token)
+
+    def _build_profile_url(self, username: str) -> str:
+        """Build profile URL for a user from base URL and username."""
+        if not self.settings.profile_base_url:
+            raise RuntimeError(
+                "KEYCLOAK_PROFILE_BASE_URL must be set to update user profiles"
+            )
+        return f"{self.settings.profile_base_url}/{username}"
 
     @staticmethod
     def _find_client_uuid(clients: list[dict[str, Any]], client_id: str) -> str:
@@ -109,6 +152,11 @@ class KeycloakRestConfigurator:
     def get_access_token(self) -> str:
         """Get an admin token using service account or username/password."""
         if self.settings.keycloak_admin_client_id:
+            if not self.settings.keycloak_admin_client_secret:
+                raise RuntimeError(
+                    "KEYCLOAK_ADMIN_CLIENT_SECRET must be set when "
+                    "KEYCLOAK_ADMIN_CLIENT_ID is configured (both required)"
+                )
             payload = {
                 "grant_type": "client_credentials",
                 "client_id": self.settings.keycloak_admin_client_id,
@@ -332,6 +380,12 @@ def settings_from_env() -> Settings:
         keycloak_admin_password=os.getenv("KEYCLOAK_ADMIN_PASSWORD", "admin"),
         use_shared_scope=os.getenv("KEYCLOAK_USE_SHARED_SCOPE", "").lower()
         in ("1", "true", "yes"),
+        profile_base_url=os.getenv("KEYCLOAK_PROFILE_BASE_URL", ""),
+        user_profiles=(
+            json.loads(os.getenv("KEYCLOAK_USER_PROFILES", "[]"))
+            if os.getenv("KEYCLOAK_USER_PROFILES")
+            else None
+        ),
     )
 
 
@@ -343,6 +397,9 @@ def main() -> int:
     except Exception as exc:  # pylint: disable=broad-except
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+
+    if configurator.settings.user_profiles:
+        print(f"Updated {len(configurator.settings.user_profiles)} user profile(s).")
 
     if configurator.settings.use_shared_scope:
         print("Keycloak shared scope and mappers configured successfully (REST API).")

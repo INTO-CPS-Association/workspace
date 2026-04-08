@@ -34,7 +34,8 @@ class FakeConfigurator(KeycloakRestConfigurator):
         """Queue a canned response for the given URL."""
         self.responses.setdefault(url, []).append(payload)
 
-    def _request_json(  # type: ignore[override]  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _request_json(  # type: ignore[override]
         self,
         url: str,
         method: str = "GET",

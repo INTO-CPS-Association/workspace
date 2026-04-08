@@ -298,7 +298,9 @@ def wait_for_client_availability(
             f"{base_url}/admin/realms/{realm}/clients?max=200", token=token
         )
         visible_clients = [
-            str(client.get("clientId", "")) for client in clients if client.get("clientId")
+            str(client.get("clientId", ""))
+            for client in clients
+            if client.get("clientId")
         ]
     except RuntimeError:
         visible_clients = []
