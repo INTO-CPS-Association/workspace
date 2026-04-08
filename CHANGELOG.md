@@ -2,6 +2,18 @@
 
 The main changes made so far are listed here.
 
+## Week of 06-April-2026
+
+### Changed
+
+* Changed the Docker build workflows to use only the GitHub Actions cache
+  (`type=gha`) for build layer reuse across repeated runs (previously also cached to the GHCR)
+* Consolidated test of Docker compose files and Docker image into one GitHub Action
+* Updated Actions to work with Keycloak Auth compose files
+* Added GitHub Actions test of the basic Docker compose file, for testing actual Docker image functionality
+* Removed outdated references to deleted Traefik-specific workflow files and
+  documented the cache mechanism actually used in this PR
+
 ## Week of 03-Mar-2026
 
 ### Changed
