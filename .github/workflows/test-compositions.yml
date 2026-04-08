@@ -172,18 +172,19 @@ jobs:
           max_attempts=10
           attempt=0
           time_between_attempts=10
+          services_url="http://localhost/user1/services"
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             response=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://localhost/user1/services 2>/dev/null)
+              "$services_url" 2>/dev/null)
 
             if [ "$response" = "200" ]; then
               echo "✅ Service endpoint accesible (HTTP $response)"
-              echo "Content of user1/services:"
+              echo "Content of $services_url:"
               # We expect a json formatted document
-              curl -s http://localhost/user1/services | json_pp -json_opt pretty,canonical
+              curl -s "$services_url" | json_pp -json_opt pretty,canonical
               break
             fi
 
@@ -204,17 +205,18 @@ jobs:
           max_attempts=10
           attempt=0
           time_between_attempts=10
+          vnc_url="http://localhost/user1/tools/vnc/?path=user1%2Ftools%2Fvnc%2Fwebsockify"
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             response=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://localhost/user1/tools/vnc/?path=user1%2Ftools%2Fvnc%2Fwebsockify 2>/dev/null)
+              "$vnc_url" 2>/dev/null)
 
             if [ "$response" = "200" ]; then
               echo "✅ VNC endpoint accesible (HTTP $response)"
-              echo "Content of user1/tools/vnc/?path=user1%2Ftools%2Fvnc%2Fwebsockify:"
-              curl -s http://localhost/user1/services
+              echo "Headers of $vnc_url:"
+              curl -sI "$vnc_url"
               break
             fi
 
@@ -336,18 +338,19 @@ jobs:
           max_attempts=10
           attempt=0
           time_between_attempts=10
+          services_url="http://localhost/user1/services"
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             response=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://localhost/user1/services 2>/dev/null)
+              "$services_url" 2>/dev/null)
 
             if [ "$response" = "200" ]; then
               echo "✅ Workspace routing works (HTTP $response)"
-              echo "Content of user1/services:"
+              echo "Content of $services_url:"
               # We expect a json formatted document
-              curl -s http://localhost/user1/services | json_pp -json_opt pretty,canonical
+              curl -s "$services_url" | json_pp -json_opt pretty,canonical
               break
             fi
 
@@ -503,18 +506,19 @@ jobs:
           max_attempts=10
           attempt=0
           time_between_attempts=10
+          test_url="http://localhost/auth"
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             # Test if services respond (will get auth redirect)
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/auth 2>/dev/null)
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$test_url" 2>/dev/null)
 
             # We expect a redirect to Keycloak
             if [ "$response" = "302" ] || [ "$response" = "303" ] || [ "$response" = "307" ]; then
               echo "✅ Redirect to Keycloak as expected (HTTP $response)"
-              echo "Content of response:"
-              curl -s http://localhost/auth
+              echo "Headers of response:"
+              curl -sI "$test_url"
               break
             fi
 
@@ -707,19 +711,20 @@ jobs:
           max_attempts=10
           attempt=0
           time_between_attempts=10
+          test_url="https://localhost/auth"
           while [ $attempt -lt $max_attempts ]; do
             attempt=$((attempt + 1))
             printf "\nAttempt $attempt out of $max_attempts\n"
 
             # Test HTTPS (will show cert warning but should connect)
             response=$(curl -s -k -o /dev/null -w "%{http_code}" \
-              https://localhost/auth 2>/dev/null || true)
+               "$test_url" 2>/dev/null || true)
 
             # We expect 302 (redirect to Keycloak)
             if [ "$response" = "302" ] || [ "$response" = "303" ] || [ "$response" = "307" ]; then
               echo "✅ HTTPS is working correctly (HTTP $response)"
-              echo "Content of response:"
-              curl -s -k https://localhost/auth
+              echo "Headers of response:"
+              curl -sI "$test_url"
               break
             fi
 
