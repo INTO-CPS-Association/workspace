@@ -129,42 +129,9 @@ jobs:
           sleep 30
 
       - name: Check service health
-        run: |
-          echo "📊 Checking service status..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            docker compose -f workspaces/test/dtaas/compose.yml ps
-            echo "---"
-            SERVICES=$(docker compose -f workspaces/test/dtaas/compose.yml ps --format json)
-            if echo "$SERVICES" | head -1 | grep -q '^\['; then
-              # JSON array format
-              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
-            else
-              # Newline-delimited JSON format
-              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
-            fi
-
-            if [ ! -n "$FAILED" ]; then
-              echo "✅ All services are running"
-              break
-            fi
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
-              echo "$FAILED"
-              exit 1
-            fi
-
-            echo "⏳ Some services are not yet running:"
-            echo "$FAILED"
-            echo "Trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-service-health
+        with:
+          compose_file: workspaces/test/dtaas/compose.yml
 
       - name: Test service endpoint
         run: |
@@ -295,42 +262,9 @@ jobs:
           docker compose -f workspaces/test/dtaas/compose.traefik.yml up -d
 
       - name: Check service health
-        run: |
-          echo "📊 Checking service status..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            docker compose -f workspaces/test/dtaas/compose.traefik.yml ps
-            echo "---"
-            SERVICES=$(docker compose -f workspaces/test/dtaas/compose.traefik.yml ps --format json)
-            if echo "$SERVICES" | head -1 | grep -q '^\['; then
-              # JSON array format
-              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | .Name')
-            else
-              # Newline-delimited JSON format
-              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | .Name')
-            fi
-
-            if [ ! -n "$FAILED" ]; then
-              echo "✅ All services are running"
-              break
-            fi
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
-              echo "$FAILED"
-              exit 1
-            fi
-
-            echo "⏳ Some services are not yet running:"
-            echo "$FAILED"
-            echo "Trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-service-health
+        with:
+          compose_file: workspaces/test/dtaas/compose.traefik.yml
 
       - name: Test workspace routing through Traefik
         run: |
@@ -457,48 +391,10 @@ jobs:
           sleep 60
 
       - name: Check service health
-        run: |
-          echo "📊 Checking service status..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            docker compose \
-              -f workspaces/test/dtaas/compose.traefik.secure.yml \
-              --env-file workspaces/test/dtaas/config/.env \
-              ps
-            echo "---"
-            SERVICES=$(docker compose \
-              -f workspaces/test/dtaas/compose.traefik.secure.yml \
-              --env-file workspaces/test/dtaas/config/.env \
-              ps --format json)
-            if echo "$SERVICES" | head -1 | grep -q '^\['; then
-              # JSON array format
-              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
-            else
-              # Newline-delimited JSON format
-              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
-            fi
-
-            if [ ! -n "$FAILED" ]; then
-              echo "✅ All services are running"
-              break
-            fi
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
-              echo "$FAILED"
-              exit 1
-            fi
-
-            echo "⏳ Some services are not yet running:"
-            echo "$FAILED"
-            echo "Trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-service-health
+        with:
+          compose_file: workspaces/test/dtaas/compose.traefik.secure.yml
+          ignore_services: traefik-forward-auth
 
       - name: Test service accessibility (HTTP)
         run: |
@@ -662,48 +558,10 @@ jobs:
           sleep 60
 
       - name: Check service health
-        run: |
-          echo "📊 Checking service status..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            docker compose \
-              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-              --env-file workspaces/test/dtaas/config/.env \
-              ps
-            echo "---"
-            SERVICES=$(docker compose \
-              -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
-              --env-file workspaces/test/dtaas/config/.env \
-              ps --format json)
-            if echo "$SERVICES" | head -1 | grep -q '^\['; then
-              # JSON array format
-              FAILED=$(echo "$SERVICES" | jq -r '.[] | select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
-            else
-              # Newline-delimited JSON format
-              FAILED=$(echo "$SERVICES" | jq -r 'select(.State != "running") | select(.Name | test("traefik-forward-auth") | not) | .Name')
-            fi
-
-            if [ ! -n "$FAILED" ]; then
-              echo "✅ All services are running"
-              break
-            fi
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Some services did not start running within $(( (max_attempts - 1) * time_between_attempts )) seconds:"
-              echo "$FAILED"
-              exit 1
-            fi
-
-            echo "⏳ Some services are not yet running:"
-            echo "$FAILED"
-            echo "Trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-service-health
+        with:
+          compose_file: workspaces/test/dtaas/compose.traefik.tls.secure.yml
+          ignore_services: traefik-forward-auth
 
       - name: Test HTTPS connectivity
         run: |
@@ -863,29 +721,9 @@ jobs:
           sleep 180
 
       - name: Check service health
-        run: |
-          echo "📊 Checking service status..."
-          docker compose \
-            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml ps
-          echo "---"
-          SERVICES=$(docker compose \
-            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
-            ps --format json)
-          if echo "$SERVICES" | head -1 | grep -q '^\['; then
-            FAILED=$(echo "$SERVICES" | \
-              jq -r '.[] | select(.State != "running") | .Name')
-          else
-            FAILED=$(echo "$SERVICES" | \
-              jq -r 'select(.State != "running") | .Name')
-          fi
-          if [ -n "$FAILED" ]; then
-            echo "❌ Some services are not running:"
-            echo "$FAILED"
-            docker compose \
-              -f workspaces/test/dtaas/ci/compose.traefik.secure.yml logs
-            exit 1
-          fi
-          echo "✅ All services are running"
+        uses: ./.github/actions/check-service-health
+        with:
+          compose_file: workspaces/test/dtaas/ci/compose.traefik.secure.yml
 
       - name: Verify auth is enforced (expect redirect, not 200)
         run: |
@@ -1022,30 +860,10 @@ jobs:
           echo "⏳ Waiting for services to be ready..."
           sleep 180
 
-      - name: Check service health (TLS)
-        run: |
-          echo "📊 Checking service status..."
-          docker compose \
-            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml ps
-          echo "---"
-          SERVICES=$(docker compose \
-            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
-            ps --format json)
-          if echo "$SERVICES" | head -1 | grep -q '^\['; then
-            FAILED=$(echo "$SERVICES" | \
-              jq -r '.[] | select(.State != "running") | .Name')
-          else
-            FAILED=$(echo "$SERVICES" | \
-              jq -r 'select(.State != "running") | .Name')
-          fi
-          if [ -n "$FAILED" ]; then
-            echo "❌ Some services are not running:"
-            echo "$FAILED"
-            docker compose \
-              -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml logs
-            exit 1
-          fi
-          echo "✅ All services are running"
+      - name: Check service health
+        uses: ./.github/actions/check-service-health
+        with:
+          compose_file: workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml
 
       - name: Verify auth is enforced (expect redirect, not 200)
         run: |
