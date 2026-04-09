@@ -61,7 +61,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
     keycloak_context_path: str = "/auth"
     keycloak_realm: str = "dtaas"
     keycloak_client_id: str = "dtaas-workspace"
-    keycloak_use_shared_scope: bool = False
+    keycloak_use_shared_scope: bool = True
     keycloak_shared_scope_name: str = "dtaas-shared"
     keycloak_user_profiles: list[str] | None = None
     keycloak_admin_client_id: str = ""
@@ -472,7 +472,7 @@ def settings_from_env() -> Settings:
         keycloak_context_path=os.getenv("KEYCLOAK_CONTEXT_PATH", "/auth"),
         keycloak_realm=os.getenv("KEYCLOAK_REALM", "dtaas"),
         keycloak_client_id=os.getenv("KEYCLOAK_CLIENT_ID", "dtaas-workspace"),
-        keycloak_use_shared_scope=parse_bool_env("KEYCLOAK_USE_SHARED_SCOPE", False),
+        keycloak_use_shared_scope=parse_bool_env("KEYCLOAK_USE_SHARED_SCOPE", True),
         keycloak_shared_scope_name=os.getenv("KEYCLOAK_SHARED_SCOPE_NAME", "dtaas-shared"),
         keycloak_user_profiles=parse_user_profiles_env("KEYCLOAK_USER_PROFILES"),
         keycloak_admin_client_id=os.getenv("KEYCLOAK_ADMIN_CLIENT_ID", ""),
