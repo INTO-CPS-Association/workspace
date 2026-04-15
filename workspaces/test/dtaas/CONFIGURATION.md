@@ -30,7 +30,7 @@ assume that you are in the `workspaces/test/dtaas/` directory.
   - [Protocol - HTTPS](#-https)
   - [Web Client](#️-dtaas-web-client-config)
   - [OAuth2](#-oauth2-configuration)
-  - [Forward Auth](#-traefik-forward-auth-configuration)
+  - [Oathkeeper Configuration](#-oathkeeper-configuration)
 
 ## 🌍 Environment
 
@@ -58,8 +58,8 @@ USERNAME1=user1
 USERNAME2=user2
 ```
 
-**NOTE:** If the composition also needs forward auth, then these
-usernames must match the names of the gitlab users used in the forward auth.
+**NOTE:** For `compose.traefik.secure.yml`, these usernames must match the
+email prefixes configured in the Traefik Forward Auth `config/conf` whitelist.
 
 ## 📁 User Directories
 
@@ -266,6 +266,31 @@ Update the environment file, [`config/.env`](config/.env),
    OAUTH_SECRET=<RANDOM_STRIN>
    ...
    ```
+
+## 🛡️ Oathkeeper Configuration
+
+Used by `compose.traefik.secure.tls.yml` only.
+
+Oathkeeper acts as an authenticating reverse proxy: Traefik routes all workspace
+and SPA traffic through it, and it validates the `dtaas_access_token` JWT cookie
+before forwarding requests to the upstream workspace containers.
+
+The access rules are pre-configured in
+[`oathkeeper/access-rules.yml`](./oathkeeper/access-rules.yml) for `USERNAME1`
+and `USERNAME2`. No manual editing is required for a basic two-user setup.
+
+### Adding a Third User
+
+To add a third user, add a new rule to `oathkeeper/access-rules.yml` following
+the pattern of the existing `dtaas-user1-workspace` rule. See
+[TRAEFIK_TLS.md](TRAEFIK_TLS.md) for the full example.
+
+### Audience Mapper (Required)
+
+Oathkeeper validates the `aud` claim in the Keycloak JWT. You must add an
+Audience mapper to the Keycloak client so the JWT contains `dtaas-workspace`
+in its `aud` claim. See [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) — step 7 of the
+**Confidential client (Oathkeeper / login-relay)** section.
 
 ## 🚪 Traefik Forward Auth Configuration
 
