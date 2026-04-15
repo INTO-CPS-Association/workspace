@@ -48,28 +48,17 @@ mkcert "foo.com" "*.foo.com" "localhost" "127.0.0.1" "::1"
 cp ~/.local/share/mkcert/rootCA.pem rootCA.crt
 ```
 
-#### ***Build forward auth image with your certificate***
-
-From within `test/dtaas/certs/`:
+Rename the generated files to match what Traefik expects:
 
 ```bash
-docker buildx build -t traefik-forward-auth-local:latest .
+mv foo.com+4.pem fullchain.pem
+mv foo.com+4-key.pem privkey.pem
 ```
 
-#### ***Update forward auth image name in compose file***
-
-Update the `traefik-forward-auth` service definition in the
-`compose.traefik.secure.tls.yml` file by replacing the line
-
-```yaml
-image: thomseddon/traefik-forward-auth:2.2.0
-```
-
-with
-
-```yaml
-image: traefik-forward-auth-local:latest
-```
+No further steps are needed. Traefik picks up the certificates via the
+`dynamic/tls.yml` volume mount. The login-relay and Oathkeeper communicate
+with Keycloak over the internal Docker network (plain HTTP), so they do not
+need to trust the self-signed cert.
 
 ## Security Notes
 
