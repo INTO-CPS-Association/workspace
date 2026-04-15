@@ -201,7 +201,7 @@ async def callback(
     try:
         return_to = base64.urlsafe_b64decode(return_to_b64 + "==").decode()
         return_to = _safe_return_to(return_to)
-    except Exception:
+    except ValueError:
         return_to = "/"
 
     access_token = await _fetch_access_token(code)
