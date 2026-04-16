@@ -22,6 +22,8 @@ jobs:
           - compose.traefik.yml
           - compose.traefik.secure.yml
           - compose.traefik.secure.tls.yml
+          - ci/compose.traefik.secure.yml
+          - ci/compose.traefik.secure.tls.yml
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -29,28 +31,10 @@ jobs:
       - name: Validate ${{ matrix.compose-file }} syntax
         run: |
           cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
-          docker compose -f workspaces/test/dtaas/${{ matrix.compose-file }} --env-file workspaces/test/dtaas/config/.env config > /dev/null
+          docker compose -f workspaces/test/dtaas/${{ matrix.compose-file }} \
+          --env-file workspaces/test/dtaas/config/.env \
+          config --quiet
           echo "✅ ${{ matrix.compose-file }} syntax is valid"
-
-  validate-ci-compose:
-    name: Validate CI Compose Files
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-      - name: Validate CI compose files syntax
-        run: |
-          docker compose \
-            -f workspaces/test/dtaas/ci/compose.traefik.secure.yml \
-            config --quiet
-          echo "✅ ci/compose.traefik.secure.yml syntax is valid"
-          docker compose \
-            -f workspaces/test/dtaas/ci/compose.traefik.secure.tls.yml \
-            config --quiet
-          echo "✅ ci/compose.traefik.secure.tls.yml syntax is valid"
 
   build-workspace-image:
     name: Build and Cache Workspace Image
@@ -62,7 +46,7 @@ jobs:
             runner: ubuntu-latest
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-    needs: [validate-compose, validate-ci-compose]
+    needs: validate-compose
     runs-on: ${{ matrix.arch.runner }}
     permissions:
       contents: read
