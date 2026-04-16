@@ -40,7 +40,9 @@
 - id: dtaas-user1-workspace
   version: "v0.36.0-beta.1"
   description: >
-    Requires a valid Keycloak JWT. Proxies to the user1 workspace container.
+    Requires a valid Keycloak JWT whose preferred_username matches the path
+    prefix (${USERNAME1}). The remote_json authorizer delegates the claim check
+    to login-relay, which returns 200 only when the token belongs to that user.
   match:
     url: "<^https?://[^/]*/${USERNAME1}(/.*)?$>"
     methods:
@@ -63,7 +65,10 @@
         token_from:
           cookie: dtaas_access_token
   authorizer:
-    handler: allow
+    handler: remote_json
+    config:
+      remote: http://login-relay:8080/authz/workspace/${USERNAME1}
+      payload: '{"subject":{"id":{{ .Subject | toJson }},"extra":{{ .Extra | toJson }}}}'
   mutators:
     - handler: header
 
@@ -71,7 +76,9 @@
 - id: dtaas-user2-workspace
   version: "v0.36.0-beta.1"
   description: >
-    Requires a valid Keycloak JWT. Proxies to the user2 workspace container.
+    Requires a valid Keycloak JWT whose preferred_username matches the path
+    prefix (${USERNAME2}). The remote_json authorizer delegates the claim check
+    to login-relay, which returns 200 only when the token belongs to that user.
   match:
     url: "<^https?://[^/]*/${USERNAME2}(/.*)?$>"
     methods:
@@ -94,7 +101,10 @@
         token_from:
           cookie: dtaas_access_token
   authorizer:
-    handler: allow
+    handler: remote_json
+    config:
+      remote: http://login-relay:8080/authz/workspace/${USERNAME2}
+      payload: '{"subject":{"id":{{ .Subject | toJson }},"extra":{{ .Extra | toJson }}}}'
   mutators:
     - handler: header
 

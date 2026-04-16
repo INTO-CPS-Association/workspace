@@ -21,13 +21,16 @@ Architecture:
 
 import base64
 import hmac
+import json
 import os
+import time
 import urllib.parse
 
 from authlib.common.security import generate_token
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from fastapi import Cookie, FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -58,6 +61,24 @@ _SPA_PREFIXES = (
     "/library", "/digitaltwins", "/preview", "/create",
     "/static", "/env.js", "/favicon.ico", "/manifest.json", "/logo",
 )
+
+
+def _decode_jwt_claims(token: str) -> dict:
+    """Extract JWT payload claims without signature verification.
+
+    Used only for redirect-loop detection. The authoritative claim check
+    (preferred_username == path_prefix) is done by /authz/workspace, which is
+    called by Oathkeeper's remote_json authorizer with full JWT validation.
+    """
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return {}
+        payload = parts[1]
+        payload += "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:
+        return {}
 
 
 def _is_routable(path: str) -> bool:
@@ -112,10 +133,48 @@ def _safe_return_to(return_to: str) -> str:
     return path
 
 
+class _AuthzBody(BaseModel):
+    """Payload sent by Oathkeeper's remote_json authorizer."""
+
+    subject: dict = {}
+
+
+@app.post("/authz/workspace/{path_prefix}", status_code=200)
+async def authorize_workspace(path_prefix: str, body: _AuthzBody) -> Response:
+    """Verify the JWT preferred_username matches the workspace path prefix.
+
+    Called by Oathkeeper's remote_json authorizer for per-user RBAC.
+    Returns 200 if the token owner equals path_prefix, 403 otherwise.
+    """
+    extra = body.subject.get("extra") or {}
+    username = extra.get("preferred_username", "")
+    if username and username == path_prefix:
+        return Response(status_code=200)
+    raise HTTPException(status_code=403, detail="Forbidden")
+
+
 @app.get("/login-relay")
-async def login(return_to: str = "/") -> RedirectResponse:
+async def login(
+    return_to: str = "/",
+    dtaas_access_token: str = Cookie(default=""),
+) -> RedirectResponse:
     """Initiate Keycloak authorization code flow, preserving the original destination."""
     safe_destination = _safe_return_to(return_to)
+
+    # Break the Oathkeeper forbidden→redirect→login→forbidden loop.
+    # Oathkeeper v26 redirects ALL errors (including forbidden) to login-relay.
+    # When a user with a valid token tries to access another user's workspace,
+    # Oathkeeper's remote_json authorizer returns 403, which redirects here.
+    # Without this check the browser loops until the Traefik rate-limiter fires.
+    if dtaas_access_token:
+        claims = _decode_jwt_claims(dtaas_access_token)
+        if claims.get("exp", 0) > time.time():
+            username = claims.get("preferred_username", "")
+            if username:
+                for prefix in _WORKSPACE_PREFIXES:
+                    if safe_destination == prefix or safe_destination.startswith(prefix + "/"):
+                        if prefix != f"/{username}":
+                            raise HTTPException(status_code=403, detail="Forbidden")
 
     # Random state nonce — RFC 6749 §10.12 CSRF protection.
     nonce = generate_token(32)

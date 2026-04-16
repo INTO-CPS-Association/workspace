@@ -24,9 +24,10 @@ log:
   format: json
 
 errors:
-  # All unauthorized/forbidden errors redirect to the login-relay, which
-  # initiates a Keycloak PKCE flow and returns the user to their original
-  # destination after login.
+  # All errors redirect to the login-relay. For unauthorized/not_found this
+  # initiates a Keycloak PKCE flow. For forbidden (wrong-user workspace access),
+  # the login-relay detects the mismatch via the dtaas_access_token cookie and
+  # returns 403 directly, breaking what would otherwise be a redirect loop.
   fallback:
     - redirect
   handlers:
@@ -40,7 +41,7 @@ errors:
     json:
       enabled: true
       config:
-        verbose: true
+        verbose: false
 
 authenticators:
   noop:
@@ -73,6 +74,15 @@ authorizers:
 
   deny:
     enabled: true
+
+  remote_json:
+    enabled: true
+    config:
+      # Global defaults required by the Oathkeeper v26 schema when remote_json
+      # is enabled. Per-rule config in access-rules.yml overrides remote with
+      # the user-specific URL (http://login-relay:8080/authz/workspace/<user>).
+      remote: http://login-relay:8080/authz/workspace/default
+      payload: '{"subject":{"id":{{ .Subject | toJson }},"extra":{{ .Extra | toJson }}}}'
 
 mutators:
   noop:
