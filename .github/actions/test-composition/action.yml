@@ -65,6 +65,18 @@ runs:
         tags: workspace:latest
         cache-from: |
           type=gha,scope=${{ inputs.platform }}
+    
+    - name: Set compose environement args
+      shell: bash
+      env:
+        USE_ENV_FILE: ${{ inputs.use_env_file }}
+      run: |
+        if [ "$USE_ENV_FILE" = "true" ]; then
+          ENV_FILE_ARG="--env-file workspaces/test/dtaas/config/.env"
+        else
+          ENV_FILE_ARG=""
+        fi
+        echo "ENV_FILE_ARG=$ENV_FILE_ARG" >> $GITHUB_ENV
 
     - name: Install mkcert and generate TLS certificates
       if: ${{ inputs.tls_test == 'true' }} && ${{ inputs.dex_test == 'true' }}
@@ -151,14 +163,8 @@ runs:
       shell: bash
       env:
         COMPOSE_FILE: ${{ inputs.compose_file }}
-        USE_ENV_FILE: ${{ inputs.use_env_file }}
         STARTUP_TIMEOUT: ${{ inputs.startup_timeout }}
       run: |
-        if [ "$USE_ENV_FILE" = "true" ]; then
-          ENV_FILE_ARG="--env-file workspaces/test/dtaas/config/.env"
-        else
-          ENV_FILE_ARG=""
-        fi
         docker compose -f $COMPOSE_FILE $ENV_FILE_ARG up -d
         sleep $STARTUP_TIMEOUT
 
@@ -220,13 +226,7 @@ runs:
       shell: bash
       env:
         COMPOSE_FILE: ${{ inputs.compose_file }}
-        USE_ENV_FILE: ${{ inputs.use_env_file }}
       run: |
-        if [ "$USE_ENV_FILE" = "true" ]; then
-          ENV_FILE_ARG="--env-file workspaces/test/dtaas/config/.env"
-        else
-          ENV_FILE_ARG=""
-        fi
         echo "Checking Traefik logs for TLS certificate loading..."
         docker compose \
           -f $COMPOSE_FILE \
@@ -239,16 +239,10 @@ runs:
       shell: bash
       env:
         COMPOSE_FILE: ${{ inputs.compose_file }}
-        USE_ENV_FILE: ${{ inputs.use_env_file }}
         BASIC_TEST: ${{ inputs.basic_test }}
         DEX_TEST: ${{ inputs.dex_test }}
         NO_FORWARD_AUTH_SERVICE: ${{ inputs.no_forward_auth_service }}
       run: |
-        if [ "$USE_ENV_FILE" = "true" ]; then
-          ENV_FILE_ARG="--env-file workspaces/test/dtaas/config/.env"
-        else
-          ENV_FILE_ARG=""
-        fi
         if [ "$BASIC_TEST" = "true" ]; then
           WORKSPACE_SERVICE_NAME="workspace"
         else
@@ -296,14 +290,8 @@ runs:
       shell: bash
       env:
         COMPOSE_FILE: ${{ inputs.compose_file }}
-        USE_ENV_FILE: ${{ inputs.use_env_file }}
         TLS_TEST: ${{ inputs.tls_test }}
       run: |
-        if [ "$USE_ENV_FILE" = "true" ]; then
-          ENV_FILE_ARG="--env-file workspaces/test/dtaas/config/.env"
-        else
-          ENV_FILE_ARG=""
-        fi
         docker compose -f $COMPOSE_FILE $ENV_FILE_ARG down -v
         docker system prune -f
         if [ "$TLS_TEST" = "true" ]; then
