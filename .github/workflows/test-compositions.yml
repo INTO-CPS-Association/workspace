@@ -104,68 +104,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Set up QEMU for multi-platform builds
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
-
-      - name: Build workspace image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          context: ./workspaces
-          file: workspaces/Dockerfile.ubuntu.noble.gnome
-          build-args: INSTALLATION=minimal
-          push: false
-          load: true
-          platforms: ${{ matrix.arch.platform }}
-          tags: workspace:latest
-          cache-from: |
-            type=gha,scope=${{ matrix.arch.platform }}
-
-      - name: Start workspace
-        run: |
-          docker compose -f workspaces/test/dtaas/compose.yml up -d
-          sleep 30
-
-      - name: Check service health
-        uses: ./.github/actions/check-service-health
+      - name: Test composition with minimal image
+        uses: ./.github/actions/test-composition
         with:
           compose_file: workspaces/test/dtaas/compose.yml
-
-      - name: Test service endpoint
-        uses: ./.github/actions/check-connectivity
-        with:
-          url: "http://localhost/user1/services"
-          expected_response_code: "200"
-
-      - name: TestVNC endpoint
-        uses: ./.github/actions/check-connectivity
-        with:
-          url: "http://localhost/user1/tools/vnc/?path=user1%2Ftools%2Fvnc%2Fwebsockify"
-          expected_response_code: "200"
-
-      - name: Show service logs on failure
-        if: failure()
-        run: |
-          echo "TEST FAILED - PRINTING DIAGNOSTICS:"
-          echo ""
-          echo "========================================"
-          echo "|           Services Status            |"
-          echo "========================================"
-          docker compose -f workspaces/test/dtaas/compose.yml ps
-          echo ""
-          echo "========================================"
-          echo "|            Workspace Logs            |"
-          echo "========================================"
-          docker compose -f workspaces/test/dtaas/compose.yml \
-            logs workspace
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f workspaces/test/dtaas/compose.yml down -v
-          docker system prune -f
+          platform: ${{ matrix.arch.platform }}
+          startup_timeout: 30
+          connectivity_endpoint: "http://localhost/user1/services"
+          connectivity_expected_response_code: "200"
 
   test-traefik:
     name: Test Traefik with Workspace
@@ -212,6 +158,7 @@ jobs:
         uses: ./.github/actions/check-service-health
         with:
           compose_file: workspaces/test/dtaas/compose.traefik.yml
+          use_env_file: true
 
       - name: Test workspace routing through Traefik
         uses: ./.github/actions/check-connectivity
@@ -307,6 +254,7 @@ jobs:
         with:
           compose_file: workspaces/test/dtaas/compose.traefik.secure.yml
           ignore_services: traefik-forward-auth
+          use_env_file: true
 
       - name: Test service accessibility (HTTP)
         uses: ./.github/actions/check-connectivity
@@ -439,6 +387,7 @@ jobs:
         with:
           compose_file: workspaces/test/dtaas/compose.traefik.tls.secure.yml
           ignore_services: traefik-forward-auth
+          use_env_file: true
 
       - name: Test HTTPS connectivity
         uses: ./.github/actions/check-connectivity

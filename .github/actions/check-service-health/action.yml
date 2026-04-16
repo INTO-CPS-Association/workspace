@@ -8,6 +8,10 @@ inputs:
     description: Comma-separated list of service names to ignore in health check (e.g. "service1,service2")
     required: false
     default: ""
+  use_env_file:
+    description: Whether to use an .env file for environment variables in docker compose (true/false)
+    required: false
+    default: false
   max_attempts:
     description: Maximum number of attempts to check service status
     required: false
@@ -26,7 +30,13 @@ runs:
         TIME_BETWEEN_ATTEMPTS: ${{ inputs.time_between_attempts }}
         COMPOSE_FILE: ${{ inputs.compose_file }}
         IGNORE_SERVICES: ${{ inputs.ignore_services }}
+        USE_ENV_FILE: ${{ inputs.use_env_file }}
       run: |
+        if [ "$USE_ENV_FILE" = "true" ]; then
+          ENV_FILE_ARG="--env-file workspaces/test/dtaas/config/.env"
+        else
+          ENV_FILE_ARG=""
+        fi
         echo "📊 Checking service status..."
         attempt=0
         if [ -n "$IGNORE_SERVICES" ]; then
@@ -43,9 +53,9 @@ runs:
           attempt=$((attempt + 1))
           printf "\nAttempt $attempt out of $MAX_ATTEMPTS\n"
 
-          docker compose -f $COMPOSE_FILE ps
+          docker compose -f $COMPOSE_FILE $ENV_FILE_ARG ps
           echo "---"
-          SERVICES=$(docker compose -f $COMPOSE_FILE ps --format json)
+          SERVICES=$(docker compose -f $COMPOSE_FILE $ENV_FILE_ARG ps --format json)
           if echo "$SERVICES" | head -1 | grep -q '^\['; then
             # JSON array format
             FAILED=$(echo "$SERVICES" | jq -r ".[] | $FILTER | .Name")
