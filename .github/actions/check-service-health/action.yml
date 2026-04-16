@@ -20,6 +20,7 @@ runs:
   using: "composite"
   steps:
     - name: Check service health
+      shell: bash
       env:
         MAX_ATTEMPTS: ${{ inputs.max_attempts }}
         TIME_BETWEEN_ATTEMPTS: ${{ inputs.time_between_attempts }}

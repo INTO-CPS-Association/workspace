@@ -134,69 +134,16 @@ jobs:
           compose_file: workspaces/test/dtaas/compose.yml
 
       - name: Test service endpoint
-        run: |
-          echo "Testing service endpoint accesibility..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          services_url="http://localhost/user1/services"
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            response=$(curl -s -o /dev/null -w "%{http_code}" \
-              "$services_url" 2>/dev/null)
-
-            if [ "$response" = "200" ]; then
-              echo "✅ Service endpoint accesible (HTTP $response)"
-              echo "Content of $services_url:"
-              # We expect a JSON formatted document
-              curl -s "$services_url" | jq --sort-keys .
-              break
-            fi
-
-            echo "Got unexpected HTTP response: $response"
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Services endpoint not accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              exit 1
-            fi
-
-            echo "⏳ trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "http://localhost/user1/services"
+          expected_response_code: "200"
 
       - name: TestVNC endpoint
-        run: |
-          echo "Testing VNC endpoint accesibility..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          vnc_url="http://localhost/user1/tools/vnc/?path=user1%2Ftools%2Fvnc%2Fwebsockify"
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            response=$(curl -s -o /dev/null -w "%{http_code}" \
-              "$vnc_url" 2>/dev/null)
-
-            if [ "$response" = "200" ]; then
-              echo "✅ VNC endpoint accesible (HTTP $response)"
-              echo "Headers of $vnc_url:"
-              curl -sI "$vnc_url"
-              break
-            fi
-
-            echo "Got unexpected HTTP response: $response"
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ VNC endpoint not accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              exit 1
-            fi
-
-            echo "⏳ trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "http://localhost/user1/tools/vnc/?path=user1%2Ftools%2Fvnc%2Fwebsockify"
+          expected_response_code: "200"
 
       - name: Show service logs on failure
         if: failure()
@@ -267,37 +214,10 @@ jobs:
           compose_file: workspaces/test/dtaas/compose.traefik.yml
 
       - name: Test workspace routing through Traefik
-        run: |
-          echo "Testing workspace accessibility through Traefik..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          services_url="http://localhost/user1/services"
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            response=$(curl -s -o /dev/null -w "%{http_code}" \
-              "$services_url" 2>/dev/null)
-
-            if [ "$response" = "200" ]; then
-              echo "✅ Workspace routing works (HTTP $response)"
-              echo "Content of $services_url:"
-              # We expect a JSON formatted document
-              curl -s "$services_url" | jq --sort-keys .
-              break
-            fi
-
-            echo "Got unexpected HTTP response: $response"
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              exit 1
-            fi
-
-            echo "⏳ trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "http://localhost/user1/services"
+          expected_response_code: "200"
 
       - name: Show service logs on failure
         if: failure()
@@ -397,37 +317,10 @@ jobs:
           ignore_services: traefik-forward-auth
 
       - name: Test service accessibility (HTTP)
-        run: |
-          echo "Testing HTTP connectivity..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          test_url="http://localhost/auth"
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            # Test if services respond (will get auth redirect)
-            response=$(curl -s -o /dev/null -w "%{http_code}" "$test_url" 2>/dev/null)
-
-            # We expect a redirect to Keycloak
-            if [ "$response" = "302" ] || [ "$response" = "303" ] || [ "$response" = "307" ]; then
-              echo "✅ Redirect to Keycloak as expected (HTTP $response)"
-              echo "Headers of response:"
-              curl -sI "$test_url"
-              break
-            fi
-
-            echo "Got unexpected HTTP response: $response"
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Redirection did not happen within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              exit 1
-            fi
-
-            echo "⏳ trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "http://localhost/auth"
+          expected_response_code: "302"
 
       - name: Show service logs on failure
         if: failure()
@@ -564,38 +457,10 @@ jobs:
           ignore_services: traefik-forward-auth
 
       - name: Test HTTPS connectivity
-        run: |
-          echo "Testing HTTPS connectivity..."
-          max_attempts=10
-          attempt=0
-          time_between_attempts=10
-          test_url="https://localhost/auth"
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
-            printf "\nAttempt $attempt out of $max_attempts\n"
-
-            # Test HTTPS (will show cert warning but should connect)
-            response=$(curl -s -k -o /dev/null -w "%{http_code}" \
-               "$test_url" 2>/dev/null || true)
-
-            # We expect 302 (redirect to Keycloak)
-            if [ "$response" = "302" ] || [ "$response" = "303" ] || [ "$response" = "307" ]; then
-              echo "✅ HTTPS is working correctly (HTTP $response)"
-              echo "Headers of response:"
-              curl -sI "$test_url"
-              break
-            fi
-
-            echo "Got unexpected HTTP response: $response"
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Workspace not fully accessible within $(( (max_attempts - 1) * time_between_attempts )) seconds"
-              exit 1
-            fi
-
-            echo "⏳ trying again in $time_between_attempts seconds"
-            sleep $time_between_attempts
-          done
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "https://localhost/auth"
+          expected_response_code: "302"
 
       - name: Test HTTP to HTTPS redirect
         run: |
