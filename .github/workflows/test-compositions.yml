@@ -108,7 +108,7 @@ jobs:
             tls_test: false
             no_forward_auth_service: false
             ignore_health_of_services: "dtaas-traefik-forward-auth-1"
-          - compose_file: workspaces/test/dtaas/compose.traefik.securetls.yml
+          - compose_file: workspaces/test/dtaas/compose.traefik.secure.tls.yml
             startup_timeout: 60
             connectivity_endpoint: "http://localhost/auth"
             connectivity_expected_response_code: "301"
