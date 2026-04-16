@@ -68,10 +68,8 @@ runs:
 
     - name: Set compose environement args
       shell: bash
-      env:
-        USE_ENV_FILE: ${{ inputs.use_env_file }}
       run: |
-        if [ "$USE_ENV_FILE" = "true" ]; then
+        if [ "${{ inputs.use_env_file }}" = "true" ]; then
           ENV_FILE_ARG="--env-file workspaces/test/dtaas/config/.env"
         else
           ENV_FILE_ARG=""
@@ -148,12 +146,10 @@ runs:
     - name: Create DTaaS configuration files
       if: ${{ inputs.use_env_file == 'true' }}
       shell: bash
-      env:
-        TLS_TEST: ${{ inputs.tls_test }}
       run: |
         set -e
         cp ./workspaces/test/dtaas/config/.env.example ./workspaces/test/dtaas/config/.env
-        if [ "$TLS_TEST" = "true" ]; then
+        if [ "${{ inputs.tls_test }}" = "true" ]; then
           sed -i 's/yourdomain.com/localhost/g' ./workspaces/test/dtaas/config/.env
         fi
         cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
@@ -161,12 +157,9 @@ runs:
 
     - name: Start services
       shell: bash
-      env:
-        COMPOSE_FILE: ${{ inputs.compose_file }}
-        STARTUP_TIMEOUT: ${{ inputs.startup_timeout }}
       run: |
-        docker compose -f $COMPOSE_FILE $ENV_FILE_ARG up -d
-        sleep $STARTUP_TIMEOUT
+        docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG up -d
+        sleep ${{ inputs.startup_timeout }}
 
     - name: Check service health
       uses: ./.github/actions/check-service-health
@@ -224,12 +217,10 @@ runs:
     - name: Verify TLS certificate is loaded
       if: ${{ inputs.tls_test == 'true' }} && ${{ inputs.dex_test == 'false' }}
       shell: bash
-      env:
-        COMPOSE_FILE: ${{ inputs.compose_file }}
       run: |
         echo "Checking Traefik logs for TLS certificate loading..."
         docker compose \
-          -f $COMPOSE_FILE \
+          -f ${{ inputs.compose_file }} \
           $ENV_FILE_ARG \
           logs traefik \
           | grep -i "certificate" || echo "No certificate messages in logs"
@@ -237,13 +228,8 @@ runs:
     - name: Show service logs on failure
       if: failure()
       shell: bash
-      env:
-        COMPOSE_FILE: ${{ inputs.compose_file }}
-        BASIC_TEST: ${{ inputs.basic_test }}
-        DEX_TEST: ${{ inputs.dex_test }}
-        NO_FORWARD_AUTH_SERVICE: ${{ inputs.no_forward_auth_service }}
       run: |
-        if [ "$BASIC_TEST" = "true" ]; then
+        if [ "${{ inputs.basic_test }}" = "true" ]; then
           WORKSPACE_SERVICE_NAME="workspace"
         else
           WORKSPACE_SERVICE_NAME="user1"
@@ -253,48 +239,45 @@ runs:
         echo "========================================"
         echo "|           Services Status            |"
         echo "========================================"
-        docker compose -f $COMPOSE_FILE $ENV_FILE_ARG ps
+        docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG ps
         echo ""
-        if [ "$BASIC_TEST" = "false" ]; then
+        if [ "${{ inputs.basic_test }}" = "false" ]; then
           echo "========================================"
           echo "|             Traefik Logs             |"
           echo "========================================"
-          docker compose -f $COMPOSE_FILE $ENV_FILE_ARG \
+          docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG \
             logs traefik
           echo ""
         fi
-        if [ "$BASIC_TEST" = "false" ] && [ "$NO_FORWARD_AUTH_SERVICE" = "false" ]; then
+        if [ "${{ inputs.basic_test }}" = "false" ] && [ "${{ inputs.no_forward_auth_service }}" = "false" ]; then
           echo "========================================"
           echo "|      Traefik Forward Auth Logs       |"
           echo "========================================"
-          docker compose -f $COMPOSE_FILE $ENV_FILE_ARG \
+          docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG \
             logs traefik-forward-auth
           echo ""
         fi
-        if [ "$DEX_TEST" = "true" ]; then
+        if [ "${{ inputs.dex_test }}" = "true" ]; then
           echo "========================================"
           echo "|       Dex Authentication Logs        |"
           echo "========================================"
-          docker compose -f $COMPOSE_FILE $ENV_FILE_ARG \
+          docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG \
             logs dex
           echo ""
         fi
         echo "========================================"
         echo "|            Workspace Logs            |"
         echo "========================================"
-        docker compose -f $COMPOSE_FILE $ENV_FILE_ARG \
+        docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG \
           logs $WORKSPACE_SERVICE_NAME
 
     - name: Cleanup
       if: always()
       shell: bash
-      env:
-        COMPOSE_FILE: ${{ inputs.compose_file }}
-        TLS_TEST: ${{ inputs.tls_test }}
       run: |
-        docker compose -f $COMPOSE_FILE $ENV_FILE_ARG down -v
+        docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG down -v
         docker system prune -f
-        if [ "$TLS_TEST" = "true" ]; then
+        if [ "${{ inputs.tls_test }}" = "true" ]; then
           rm -f workspaces/test/dtaas/ci/certs/fullchain.pem \
                   workspaces/test/dtaas/ci/certs/privkey.pem \
                   workspaces/test/dtaas/ci/certs/rootCA.crt
