@@ -287,14 +287,6 @@ jobs:
           cache-from: |
             type=gha,scope=${{ matrix.arch.platform }}
 
-      - name: Pull the docker images used in compose files
-        run: |
-          docker pull traefik:v3.6.4
-          docker pull thomseddon/traefik-forward-auth:latest
-          docker pull intocps/dtaas-web:latest || \
-            echo "⚠️ DTaaS web image not available, will skip"
-          docker pull mltooling/ml-workspace-minimal:0.13.2
-
       - name: Create DTaaS configuration files
         run: |
           set -e
@@ -434,14 +426,6 @@ jobs:
           cp ./workspaces/test/dtaas/config/conf.example ./workspaces/test/dtaas/config/conf
           cp ./workspaces/test/dtaas/config/client.js.example ./workspaces/test/dtaas/config/client.js
 
-      - name: Pull the docker images used in compose files
-        run: |
-          docker pull traefik:v3.6.4
-          docker pull thomseddon/traefik-forward-auth:latest
-          docker pull intocps/dtaas-web:latest || \
-            echo "⚠️ DTaaS web image not available, will skip"
-          docker pull mltooling/ml-workspace-minimal:0.13.2
-
       - name: Start Traefik and workspace services
         run: |
           docker compose \
@@ -567,13 +551,6 @@ jobs:
           tags: workspace:latest
           cache-from: |
             type=gha,scope=${{ matrix.arch.platform }}
-
-      - name: Pull docker images
-        run: |
-          docker pull traefik:v3.6.4
-          docker pull thomseddon/traefik-forward-auth:fix-dont-require-self-middleware-test1
-          docker pull dexidp/dex:v2.41.1
-          docker pull mltooling/ml-workspace-minimal:0.13.2
 
       - name: Add Dex hostname to /etc/hosts
         run: echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
@@ -708,12 +685,6 @@ jobs:
             -t traefik-forward-auth-local:latest \
             workspaces/test/dtaas/ci/certs/
           echo "traefik-forward-auth-local image built"
-
-      - name: Pull docker images
-        run: |
-          docker pull traefik:v3.6.4
-          docker pull dexidp/dex:v2.41.1
-          docker pull mltooling/ml-workspace-minimal:0.13.2
 
       - name: Add Dex hostname to /etc/hosts
         run: echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
