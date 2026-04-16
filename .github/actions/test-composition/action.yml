@@ -40,6 +40,10 @@ inputs:
     description: Whether the composition has a forward-auth service (true/false)
     required: false
     default: false
+  ignore_health_of_services:
+    description: Comma-separated list of service names to ignore in health check (e.g. "service1,service2")
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -163,6 +167,7 @@ runs:
       with:
         compose_file: ${{ inputs.compose_file }}
         use_env_file: ${{ inputs.use_env_file }}
+        ignore_services: ${{ inputs.ignore_health_of_services }}
 
     - name: Test service endpoint
       if: ${{ inputs.dex_test == 'false' }}
