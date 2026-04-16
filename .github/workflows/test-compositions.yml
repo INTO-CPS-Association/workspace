@@ -145,7 +145,7 @@ jobs:
           compose_file: workspaces/test/dtaas/compose.traefik.secure.yml
           platform: ${{ matrix.arch.platform }}
           connectivity_endpoint: "http://localhost/auth"
-          connectivity_expected_response_code: "302"
+          connectivity_expected_response_code: "303"
           startup_timeout: 60
           use_env_file: true
           ignore_health_of_services: "dtaas-traefik-forward-auth-1"
@@ -174,7 +174,7 @@ jobs:
           compose_file: workspaces/test/dtaas/compose.traefik.secure.tls.yml
           platform: ${{ matrix.arch.platform }}
           connectivity_endpoint: "http://localhost/auth"
-          connectivity_expected_response_code: "302"
+          connectivity_expected_response_code: "301"
           startup_timeout: 60
           use_env_file: true
           tls_test: true
