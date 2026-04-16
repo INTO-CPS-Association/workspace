@@ -45,7 +45,7 @@ runs:
             echo "$FAILED"
             exit 1
           fi
-          
+
           echo "Got unexpected HTTP response: $response"
           echo "⏳ Trying again in $TIME_BETWEEN_ATTEMPTS seconds"
           sleep $TIME_BETWEEN_ATTEMPTS
