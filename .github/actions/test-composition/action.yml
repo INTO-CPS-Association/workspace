@@ -65,7 +65,7 @@ runs:
         tags: workspace:latest
         cache-from: |
           type=gha,scope=${{ inputs.platform }}
-    
+
     - name: Set compose environement args
       shell: bash
       env:

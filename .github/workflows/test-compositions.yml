@@ -148,7 +148,7 @@ jobs:
           connectivity_expected_response_code: "302"
           startup_timeout: 60
           use_env_file: true
-          ignore_health_of_services: "traefik-forward-auth-1"
+          ignore_health_of_services: "dtaas-traefik-forward-auth-1"
 
   test-traefik-secure-tls:
     name: Test Traefik with TLS
@@ -178,7 +178,7 @@ jobs:
           startup_timeout: 60
           use_env_file: true
           tls_test: true
-          ignore_health_of_services: "traefik-forward-auth-1"
+          ignore_health_of_services: "dtaas-traefik-forward-auth-1"
 
   test-ci-traefik-secure:
     name: Test CI OAuth2 via Dex (HTTP)
