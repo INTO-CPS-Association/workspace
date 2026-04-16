@@ -71,6 +71,8 @@ runs:
 
           if [ $attempt -eq $MAX_ATTEMPTS ]; then
             echo "❌ Some services did not start running within $(( (MAX_ATTEMPTS - 1) * TIME_BETWEEN_ATTEMPTS )) seconds:"
+            echo "Filtered services: $IGNORE_SERVICES"
+            echo "Applied jq filter: $FILTER"
             echo "$FAILED"
             exit 1
           fi
