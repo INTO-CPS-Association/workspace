@@ -1,20 +1,43 @@
 # Keycloak Setup Guide for DTaaS
 
-This guide explains how to configure Keycloak for authentication in the DTaaS workspace deployment using `compose.traefik.secure.tls.yml`.
+This guide explains how to configure Keycloak for authentication in the DTaaS
+workspace deployments. The setup differs depending on which compose file you use:
+
+| Compose file | Auth mechanism | Keycloak client type |
+|---|---|---|
+| `compose.traefik.secure.yml` | traefik-forward-auth (HTTP) | Confidential (client secret) |
+| `compose.traefik.secure.tls.yml` | Oathkeeper + login-relay (HTTPS) | Confidential (client secret) |
+
+Follow the section that matches your compose file when creating the Keycloak
+client.
 
 ## Overview
 
-The updated configuration uses:
+The configuration uses:
+
 - **Keycloak** as the identity provider (IdP) with OIDC support
-- **Traefik Forward Auth** to protect routes using OIDC
 - **Traefik** as the reverse proxy
+- **traefik-forward-auth** (`compose.traefik.secure.yml`) **or Oathkeeper +
+  login-relay** (`compose.traefik.secure.tls.yml`) to protect routes
 
 ## Architecture
+
+### HTTP (`compose.traefik.secure.yml`)
 
 ```text
 User Request → Traefik → Forward Auth → Keycloak (OIDC)
                ↓
            Protected Service
+```
+
+### HTTPS / TLS (`compose.traefik.secure.tls.yml`)
+
+```text
+User Request → Traefik → Oathkeeper proxy → workspace container
+                               ↓ no JWT
+                         login-relay → Keycloak → login-relay/callback
+                               ↓ sets dtaas_access_token cookie
+                         Oathkeeper → workspace container
 ```
 
 ## Prerequisites
@@ -91,6 +114,16 @@ docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-fil
 
 #### Create a Client
 
+> **Which instructions apply to me?**
+> - Using `compose.traefik.secure.yml` (HTTP) → follow
+>   [Confidential client (traefik-forward-auth)](#confidential-client-traefik-forward-auth)
+> - Using `compose.traefik.secure.tls.yml` (HTTPS/TLS) → follow
+>   [Confidential client (Oathkeeper / login-relay)](#confidential-client-oathkeeper--login-relay)
+
+##### Confidential client (traefik-forward-auth)
+
+Used with `compose.traefik.secure.yml`.
+
 1. In the left sidebar, click **Clients**
 2. Click **Create client**
 3. Configure the client:
@@ -98,22 +131,62 @@ docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-fil
    - **Client ID**: `dtaas-workspace` (match `KEYCLOAK_CLIENT_ID` in `.env`)
    - Click **Next**
 4. Capability config:
-   - Client authentication: ON
+   - **Client authentication**: ON
    - Authorization: OFF
    - Authentication flow: enable **Standard flow**
    - Click **Next**
 5. Login settings:
-   - **Root URL**: `https://foo.com`
+   - **Root URL**: `http://<SERVER_DNS>`
    - **Valid redirect URIs**:
-     - `https://foo.com/_oauth/*`
-     - `https://foo.com/*`
-   - **Valid post logout redirect URIs**: `https://foo.com/*`
-   - **Web origins**: `https://foo.com`
+     - `http://<SERVER_DNS>/_oauth/*`
+     - `http://<SERVER_DNS>/*`
+   - **Valid post logout redirect URIs**: `http://<SERVER_DNS>/*`
+   - **Web origins**: `http://<SERVER_DNS>`
    - Click **Save**
 6. Get the client secret:
    - Go to the **Credentials** tab
    - Copy the **Client secret** value
    - Update `KEYCLOAK_CLIENT_SECRET` in your `.env` file
+
+##### Confidential client (Oathkeeper / login-relay)
+
+Used with `compose.traefik.secure.tls.yml`.
+
+The login-relay exchanges the auth code for a token using the client secret
+(standard Authorization Code flow — appropriate for a server-side application).
+
+1. In the left sidebar, click **Clients**
+2. Click **Create client**
+3. Configure the client:
+   - **Client type**: OpenID Connect
+   - **Client ID**: `dtaas-workspace` (match `KEYCLOAK_CLIENT_ID` in `.env`)
+   - Click **Next**
+4. Capability config:
+   - **Client authentication**: **ON** (confidential client)
+   - Authorization: OFF
+   - Authentication flow: enable **Standard flow**
+   - Click **Next**
+5. Login settings:
+   - **Root URL**: `https://<SERVER_DNS>`
+   - **Valid redirect URIs**: `https://<SERVER_DNS>/login-relay/callback`
+   - **Valid post logout redirect URIs**: `https://<SERVER_DNS>/*`
+     *(required — login-relay redirects to `/` after logout; without this
+     Keycloak will show "Invalid redirect uri")*
+   - **Web origins**: `https://<SERVER_DNS>`
+   - Click **Save**
+6. Get the client secret:
+   - Go to the **Credentials** tab
+   - Copy the **Client secret** value
+   - Update `KEYCLOAK_CLIENT_SECRET` in your `.env` file
+7. Add an Audience mapper so the JWT's `aud` claim contains `dtaas-workspace`
+   (required by Oathkeeper's `target_audience` check):
+   - Go to the **Client scopes** tab
+   - Click `dtaas-workspace-dedicated`
+   - Click **Add mapper** → **By configuration** → **Audience**
+   - Set **Name**: `dtaas-workspace-audience`
+   - Set **Included Client Audience**: `dtaas-workspace`
+   - **Add to access token**: ON
+   - Click **Save**
 
 #### Create Users
 
@@ -135,12 +208,24 @@ docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-fil
 
 ### 4. Restart Services
 
-After configuring Keycloak, restart the services to apply the new client secret:
+After configuring Keycloak, restart the auth services so they pick up the
+new realm and client configuration.
+
+**For `compose.traefik.secure.yml`** (traefik-forward-auth, confidential client):
 
 ```bash
-docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml --env-file workspaces/test/dtaas/config/.env up -d --force-recreate traefik-forward-auth
-# or
-docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-file workspaces/test/dtaas/config/.env up -d  --force-recreate traefik-forward-auth
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.yml \
+  --env-file workspaces/test/dtaas/config/.env \
+  up -d --force-recreate traefik-forward-auth
+```
+
+**For `compose.traefik.secure.tls.yml`** (Oathkeeper + login-relay, confidential
+client):
+
+```bash
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+  --env-file workspaces/test/dtaas/config/.env \
+  up -d --force-recreate oathkeeper login-relay
 ```
 
 ### 5. Test Authentication
@@ -151,6 +236,8 @@ docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml --env-fil
 4. You should be redirected back to the DTaaS interface
 
 ## Access Control Configuration
+
+### HTTP (`compose.traefik.secure.yml`) — traefik-forward-auth whitelist
 
 Copy `config/conf.example` to `config/conf` and edit it:
 
@@ -167,6 +254,22 @@ rule.user2_access.whitelist=user2@localhost
 ```
 
 **Note**: The whitelist uses the email address from Keycloak. Adjust accordingly.
+
+### HTTPS / TLS (`compose.traefik.secure.tls.yml`) — Oathkeeper access rules
+
+Access control is defined in `oathkeeper/access-rules.yml`. Each user workspace
+has a dedicated rule that matches the username path prefix and requires a valid
+Keycloak JWT. No separate whitelist file is needed — authenticated users
+automatically gain access to their own path prefix.
+
+To add or modify per-user access rules, edit `oathkeeper/access-rules.yml`
+and restart Oathkeeper:
+
+```bash
+docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \
+  --env-file workspaces/test/dtaas/config/.env \
+  up -d --force-recreate oathkeeper
+```
 
 ## Production Considerations
 
@@ -185,7 +288,7 @@ To use an external Keycloak instance (recommended for production):
 
 2. Optionally remove the `keycloak` service from `compose.traefik.secure.tls.yml`:
    - Comment out or delete the `keycloak` service section
-   - Remove `keycloak` from `depends_on` in `traefik-forward-auth`
+   - Remove `keycloak` from `depends_on` in both `oathkeeper` and `login-relay`
    - Remove the `keycloak-data` volume
 
 3. Update client redirect URIs in Keycloak to use your production domain
@@ -220,18 +323,28 @@ keycloak:
 
 ### Authentication Loop/Redirect Issues
 
+**HTTP (`compose.traefik.secure.yml` — traefik-forward-auth):**
+
 - Verify `KEYCLOAK_ISSUER_URL` matches the realm name
-- Ensure redirect URIs in the Keycloak client include `/_oauth/*`
+- Ensure redirect URIs in the Keycloak client include `http://<SERVER_DNS>/_oauth/*`
 - Confirm `COOKIE_DOMAIN` matches your domain
+- Clear browser cookies and retry
+
+**HTTPS/TLS (`compose.traefik.secure.tls.yml` — Oathkeeper / login-relay):**
+
+- Verify the Keycloak client redirect URI is exactly
+  `https://<SERVER_DNS>/login-relay/callback`
+- Confirm client authentication is **ON** (confidential client)
+- Verify `KEYCLOAK_CLIENT_SECRET` in `.env` matches the value in Keycloak
+- Check login-relay logs: `docker compose logs login-relay`
 - Clear browser cookies and retry
 
 ### "Invalid Client" Error
 
-- Verify `KEYCLOAK_CLIENT_ID` matches the client ID in Keycloak
-- Ensure `KEYCLOAK_CLIENT_SECRET` is correct
-- Confirm client authentication is enabled for the client
+**Both setups**: Verify `KEYCLOAK_CLIENT_SECRET` matches the value in Keycloak
+and that client authentication is **ON** for the client.
 
-### Forward Auth Not Working
+### Forward Auth Not Working (HTTP setup only)
 
 - Check traefik-forward-auth logs: `docker compose logs traefik-forward-auth`
 - Verify environment variables are set correctly
