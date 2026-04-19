@@ -294,9 +294,10 @@ async def _fetch_access_token(code: str) -> str:
                 code=code,
             )
         except Exception as exc:
+            logging.error("Keycloak token exchange failed: %s", exc)
             raise HTTPException(
                 status_code=502,
-                detail=f"Keycloak token exchange failed: {exc}",
+                detail="Token exchange failed.",
             ) from exc
     access_token = token.get("access_token", "")
     if not access_token:

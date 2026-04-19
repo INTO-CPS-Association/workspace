@@ -135,7 +135,7 @@
   description: >
     Allow unauthenticated GET/HEAD access to health-check endpoints.
   match:
-    url: "<^https?://[^/]*/health.*$>"
+    url: "<^https?://[^/]*/health$>"
     methods:
       - GET
       - HEAD
