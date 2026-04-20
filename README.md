@@ -51,7 +51,7 @@ Using plain `docker` command:
 
 ```ps1
 # Standard workspace (Ubuntu 24.04 + GNOME)
-docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.gnome ./workspaces
+docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.xfce ./workspaces
 
 # Lightweight workspace (Ubuntu 24.04 + XFCE)
 docker build -t workspace-xfce:latest -f workspaces/Dockerfile.ubuntu.noble.xfce ./workspaces
@@ -76,7 +76,7 @@ docker buildx create --name multiarch --use
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t workspace:latest \
-  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  -f workspaces/Dockerfile.ubuntu.noble.xfce \
   ./workspaces
 
 # Build lightweight image for multiple platforms
@@ -90,7 +90,7 @@ docker buildx build \
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t your-registry/workspace:latest \
-  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  -f workspaces/Dockerfile.ubuntu.noble.xfce \
   --push \
   ./workspaces
 ```
@@ -239,7 +239,7 @@ This is done by adding the setting the build argument `INSTALLATION` to `minimal
 
 ```
 docker build -t workspace:latest \
-  -f workspaces/Dockerfile.ubuntu.noble.gnome \
+  -f workspaces/Dockerfile.ubuntu.noble.xfce \
   --build-arg INSTALLATION=minimal \
   ./workspaces
 ```

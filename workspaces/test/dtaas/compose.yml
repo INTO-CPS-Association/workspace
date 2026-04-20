@@ -4,7 +4,7 @@ services:
     container_name: workspace
     build:
       context: ../..
-      dockerfile: Dockerfile.ubuntu.noble.gnome
+      dockerfile: Dockerfile.ubuntu.noble.xfce
     environment:
       - MAIN_USER=${USERNAME1:-user1}
     ports:
