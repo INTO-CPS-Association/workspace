@@ -1,17 +1,18 @@
-# Workspace with Traefik, OAuth2, and TLS
+# Workspace with Traefik, Keycloak, and TLS
 
 This guide explains how to deploy the workspace container with Traefik reverse
-proxy, OAuth2 authentication, and TLS/HTTPS support for secure multi-user
-deployments.
+proxy, OIDC/OAuth2 authentication using Keycloak, and TLS/HTTPS support for
+secure multi-user deployments.
 
 ## ❓ Prerequisites
 
-✅ Docker Engine v27 or later  
-✅ Docker Compose v2.x  
-✅ Sufficient system resources (at least 1GB RAM per workspace instance)  
+✅ Docker Engine v27 or later
+✅ Docker Compose v2.x
+✅ Port 80 and 443 available on your host machine
+✅ Sufficient system resources (at least 1GB RAM per workspace instance)
 ✅ Valid TLS certificates (production) or self-signed certs (testing)
-✅ OAuth2 provider (GitLab, GitHub, Google, etc.)  
 ✅ Domain name pointing to your server (production) or localhost (testing)
+✅ GitLab OAuth2 provider for Client OAuth2 application (external application)
 
 ## 🗒️ Overview
 
@@ -19,7 +20,7 @@ The `compose.traefik.secure.tls.yml` file provides a production-ready setup with
 
 - **Traefik** reverse proxy with TLS termination (ports 80, 443)
 - **Automatic HTTP to HTTPS redirect**
-- **OAuth2 authentication** via traefik-forward-auth
+- **OIDC authentication** via embedded Keycloak and traefik-forward-auth
 - **Multiple workspace instances** (user1, user2) behind authentication
 - **Secure communication** with TLS certificates
 - **user1** workspace using the workspace image
@@ -170,7 +171,7 @@ To add additional workspace instances, add a new service in `compose.traefik.sec
       - "./files/user3:/workspace"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.u3.rule=Host(`${SERVER_DNS:-localhost}`) && PathPrefix(`/${USERNAME3:-user3}`)"
+      - "traefik.http.routers.u3.rule=Host(`${SERVER_DNS}`) && PathPrefix(`/${USERNAME3:-user3}`)"
       - "traefik.http.routers.u3.tls=true"
       - "traefik.http.routers.u3.middlewares=traefik-forward-auth"
     networks:
@@ -203,6 +204,7 @@ Don't forget to create the user's directory:
 
 ```bash
 cp -r ./workspaces/test/dtaas/files/user1 ./workspaces/test/dtaas/files/user3
+sudo chown -R 1000:100 workspaces/test/dtaas/files
 ```
 
 ### Using Different OAuth2 Providers
@@ -291,13 +293,13 @@ environment:
 
 ### HTTP-Only with OAuth2 (Development)
 
-For development environments where TLS is not required, see [`TRAEFIK_SECURE.md`](./TRAEFIK_SECURE.md).
+For development environments where TLS is not required, see [`TRAEFIK_SECURE.md`](TRAEFIK_SECURE.md).
 
 This provides OAuth2 authentication without TLS encryption.
 
 ### Basic Traefik (No Auth, No TLS)
 
-For local development without authentication or encryption, see [`TRAEFIK.md`](./TRAEFIK.md).
+For local development without authentication or encryption, see [`TRAEFIK.md`](TRAEFIK.md).
 
 ### Standalone Workspace (Single User)
 
