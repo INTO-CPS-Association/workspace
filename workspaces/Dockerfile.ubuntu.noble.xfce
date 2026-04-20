@@ -41,12 +41,12 @@ COPY ./src/admin/ ${ADMIN_DIR}
 
 FROM configure AS install-full
 
-RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
-    bash ${INST_DIR}/nginx/install_nginx.sh && \
-    bash ${INST_DIR}/vscode/install_vscode_server.sh && \
-    bash ${INST_DIR}/jupyter/install_jupyter.sh && \
-    bash ${INST_DIR}/admin/install_admin.sh && \
-    bash ${INST_DIR}/dtaas_cleanup.sh
+RUN bash ${INST_DIR}/firefox/install_firefox.sh
+RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
+RUN bash ${INST_DIR}/jupyter/install_jupyter.sh
+RUN bash ${INST_DIR}/admin/install_admin.sh
+RUN bash ${INST_DIR}/dtaas_cleanup.sh
 
 FROM configure AS install-minimal
 
@@ -54,11 +54,13 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
-RUN bash ${INST_DIR}/nginx/install_nginx.sh && \
-    bash ${INST_DIR}/admin/install_admin.sh && \
-    bash ${INST_DIR}/dtaas_cleanup.sh
+RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN bash ${INST_DIR}/admin/install_admin.sh
+RUN bash ${INST_DIR}/dtaas_cleanup.sh
 
 FROM install-${INSTALLATION} AS setup
+
+RUN bash ${INST_DIR}/kasm_fixes.sh
 
 COPY ./src/startup/ ${STARTUPDIR}
 
@@ -79,8 +81,8 @@ RUN mkdir -p /www/Downloads && \
 RUN adduser "$(id -un 1000)" sudo && \
     passwd -d "$(id -un 1000)"
 
-RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}' for k, v in os.environ.items()))" >> /tmp/.docker_set_envs && \
-    chmod 755 /tmp/.docker_set_envs
+RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}' for k, v in os.environ.items()))" >> ${STARTUPDIR}/.docker_set_envs && \
+    chmod 755 ${STARTUPDIR}/.docker_set_envs
 
 FROM scratch AS deploy
 COPY --from=setup / /
