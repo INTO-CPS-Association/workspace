@@ -41,12 +41,13 @@ COPY ./src/admin/ ${ADMIN_DIR}
 
 FROM configure AS install-full
 
-RUN bash ${INST_DIR}/firefox/install_firefox.sh
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
-RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
-RUN bash ${INST_DIR}/jupyter/install_jupyter.sh
-RUN bash ${INST_DIR}/admin/install_admin.sh
-RUN bash ${INST_DIR}/dtaas_cleanup.sh
+RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
+    bash ${INST_DIR}/nginx/install_nginx.sh && \
+    bash ${INST_DIR}/vscode/install_vscode_server.sh && \
+    bash ${INST_DIR}/jupyter/install_jupyter.sh && \
+    bash ${INST_DIR}/admin/install_admin.sh && \
+    bash ${INST_DIR}/dtaas_cleanup.sh && \
+    bash ${INST_DIR}/kasm_fixes.sh
 
 FROM configure AS install-minimal
 
@@ -54,13 +55,12 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
-RUN bash ${INST_DIR}/admin/install_admin.sh
-RUN bash ${INST_DIR}/dtaas_cleanup.sh
+RUN bash ${INST_DIR}/nginx/install_nginx.sh && \
+    bash ${INST_DIR}/admin/install_admin.sh && \
+    bash ${INST_DIR}/dtaas_cleanup.sh && \
+    bash ${INST_DIR}/kasm_fixes.sh
 
 FROM install-${INSTALLATION} AS setup
-
-RUN bash ${INST_DIR}/kasm_fixes.sh
 
 COPY ./src/startup/ ${STARTUPDIR}
 
@@ -95,7 +95,7 @@ LABEL org.opencontainers.image.title="workspace-xfce" \
       org.opencontainers.image.source="https://github.com/INTO-CPS-Association/workspace" \
       org.opencontainers.image.documentation="https://github.com/INTO-CPS-Association/workspace/blob/main/README.md" \
       org.opencontainers.image.licenses="[https://github.com/INTO-CPS-Association/workspace/blob/main/LICENSE.md, https://github.com/kasmtech/workspaces-core-images/blob/release/1.18.0/LICENSE.md]" \
-      org.opencontainers.image.version="0.1.0"
+      org.opencontainers.image.version="0.2.0"
 
 EXPOSE 8080
 
