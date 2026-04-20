@@ -67,8 +67,8 @@ Once all services are running, access the workspaces through Traefik:
 #### Service Discovery
 
 The workspace provides a `/services` endpoint that returns a JSON list of
-available services. This enables dynamic service discovery for frontend
-applications.
+available services. This is intended for future dynamic service discovery
+for frontend applications.
 
 **Example**: Get service list for user1
 
