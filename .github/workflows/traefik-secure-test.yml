@@ -390,7 +390,7 @@ jobs:
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: ./workspaces
-          file: ${{ matrix.dockerfile }}
+          file: workspaces/Dockerfile.ubuntu.noble.xfce
           push: false
           load: true
           platforms: ${{ matrix.arch.platform }}
@@ -531,7 +531,7 @@ jobs:
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
         with:
           context: ./workspaces
-          file: ${{ matrix.dockerfile }}
+          file: workspaces/Dockerfile.ubuntu.noble.xfce
           push: false
           load: true
           platforms: ${{ matrix.arch.platform }}
