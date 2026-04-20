@@ -52,3 +52,9 @@ sudo apt-get autoremove -y --purge --no-install-recommends \
     fonts-noto-color-emoji \
     vim \
     cups
+
+# Remove cups files
+rm -rf /usr/lib/cups
+rm -rf /usr/share/cups
+rm -rf /etc/cups
+rm -rf /etc/cupshelpers
