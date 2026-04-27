@@ -3,10 +3,13 @@ set -xe
 
 # Installs Jupyter and Python3
 
-DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends\
+DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
     python3 \
-    python3-pip
+    python3-venv
 
-pip install --break-system-packages --no-cache-dir \
+python3 -m venv /opt/jupyter-env
+/opt/jupyter-env/bin/pip install --no-cache-dir \
     jupyterlab \
     notebook
+
+ln -s /opt/jupyter-env/bin/jupyter /usr/local/bin/jupyter
