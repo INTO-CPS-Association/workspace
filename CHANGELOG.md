@@ -14,6 +14,17 @@ The main changes made so far are listed here.
 * Removed outdated references to deleted Traefik-specific workflow files and
   documented the cache mechanism actually used in this PR
 
+## Week of 17-Mar-2026
+
+### Added
+
+* Lightweight workspace image `Dockerfile.ubuntu.noble.xfce` based on
+  `kasmweb/core-ubuntu-noble:1.18.0` (Ubuntu 24.04 + XFCE desktop)
+* The new image is API-compatible with the existing `Dockerfile.ubuntu.noble.gnome`
+  and uses a lighter XFCE desktop manager, making it suitable for low-resource environments
+* Both Dockerfiles are now tested in the CI GitHub Actions
+  (`traefik-test.yml`, `traefik-secure-test.yml`)
+
 ## Week of 03-Mar-2026
 
 ### Changed
