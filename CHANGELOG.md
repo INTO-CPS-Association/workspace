@@ -2,6 +2,18 @@
 
 The main changes made so far are listed here.
 
+## Week of 06-April-2026
+
+### Changed
+
+* Changed the Docker build workflows to use only the GitHub Actions cache
+  (`type=gha`) for build layer reuse across repeated runs (previously also cached to the GHCR)
+* Consolidated test of Docker compose files and Docker image into one GitHub Action
+* Updated Actions to work with Keycloak Auth compose files
+* Added GitHub Actions test of the basic Docker compose file, for testing actual Docker image functionality
+* Removed outdated references to deleted Traefik-specific workflow files and
+  documented the cache mechanism actually used in this PR
+
 ## Week of 17-Mar-2026
 
 ### Added
@@ -12,6 +24,23 @@ The main changes made so far are listed here.
   and uses a lighter XFCE desktop manager, making it suitable for low-resource environments
 * Both Dockerfiles are now tested in the CI GitHub Actions
   (`traefik-test.yml`, `traefik-secure-test.yml`)
+
+## Week of 03-Mar-2026
+
+### Changed
+
+* GitHub Actions build cache optimised to reduce execution time on repeated runs
+  * Added GHCR registry cache (`type=registry`) alongside GitHub Actions cache
+    (`type=gha`) in all Docker build workflows for persistent cross-run
+    and cross-workflow layer caching
+  * Extracted a dedicated `build-workspace-image` job in
+    `traefik-secure-test.yml` so the workspace image is built once per
+    architecture and reused by both `test-traefik-secure` and
+    `test-traefik-secure-tls`, reducing full builds from four to two per run
+  * Test jobs now use read-only cache (`cache-from` only) after the build
+    job has populated the cache, further reducing write contention
+  * Fixed inconsistent `docker/setup-buildx-action` version in
+    `test-traefik-secure-tls` (updated from v3.11.1 to v3.12.0)
 
 ## Week of 10-Feb-2026
 
