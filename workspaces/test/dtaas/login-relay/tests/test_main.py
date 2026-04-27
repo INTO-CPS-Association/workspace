@@ -167,7 +167,7 @@ class TestAuthzWorkspace:
 # /health
 # ---------------------------------------------------------------------------
 
-class TestHealth:
+class TestHealth:  # pylint: disable=too-few-public-methods
     """Tests for the /health endpoint."""
 
     def test_returns_200(self):
