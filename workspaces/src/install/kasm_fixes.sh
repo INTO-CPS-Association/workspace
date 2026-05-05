@@ -5,10 +5,10 @@ set -e
 # our custom_startup.sh script. The loop has a typo though, mistakenly
 # referencing "custom_script" instead of "custom_startup".
 # There is a stale pull request to fix this in the KASM repo,
-# but until they release a new version, we can fix it like this: 
-sed -i 's/custom_script/custom_startup/' $STARTUPDIR/vnc_startup.sh
+# but until they release a new version, we can fix it like this:
+sed -i 's/custom_script/custom_startup/' "$STARTUPDIR/vnc_startup.sh"
 
 # The KASM core image has removed the following applets without removing
 # their autostart entries. This remedies that.
-rm /etc/xdg/autostart/nm-applet.desktop
-rm /etc/xdg/autostart/print-applet.desktop
+rm -f /etc/xdg/autostart/nm-applet.desktop
+rm -f /etc/xdg/autostart/print-applet.desktop
