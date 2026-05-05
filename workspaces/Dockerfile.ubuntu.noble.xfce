@@ -82,7 +82,7 @@ RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}'
 FROM scratch AS deploy
 COPY --from=setup / /
 
-LABEL org.opencontainers.image.title="workspace-xfce" \
+LABEL org.opencontainers.image.title="workspace" \
       org.opencontainers.image.description="A lightweight containerized virtual desktop environment with KasmVNC, Firefox, Jupyter, and VS Code Server for DTaaS" \
       org.opencontainers.image.vendor="INTO-CPS Association" \
       org.opencontainers.image.authors="[Prasad Talasila <prasad.talasila@ece.au.dk>, Aleksander Ross Møller <aleksander.r.m@protonmail.com>]" \
