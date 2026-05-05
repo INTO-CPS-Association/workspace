@@ -35,13 +35,13 @@ RUN bash ${INST_DIR}/image_wegovy.sh
 
 FROM configure AS install-full
 
-RUN bash ${INST_DIR}/firefox/install_firefox.sh && \
-    bash ${INST_DIR}/nginx/install_nginx.sh && \
-    bash ${INST_DIR}/vscode/install_vscode_server.sh && \
-    bash ${INST_DIR}/jupyter/install_jupyter.sh && \
-    bash ${INST_DIR}/admin/install_admin.sh && \
-    bash ${INST_DIR}/dtaas_cleanup.sh && \
-    bash ${INST_DIR}/kasm_fixes.sh
+RUN bash ${INST_DIR}/firefox/install_firefox.sh
+RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
+RUN bash ${INST_DIR}/jupyter/install_jupyter.sh
+RUN bash ${INST_DIR}/admin/install_admin.sh
+RUN bash ${INST_DIR}/dtaas_cleanup.sh
+RUN bash ${INST_DIR}/kasm_fixes.sh
 
 FROM configure AS install-minimal
 
@@ -49,17 +49,17 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
-RUN bash ${INST_DIR}/nginx/install_nginx.sh && \
-    bash ${INST_DIR}/admin/install_admin.sh && \
-    bash ${INST_DIR}/dtaas_cleanup.sh && \
-    bash ${INST_DIR}/kasm_fixes.sh
+RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN bash ${INST_DIR}/admin/install_admin.sh
+RUN bash ${INST_DIR}/dtaas_cleanup.sh
+RUN bash ${INST_DIR}/kasm_fixes.sh
 
 FROM install-${INSTALLATION} AS setup
 
 COPY ./src/startup/ ${STARTUPDIR}
 
 COPY ./src/resources/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
-COPY ./src/resources/jupyter/jupyter_notebook_config.py /etc/jupyter/
+COPY ./src/resources/jupyter/jupyter_notebook_config.py /home/kasm-default-profile/.jupyter/
 COPY ./src/resources/xfce4/* /home/kasm-default-profile/.config/xfce4/xfconf/xfce-perchannel-xml/
 
 RUN chown 1000:0 ${HOME} && \
