@@ -46,7 +46,7 @@ rm -rf /usr/share/backgrounds
 mv /usr/share/backgrounds.cpy /usr/share/backgrounds
 
 # Remove packages we don't need anymore to save space.
-sudo apt-get autoremove -y --purge --no-install-recommends \
+apt-get autoremove -y --purge --no-install-recommends \
     desktop-base \
     fonts-noto-cjk \
     fonts-noto-color-emoji \
