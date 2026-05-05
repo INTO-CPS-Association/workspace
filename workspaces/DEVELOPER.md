@@ -16,17 +16,11 @@ and build process.
 
 ## Available Images
 
-The workspace provides two Dockerfile variants:
+The one Dockerfile variant:
 
 | Dockerfile | Base Image | Desktop | Ubuntu Version |
 | --- | --- | --- | --- |
-| `Dockerfile.ubuntu.noble.xfce` | `kasmweb/core-ubuntu-noble:1.18.0` | GNOME | 24.04 (Noble) |
 | `Dockerfile.ubuntu.noble.xfce` | `kasmweb/core-ubuntu-noble:1.18.0` | XFCE | 24.04 (Noble) |
-
-The lightweight `Dockerfile.ubuntu.noble.xfce` variant uses the XFCE desktop
-environment instead of GNOME, making it more suitable for low-resource environments.
-Both images are based on Ubuntu 24.04 (Noble) and expose identical services and
-URL endpoints (API-compatible).
 
 ## Docker Build Arguments
 
