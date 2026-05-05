@@ -59,7 +59,7 @@ Once all services are running, access the workspaces through Traefik:
 
 ### User1 Workspace (workspace)
 
-- **VNC Desktop**: `http://localhost/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify`
+- **VNC Desktop**: `http://localhost/user1/tools/vnc`
 - **VS Code**: `http://localhost/user1/tools/vscode`
 - **Jupyter Notebook**: `http://localhost/user1`
 - **Jupyter Lab**: `http://localhost/user1/lab`
@@ -67,8 +67,8 @@ Once all services are running, access the workspaces through Traefik:
 #### Service Discovery
 
 The workspace provides a `/services` endpoint that returns a JSON list of
-available services. This enables dynamic service discovery for frontend
-applications.
+available services. This is intended for future dynamic service discovery
+for frontend applications.
 
 **Example**: Get service list for user1
 
@@ -83,7 +83,7 @@ curl http://localhost/user1/services
   "desktop": {
     "name": "Desktop",
     "description": "Virtual Desktop Environment",
-    "endpoint": "tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify"
+    "endpoint": "tools/vnc"
   },
   "vscode": {
     "name": "VS Code",

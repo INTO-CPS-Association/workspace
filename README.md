@@ -92,7 +92,7 @@ An active container provides the following services.
 the `.env` file.
 
 - ***Open workspace*** -
-  <http://localhost:8080/user1/tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify>
+  <http://localhost:8080/user1/tools/vnc>
 - ***Open VSCode*** - <http://localhost:8080/user1/tools/vscode>
 - ***Open Jupyter Notebook*** - <http://localhost:8080/user1>
 - ***Open Jupyter Lab*** - <http://localhost:8080/user1/lab>
@@ -100,8 +100,8 @@ the `.env` file.
 ### Service Discovery
 
 The workspace provides a `/services` endpoint that returns a JSON list of
-available services. This enables dynamic service discovery for frontend
-applications.
+available services. This is intended for future dynamic service discovery
+for frontend applications.
 
 **Example**: Get service list for user1
 
@@ -116,7 +116,7 @@ curl http://localhost:8080/user1/services
   "desktop": {
     "name": "Desktop",
     "description": "Virtual Desktop Environment",
-    "endpoint": "tools/vnc?path=user1%2Ftools%2Fvnc%2Fwebsockify"
+    "endpoint": "tools/vnc"
   },
   "vscode": {
     "name": "VS Code",
