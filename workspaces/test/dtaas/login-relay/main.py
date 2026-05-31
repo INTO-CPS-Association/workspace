@@ -27,8 +27,11 @@ import logging
 import os
 import time
 import urllib.parse
+import httpx
 from authlib.common.security import generate_token
 from authlib.integrations.httpx_client import AsyncOAuth2Client
+from authlib.jose import JsonWebKey, jwt as jose_jwt
+from authlib.jose.errors import JoseError
 from fastapi import Cookie, FastAPI, HTTPException
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field
@@ -59,6 +62,13 @@ _SPA_PREFIXES = (
     "/library", "/digitaltwins", "/preview", "/create",
     "/static", "/env.js", "/favicon.ico", "/manifest.json", "/logo",
 )
+
+# Optional OIDC URL overrides for non-Keycloak providers (e.g. Dex in CI).
+# When set, these take precedence over URLs derived from KEYCLOAK_* variables.
+_OIDC_AUTH_URL_PUBLIC = os.environ.get("OIDC_AUTH_URL_PUBLIC", "")
+_OIDC_TOKEN_URL_INTERNAL = os.environ.get("OIDC_TOKEN_URL_INTERNAL", "")
+_OIDC_JWKS_URL_INTERNAL = os.environ.get("OIDC_JWKS_URL_INTERNAL", "")
+_OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "")
 
 
 def _decode_jwt_claims(token: str) -> dict:
@@ -104,6 +114,49 @@ def _internal_realm_url() -> str:
 
 def _callback_uri() -> str:
     return f"https://{SERVER_DNS}/login-relay/callback"
+
+
+def _auth_url_public() -> str:
+    return _OIDC_AUTH_URL_PUBLIC or f"{_public_realm_url()}/auth"
+
+
+def _token_url_internal() -> str:
+    return _OIDC_TOKEN_URL_INTERNAL or f"{_internal_realm_url()}/token"
+
+
+def _jwks_url_internal() -> str:
+    return _OIDC_JWKS_URL_INTERNAL or f"{_internal_realm_url()}/certs"
+
+
+def _expected_issuer() -> str:
+    return _OIDC_ISSUER or f"{KEYCLOAK_PUBLIC_URL}/realms/{KEYCLOAK_REALM}"
+
+
+async def _validate_id_token(id_token: str) -> None:
+    """Validate OIDC id_token signature, issuer, audience, and expiry via JWKS."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(_jwks_url_internal(), timeout=10)
+            resp.raise_for_status()
+            jwks_data = resp.json()
+    except Exception as exc:
+        logging.error("Failed to fetch JWKS: %s", exc)
+        raise HTTPException(status_code=502, detail="Failed to fetch JWKS.") from exc
+
+    try:
+        key_set = JsonWebKey.import_key_set(jwks_data)
+        claims = jose_jwt.decode(
+            id_token,
+            key_set,
+            claims_options={
+                "iss": {"essential": True, "value": _expected_issuer()},
+                "aud": {"essential": True, "value": KEYCLOAK_CLIENT_ID},
+            },
+        )
+        claims.validate()
+    except JoseError as exc:
+        logging.warning("id_token validation failed: %s", exc)
+        raise HTTPException(status_code=401, detail="id_token validation failed.") from exc
 
 
 def _check_cross_user_redirect(token: str, destination: str) -> None:
@@ -215,7 +268,7 @@ async def login(
     })
 
     response = RedirectResponse(
-        url=f"{_public_realm_url()}/auth?{params}",
+        url=f"{_auth_url_public()}?{params}",
         status_code=302,
     )
     _set_short_cookie(response, "oauth_state", oauth_state)
@@ -242,8 +295,13 @@ async def logout() -> RedirectResponse:
     return response
 
 
-async def _fetch_access_token(code: str) -> str:
-    """Exchange a Keycloak authorization code for an access token."""
+async def _fetch_tokens(code: str) -> tuple[str, str, int]:
+    """Exchange an authorisation code for tokens.
+
+    Returns (access_token, id_token, expires_in).
+    id_token is an empty string if the provider did not return one.
+    expires_in defaults to 300 if absent from the response.
+    """
     async with AsyncOAuth2Client(
         client_id=KEYCLOAK_CLIENT_ID,
         client_secret=KEYCLOAK_CLIENT_SECRET,
@@ -251,20 +309,22 @@ async def _fetch_access_token(code: str) -> str:
     ) as client:
         try:
             token = await client.fetch_token(
-                url=f"{_internal_realm_url()}/token",
+                url=_token_url_internal(),
                 grant_type="authorization_code",
                 code=code,
             )
         except Exception as exc:
-            logging.error("Keycloak token exchange failed: %s", exc)
+            logging.error("Token exchange failed: %s", exc)
             raise HTTPException(
                 status_code=502,
                 detail="Token exchange failed.",
             ) from exc
     access_token = token.get("access_token", "")
     if not access_token:
-        raise HTTPException(status_code=502, detail="No access_token in Keycloak response.")
-    return access_token
+        raise HTTPException(status_code=502, detail="No access_token in response.")
+    id_token = token.get("id_token", "")
+    expires_in = int(token.get("expires_in", 300))
+    return access_token, id_token, expires_in
 
 
 @app.get("/login-relay/callback")
@@ -296,22 +356,22 @@ async def callback(
     except (ValueError, binascii.Error):
         return_to = "/"
 
-    access_token = await _fetch_access_token(code)
+    access_token, id_token, expires_in = await _fetch_tokens(code)
+    if id_token:
+        await _validate_id_token(id_token)
     response = RedirectResponse(url=return_to, status_code=302)
 
-    # max_age=300 — matches the Keycloak default access token lifespan (5 min).
-    # The cookie expires with the JWT; Oathkeeper will redirect to login after expiry.
     response.set_cookie(
         key="dtaas_access_token",
         value=access_token,
-        max_age=300,
+        max_age=expires_in,
         httponly=True,
         secure=True,
         samesite="lax",
         path="/",
     )
 
-    response.delete_cookie("oauth_state")
+    response.delete_cookie("oauth_state", path="/login-relay")
     return response
 
 
@@ -324,4 +384,5 @@ def _set_short_cookie(response: RedirectResponse, key: str, value: str) -> None:
         httponly=True,
         secure=True,
         samesite="lax",
+        path="/login-relay",
     )
