@@ -336,4 +336,3 @@ class TestWorkspaceRedirectTree:
         assert resp.status_code == 302
         expected = "/login-relay?return_to=/workspace-redirecttree/functions"
         assert resp.headers["location"] == expected
-
