@@ -52,7 +52,11 @@ def _expected_issuer() -> str:
 
 
 def _decode_jwt_claims(token: str) -> dict:
-    """Extract JWT payload claims without signature verification (loop detection only)."""
+    """Extract JWT payload claims without signature verification.
+
+    Used for redirect resolution, cross-user access checks, and expiry checks.
+    Never use the returned claims for access control — use JWKS-verified tokens only.
+    """
     try:
         parts = token.split(".")
         if len(parts) != 3:
@@ -97,7 +101,7 @@ def _check_cross_user_redirect(token: str, destination: str) -> None:
     if not token:
         return
     claims = _decode_jwt_claims(token)
-    if claims.get("exp", 0) <= time.time():
+    if int(claims.get("exp", 0) or 0) <= time.time():
         return
     username = claims.get("preferred_username", "")
     if not username:

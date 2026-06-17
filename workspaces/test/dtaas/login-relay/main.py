@@ -57,7 +57,7 @@ async def workspace_redirect(
     claims = _decode_jwt_claims(dtaas_access_token)
     username = claims.get("preferred_username", "")
     encoded_path = quote(path, safe="/")
-    if not username or claims.get("exp", 0) <= time.time():
+    if not username or int(claims.get("exp", 0) or 0) <= time.time():
         return RedirectResponse(
             url=f"/login-relay?return_to=/workspace-redirecttree/{encoded_path}",
             status_code=302,
