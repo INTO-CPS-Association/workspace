@@ -196,8 +196,14 @@ runs:
       shell: bash
       run: |
         pip install --quiet requests
-        python3 workspaces/test/dtaas/ci/scripts/ci_auth_login.py \
-          http://localhost user1 http://dex:5556 password
+        if [ "${{ inputs.tls_test }}" = "true" ]; then
+          python3 workspaces/test/dtaas/ci/scripts/ci_auth_login.py \
+            --ca-bundle workspaces/test/dtaas/ci/certs/rootCA.crt \
+            https://localhost user1 http://dex:5556 password
+        else
+          python3 workspaces/test/dtaas/ci/scripts/ci_auth_login.py \
+            http://localhost user1 http://dex:5556 password
+        fi
 
     - name: Test HTTP to HTTPS redirect
       if: ${{ inputs.tls_test == 'true' }}
