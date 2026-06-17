@@ -17,7 +17,6 @@ Architecture:
                      → sets dtaas_access_token cookie → /user1
 """
 import logging
-import time
 from urllib.parse import quote
 
 from fastapi import Cookie, FastAPI, HTTPException
