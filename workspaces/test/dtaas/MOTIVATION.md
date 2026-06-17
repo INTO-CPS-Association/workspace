@@ -235,20 +235,22 @@ See [`KEYCLOAK_SETUP.md`](KEYCLOAK_SETUP.md) for step-by-step Keycloak configura
 
 `dtaas_access_token` `max_age` is set to the `expires_in` value returned by Keycloak's token
 endpoint, so the cookie lifetime automatically matches the configured access token lifespan.
-When the token expires, the next browser request is redirected to Keycloak; if an SSO session is
-still active, Keycloak silently issues a new token and the user is redirected back without seeing
-a login form.
+When the token expires, the next browser request is redirected to Keycloak; Keycloak requires
+re-authentication if `auth_time` is older than `max_age` seconds (300 by default, matching the
+token lifespan). Users see the login form when the token expires; iframes that request content
+shortly after a fresh login re-auth silently without showing the login form.
 
-Active WebSocket connections (VS Code, Jupyter terminals) will drop silently when the redirect
-happens, because the tab navigates away.
+Active WebSocket connections (VS Code, Jupyter terminals) will drop when the redirect happens,
+because the tab navigates away.
 
 **To extend the session lifetime**, increase **Access Token Lifespan** in Keycloak admin →
-Realm settings → Tokens (e.g. `1h`). The cookie lifetime will follow automatically.
+Realm settings → Tokens (e.g. `1h`) and update `max_age` in `_build_auth_params` in
+`login-relay/_helpers.py` to match (e.g. `3600`). The cookie lifetime will follow automatically.
 
-> **Note:** `prompt=login` was intentionally removed. It was originally added to decouple the
-> workspace cookie session from the SPA's PKCE session, but it forced Keycloak to show the login
-> form on every re-auth — including inside iframes — causing a visible re-auth loop in the
-> Library tab. Without `prompt=login`, Keycloak honours its SSO session and re-auths silently.
+> **Note:** `prompt=login` was replaced with `max_age=300`. `prompt=login` forced Keycloak to
+> show the login form on every re-auth — including inside iframes — causing a re-auth loop in
+> the Library tab. `max_age` achieves the same security goal (re-auth after token expiry) while
+> allowing iframes to re-auth silently when the Keycloak session is still fresh.
 
 ---
 
