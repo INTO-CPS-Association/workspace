@@ -174,7 +174,9 @@ async def _proxy_introspect(token: str) -> dict:
             return resp.json()
         except Exception as exc:
             logging.error("Introspection proxy failed: %s", type(exc).__name__)
-            raise HTTPException(status_code=502, detail="Introspection upstream unreachable.") from exc
+            raise HTTPException(
+                status_code=502, detail="Introspection upstream unreachable."
+            ) from exc
 
 
 async def _validate_id_token(id_token: str) -> None:
