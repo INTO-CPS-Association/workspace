@@ -87,7 +87,6 @@ services:
       - "traefik.http.routers.client.middlewares=oathkeeper-auth"
     networks:
       - frontend
-      - users
 
   user1:
     image: workspace:latest

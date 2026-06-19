@@ -27,7 +27,7 @@ The `compose.traefik.secure.tls.yml` file provides a production-ready setup with
   successful authentication
 - **client** — DTaaS web interface
 - **user1** workspace using the workspace image
-- **user2** workspace using the mltooling/ml-workspace-minimal image
+- **user2** workspace using the workspace image
 - **Two Docker networks**: `dtaas-frontend` and `dtaas-users`
 
 ## ⚙️ Initial Configuration
@@ -189,10 +189,10 @@ The endpoint values are dynamically populated with the user's username from the
 `MAIN_USER` environment variable. This variable corresponds to `USERNAME1` of
 `.env` file.
 
-### User2 Workspace (ml-workspace-minimal)
+### User2 Workspace
 
-- **VNC Desktop**: `https://<SERVER_DNS>/user2/tools/vnc/?password=vncpassword`
-- **VS Code**: `https://<SERVER_DNS>/user2/tools/vscode/`
+- **VNC Desktop**: `https://<SERVER_DNS>/user2/tools/vnc?path=user2%2Ftools%2Fvnc%2Fwebsockify`
+- **VS Code**: `https://<SERVER_DNS>/user2/tools/vscode`
 - **Jupyter Notebook**: `https://<SERVER_DNS>/user2`
 - **Jupyter Lab**: `https://<SERVER_DNS>/user2/lab`
 
