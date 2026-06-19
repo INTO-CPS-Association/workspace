@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from _config import KEYCLOAK_CLIENT_ID, SERVER_DNS
 from _helpers import (
-    _active_username, _auth_url_public, _build_auth_params,
+    _auth_url_public, _build_auth_params,
     _check_cross_user_redirect, _fetch_tokens, _generate_state, _proxy_introspect,
     _public_realm_url, _safe_return_to, _set_access_token_cookie, _set_short_cookie,
     _validate_id_token, _verify_state,
