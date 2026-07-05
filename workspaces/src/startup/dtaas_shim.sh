@@ -58,4 +58,4 @@ fi
 echo "Continuing KASM script chain: '$*'"
 echo -e "------------- END OF DTAAS SHIM SCRIPT --------------\n"
 cd "${HOME}"
-exec setpriv --reuid=1000 --regid=1000 --init-groups -- "$@"
+exec setpriv --reuid="${MAIN_USER}" --regid="${MAIN_USER}" --init-groups -- "$@"
