@@ -61,6 +61,7 @@ COPY ./src/startup/ ${STARTUPDIR}
 COPY ./src/resources/kasm_vnc/kasmvnc.yaml /etc/kasmvnc/
 COPY ./src/resources/jupyter/jupyter_notebook_config.py /home/kasm-default-profile/.jupyter/
 COPY ./src/resources/xfce4/* /home/kasm-default-profile/.config/xfce4/xfconf/xfce-perchannel-xml/
+COPY ./src/resources/backgrounds/* /usr/share/backgrounds/
 
 RUN chown 1000:0 ${HOME} && \
     ${STARTUPDIR}/set_user_permission.sh ${HOME} && \
