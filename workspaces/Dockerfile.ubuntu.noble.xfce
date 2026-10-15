@@ -35,6 +35,9 @@ RUN bash ${INST_DIR}/image_wegovy.sh
 
 FROM configure AS install-full
 
+RUN bash ${INST_DIR}/toolchains/install_python.sh
+RUN bash ${INST_DIR}/toolchains/install_java.sh
+RUN bash ${INST_DIR}/toolchains/install_typescript.sh
 RUN bash ${INST_DIR}/firefox/install_firefox.sh
 RUN bash ${INST_DIR}/nginx/install_nginx.sh
 RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
