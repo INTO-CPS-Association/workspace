@@ -8,9 +8,6 @@ on:
     paths:
       - 'workspaces/src/**'
       - '.github/workflows/test-workspace.yml'
-    paths-ignore:
-      - 'workspaces/src/admin/**'
-      - 'workspaces/src/install/admin/**'
   workflow_dispatch:
 
 permissions:
