@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 jobs:
-  build-workspace-image:
-    name: Build and Cache Workspace Image
+  build-and-test-workspace-image:
+    name: Build and Test Workspace Image
     strategy:
       fail-fast: false
       matrix:
