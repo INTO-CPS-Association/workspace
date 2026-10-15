@@ -43,44 +43,44 @@ jobs:
           file: workspaces/Dockerfile.ubuntu.noble.xfce
           push: false
           platforms: ${{ matrix.arch.platform }}
-    
-    - name: Start services
-      shell: bash
-      run: |
-        docker compose -f workspaces/test/dtaas/compose.yml up -d
-        sleep 30
 
-    - name: Check service health
-      uses: ./.github/actions/check-service-health
-      with:
-        compose_file: workspaces/test/dtaas/compose.yml
+      - name: Start services
+        shell: bash
+        run: |
+          docker compose -f workspaces/test/dtaas/compose.yml up -d
+          sleep 30
 
-    - name: Test service endpoint
-      uses: ./.github/actions/check-connectivity
-      with:
-        url: "http://localhost/user/services"
-        expected_response_code: "200"
-    
-    - name: Show service logs on failure
-      if: failure()
-      shell: bash
-      run: |
-        echo "TEST FAILED - PRINTING DIAGNOSTICS:"
-        echo ""
-        echo "========================================"
-        echo "|           Services Status            |"
-        echo "========================================"
-        docker compose -f workspaces/test/dtaas/compose.yml ps
-        echo ""
-        echo "========================================"
-        echo "|            Workspace Logs            |"
-        echo "========================================"
-        docker compose -f workspaces/test/dtaas/compose.yml \
-          logs workspace
-    
-    - name: Cleanup
-      if: always()
-      shell: bash
-      run: |
-        docker compose -f workspaces/test/dtaas/compose.yml down -v
-        docker system prune -f
+      - name: Check service health
+        uses: ./.github/actions/check-service-health
+        with:
+          compose_file: workspaces/test/dtaas/compose.yml
+
+      - name: Test service endpoint
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "http://localhost/user/services"
+          expected_response_code: "200"
+
+      - name: Show service logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "TEST FAILED - PRINTING DIAGNOSTICS:"
+          echo ""
+          echo "========================================"
+          echo "|           Services Status            |"
+          echo "========================================"
+          docker compose -f workspaces/test/dtaas/compose.yml ps
+          echo ""
+          echo "========================================"
+          echo "|            Workspace Logs            |"
+          echo "========================================"
+          docker compose -f workspaces/test/dtaas/compose.yml \
+            logs workspace
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          docker compose -f workspaces/test/dtaas/compose.yml down -v
+          docker system prune -f
