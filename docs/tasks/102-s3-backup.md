@@ -1,7 +1,7 @@
 # Tasks: S3 object storage backup for workspace files
 
-Implements [plan.md](plan.md). Each task names the check that closes
-it. Tasks marked **[P]** can run in parallel with the task before.
+Implements [the plan](../plans/102-s3-backup.md). Each task names the
+check that closes it. Tasks marked **[P]** can run in parallel with the task before.
 
 Test command for `workspaces/src/admin`:
 
@@ -20,7 +20,7 @@ poetry run pytest --cov=admin --cov-report=term-missing
   identity gets `AccessDenied` on another bucket.
   *Check*: findings and the chosen tag recorded in this file. If
   lifecycle is not enforced, switch FR-4 to the `rclone delete
-  --min-age` fallback in plan.md before PR 1.
+  --min-age` fallback in the plan before PR 1.
 - [ ] **T002** Pick and pin an `rclone` release with
   `--s3-version-at` and the `SeaweedFS` provider. Record its SHA-256.
 

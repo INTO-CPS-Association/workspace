@@ -4,8 +4,8 @@
 | :--- | :--- |
 | Issue | [workspace#102](https://github.com/INTO-CPS-Association/workspace/issues/102) |
 | Status | Draft |
-| Plan | [plan.md](plan.md) |
-| Tasks | [tasks.md](tasks.md) |
+| Plan | [plan](../plans/102-s3-backup.md) |
+| Tasks | [tasks](../tasks/102-s3-backup.md) |
 
 ## Problem
 

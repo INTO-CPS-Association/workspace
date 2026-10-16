@@ -1,6 +1,7 @@
 # Plan: S3 object storage backup for workspace files
 
-Implements [spec.md](spec.md). Tasks are in [tasks.md](tasks.md).
+Implements [the spec](../specs/102-s3-backup.md). Tasks are in
+[the task list](../tasks/102-s3-backup.md).
 
 ## Current state
 
