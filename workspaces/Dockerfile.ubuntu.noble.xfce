@@ -98,5 +98,10 @@ LABEL org.opencontainers.image.title="workspace" \
 
 EXPOSE 8080
 
+# nginx answers /ping itself. Traefik routes nothing to a container until it
+# is healthy, so the first probe comes early (one interval after start).
+HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/ping || exit 1
+
 ENTRYPOINT ["/dockerstartup/dtaas_shim.sh", "/dockerstartup/kasm_default_profile.sh", "/dockerstartup/vnc_startup.sh"]
 CMD ["--wait"]

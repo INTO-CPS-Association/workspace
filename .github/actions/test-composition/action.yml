@@ -73,7 +73,7 @@ runs:
         echo "ENV_FILE_ARG=$ENV_FILE_ARG" >> $GITHUB_ENV
 
     - name: Install mkcert and generate TLS certificates
-      if: ${{ inputs.tls_test == 'true' }} && ${{ inputs.dex_test == 'true' }}
+      if: ${{ inputs.tls_test == 'true' && inputs.dex_test == 'true' }}
       shell: bash
       run: |
         set -e
@@ -115,7 +115,7 @@ runs:
       run: echo "127.0.0.1 dex" | sudo tee -a /etc/hosts
 
     - name: Generate self-signed certificates for testing
-      if: ${{ inputs.tls_test == 'true' }} && ${{ inputs.dex_test == 'false' }}
+      if: ${{ inputs.tls_test == 'true' && inputs.dex_test != 'true' }}
       shell: bash
       run: |
           mkdir -p workspaces/test/dtaas/certs
@@ -128,7 +128,7 @@ runs:
           echo "✅ Self-signed certificates generated"
 
     - name: Verify TLS configuration file
-      if: ${{ inputs.tls_test == 'true' }} && ${{ inputs.dex_test == 'false' }}
+      if: ${{ inputs.tls_test == 'true' && inputs.dex_test != 'true' }}
       shell: bash
       run: |
         if [ -f workspaces/test/dtaas/dynamic/tls.yml ]; then
@@ -165,7 +165,8 @@ runs:
         ignore_services: ${{ inputs.ignore_health_of_services }}
 
     - name: Test service endpoint
-      if: ${{ inputs.dex_test == 'false' }}
+      # The matrix passes unset flags as "", so test for "not true".
+      if: ${{ inputs.dex_test != 'true' }}
       uses: ./.github/actions/check-connectivity
       with:
         url: ${{ inputs.connectivity_endpoint }}
@@ -242,7 +243,7 @@ runs:
         fi
 
     - name: Verify TLS certificate is loaded
-      if: ${{ inputs.tls_test == 'true' }} && ${{ inputs.dex_test == 'false' }}
+      if: ${{ inputs.tls_test == 'true' && inputs.dex_test != 'true' }}
       shell: bash
       run: |
         echo "Checking Traefik logs for TLS certificate loading..."
@@ -268,7 +269,7 @@ runs:
         echo "========================================"
         docker compose -f ${{ inputs.compose_file }} $ENV_FILE_ARG ps
         echo ""
-        if [ "${{ inputs.basic_test }}" = "false" ]; then
+        if [ "${{ inputs.basic_test }}" != "true" ]; then
           echo "========================================"
           echo "|             Traefik Logs             |"
           echo "========================================"
