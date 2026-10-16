@@ -32,7 +32,7 @@ function require_binary {
 
 # Reports a restart whose process died straight away, instead of looping
 # over "Restarting ..." with no hint that it never comes up.
-function check_restarted {
+function report_failed_restart {
     local process="$1"
     sleep 1
     if ! kill -0 "${DTAAS_PROCS[${process}]}" 2>/dev/null; then
@@ -133,7 +133,7 @@ do
                 continue
                 ;;
         esac
-        check_restarted "${process}"
+        report_failed_restart "${process}"
     done
 
     sleep 3

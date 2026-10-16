@@ -104,7 +104,8 @@ LABEL org.opencontainers.image.title="workspace" \
 EXPOSE 8080
 
 # nginx answers /ping itself. Traefik routes nothing to a container until it
-# is healthy, so the first probe comes early (one interval after start).
+# is healthy. During the start period Docker (Engine 25+) probes every
+# start interval, 5 s by default, so routing begins within seconds of nginx.
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -fsS http://localhost:8080/ping || exit 1
 

@@ -168,8 +168,9 @@ Root endpoint providing service metadata and available endpoints.
 **Request**:
 
 ```bash
-# With the default path prefix (dtaas-user)
-curl http://localhost:8091/dtaas-user
+# With the default path prefix (dtaas-user); without the trailing slash
+# the service answers 307 and redirects here
+curl http://localhost:8091/dtaas-user/
 
 # Started with --path-prefix ""
 curl http://localhost:8091/
