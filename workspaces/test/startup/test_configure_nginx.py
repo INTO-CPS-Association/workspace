@@ -11,6 +11,7 @@ import pytest
 
 SRC_DIR = Path(__file__).parents[2] / "src" / "startup"
 TEMPLATE = SRC_DIR / "nginx.conf"
+TEMPLATE_TEXT = TEMPLATE.read_text()
 PLACEHOLDER = re.compile(r"\{[A-Z_]+\}")
 
 VALID_ENV = {
@@ -37,7 +38,7 @@ configure_nginx = _load_module()
 
 def test_render_fills_the_real_template():
     """Every placeholder in the shipped template gets a value."""
-    rendered = configure_nginx.render(TEMPLATE.read_text(), VALID_ENV)
+    rendered = configure_nginx.render(TEMPLATE_TEXT, VALID_ENV)
 
     assert "/user1/services" in rendered
     assert "127.0.0.1:6901" in rendered
@@ -51,7 +52,7 @@ def test_missing_variable_is_named(name):
     del env[name]
 
     with pytest.raises(configure_nginx.ConfigError, match=name):
-        configure_nginx.render(TEMPLATE.read_text(), env)
+        configure_nginx.render(TEMPLATE_TEXT, env)
 
 
 @pytest.mark.parametrize(
@@ -63,7 +64,7 @@ def test_unsafe_main_user_rejected(main_user):
     env = {**VALID_ENV, "MAIN_USER": main_user}
 
     with pytest.raises(configure_nginx.ConfigError, match="MAIN_USER"):
-        configure_nginx.render(TEMPLATE.read_text(), env)
+        configure_nginx.render(TEMPLATE_TEXT, env)
 
 
 @pytest.mark.parametrize("main_user", ["User.1", "a-b_c"])
@@ -71,9 +72,23 @@ def test_valid_main_user_accepted(main_user):
     """Names that usermod accepts today keep working."""
     env = {**VALID_ENV, "MAIN_USER": main_user}
 
-    rendered = configure_nginx.render(TEMPLATE.read_text(), env)
+    rendered = configure_nginx.render(TEMPLATE_TEXT, env)
 
     assert f"/{main_user}/services" in rendered
+
+
+def test_dot_in_main_user_is_literal_in_regex_locations():
+    """In a regex location "." would match any character, so "a.b" must not
+    also claim /aXb/...; plain locations keep the name as is."""
+    env = {**VALID_ENV, "MAIN_USER": "a.b"}
+
+    lines = configure_nginx.render(TEMPLATE_TEXT, env).splitlines()
+    regex_locations = [line for line in lines if "location ~" in line]
+    exact_locations = [line for line in lines if "location =" in line and "/a" in line]
+
+    assert regex_locations
+    assert all("/a\\.b" in line for line in regex_locations)
+    assert all("/a.b/" in line for line in exact_locations)
 
 
 @pytest.mark.parametrize("port", ["80a", "0", "65536", ""])
@@ -82,13 +97,13 @@ def test_bad_port_rejected(port):
     env = {**VALID_ENV, "ADMIN_SERVER_PORT": port}
 
     with pytest.raises(configure_nginx.ConfigError, match="ADMIN_SERVER_PORT"):
-        configure_nginx.render(TEMPLATE.read_text(), env)
+        configure_nginx.render(TEMPLATE_TEXT, env)
 
 
 def test_main_rewrites_file(tmp_path):
     """main() fills the config file in place."""
     config = tmp_path / "nginx.conf"
-    config.write_text(TEMPLATE.read_text())
+    config.write_text(TEMPLATE_TEXT)
 
     assert configure_nginx.main(str(config), VALID_ENV) == 0
     assert not PLACEHOLDER.search(config.read_text())
@@ -97,7 +112,7 @@ def test_main_rewrites_file(tmp_path):
 def test_main_refuses_without_writing(tmp_path, capsys):
     """On a bad value main() reports it and leaves the file alone."""
     config = tmp_path / "nginx.conf"
-    config.write_text(TEMPLATE.read_text())
+    config.write_text(TEMPLATE_TEXT)
     before = config.read_bytes()
 
     result = configure_nginx.main(str(config), {**VALID_ENV, "MAIN_USER": "a;b"})
@@ -105,3 +120,11 @@ def test_main_refuses_without_writing(tmp_path, capsys):
     assert result == 1
     assert config.read_bytes() == before
     assert "MAIN_USER" in capsys.readouterr().err
+
+
+def test_main_reports_missing_file(tmp_path, capsys):
+    """A missing config file is an [ERROR] line, not a traceback."""
+    missing = tmp_path / "nginx.conf"
+
+    assert configure_nginx.main(str(missing), VALID_ENV) == 1
+    assert str(missing) in capsys.readouterr().err
