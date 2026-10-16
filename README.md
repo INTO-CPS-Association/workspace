@@ -205,11 +205,13 @@ see [PUBLISHING.md](docs/PUBLISHING.md).
 
 ### Alternative Development Image
 
-If the full featureset of the workspace image is not necessary during development, a slimmer, quicker to build image can be generated instead.
+If the full featureset of the workspace image is not necessary during
+development, a slimmer, quicker to build image can be generated instead.
 
-This is done by adding the setting the build argument `INSTALLATION` to `minimal` when building the image. For example:
+This is done by setting the build argument `INSTALLATION` to `minimal`
+when building the image. For example:
 
-```
+```bash
 docker build -t workspace:latest \
   -f workspaces/Dockerfile.ubuntu.noble.xfce \
   --build-arg INSTALLATION=minimal \
@@ -220,17 +222,19 @@ docker build -t workspace:latest \
 
 This project enforces strict code quality checks via GitHub Actions:
 
-* **Dockerfile**: Linted with [hadolint](https://github.com/hadolint/hadolint)
+- **Dockerfile**: Linted with [hadolint](https://github.com/hadolint/hadolint)
   \- all errors must be fixed
-* **Shell scripts**: Checked with [shellcheck](https://www.shellcheck.net/)
+- **Shell scripts**: Checked with [shellcheck](https://www.shellcheck.net/)
   \- all warnings must be addressed
-* **Python scripts**: Linted with [flake8](https://flake8.pycqa.org/) and
+- **Python scripts**: Linted with [flake8](https://flake8.pycqa.org/) and
   [pylint](https://pylint.org/) - all errors must be resolved
-* **YAML files**: Validated with [yamllint](https://yamllint.readthedocs.io/)
+- **YAML files**: Validated with [yamllint](https://yamllint.readthedocs.io/)
   \- all issues must be corrected
-* **Markdown files**: Checked with
-  [markdownlint](https://github.com/DavidAnson/markdownlint) - all style
-  violations must be fixed
+- **Markdown files**: Checked with
+  [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) in
+  the `Lint Scripts` workflow - all style violations must be fixed. A few
+  working-note files with a backlog of findings are skipped; they are listed
+  in `.markdownlint-cli2.yaml`
 
 All quality checks must pass before code can be merged. The workflows will
 fail if any linting errors are detected.
@@ -239,7 +243,8 @@ fail if any linting errors are detected.
 
 Linting behavior is configured through:
 
-* `.shellcheckrc` - shellcheck configuration
-* `.pylintrc` - pylint configuration
-* `.yamllint.yml` - yamllint configuration
-* `.markdownlint.yaml` - markdownlint configuration
+- `.shellcheckrc` - shellcheck configuration
+- `.pylintrc` - pylint configuration
+- `.yamllint.yml` - yamllint configuration
+- `.markdownlint.yaml` - markdownlint rules
+- `.markdownlint-cli2.yaml` - Markdown files markdownlint skips

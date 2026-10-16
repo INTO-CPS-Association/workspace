@@ -16,15 +16,13 @@ services:
       - "--entrypoints.web.forwardedHeaders.insecure=true"
       - "--entrypoints.web.proxyProtocol.insecure=true"
       - "--log.level=DEBUG"
-    labels:
-      - "traefik.http.routers.myservice.rule=Host(`myservice.localhost`)"
-      - "traefik.http.services.myservice.loadbalancer.server.port=80"
     ports:
       - "80:80"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Root-equivalent access to the host's Docker daemon, even read-only.
+      # See "Docker socket" in TRAEFIK.md before using this outside development.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - frontend
       - users
 
   user1:
@@ -65,7 +63,5 @@ services:
       - users
 
 networks:
-  frontend:
-    name: dtaas-frontend
   users:
     name: dtaas-users

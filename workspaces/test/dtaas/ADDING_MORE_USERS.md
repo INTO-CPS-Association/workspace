@@ -1,4 +1,5 @@
 # Adding more users
+
 The [`compose.traefik.yml`](./compose.traefik.yml),
 [`compose.traefik.secure.yml`](./compose.traefik.secure.yml) and
 [`compose.traefik.secure.tls.yml`](./compose.traefik.secure.tls.yml) Docker
@@ -135,8 +136,8 @@ WORKSPACE_USERS=user1,user2,user3
 
 ## Add Variable to Oathkeeper Service
 
-In your Docker compose file, add `USERNAME3=${USERNAME3:-user3}` to the `environment` section of the
-`oathkeeper` service.
+In your Docker compose file, add `USERNAME3=${USERNAME3:-user3}` to the
+`environment` section of the `oathkeeper` service.
 
 ## Oathkeeper Access Rules
 

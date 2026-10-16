@@ -16,7 +16,7 @@ The `compose.traefik.yml` file sets up:
 - **Traefik** reverse proxy on port 80
 - **user1** workspace using the workspace image
 - **user2** workspace using the mltooling/ml-workspace-minimal image
-- Two Docker networks: `dtaas-frontend` and `dtaas-users`
+- One Docker network: `dtaas-users`
 
 Traefik routes requests to different workspace instances based on URL path prefixes.
 
@@ -139,6 +139,23 @@ Follow the appropriate steps in [ADDING_MORE_USER.md](./ADDING_MORE_USERS.md).
 
 ## :shield: Security Considerations
 
-⚠️ **Important**: This configuration is designed for development and testing, and should not be reconfigured to be exposed to the internet.
+⚠️ **Important**: This configuration is designed for development and
+testing, and should not be reconfigured to be exposed to the internet.
 
 For setting up a composition that can be exposed to the internet, see [TRAEFIK_TLS.md](./TRAEFIK_TLS.md).
+
+### Docker socket
+
+Traefik finds the workspaces through its Docker provider, so the compose
+files mount `/var/run/docker.sock` into the Traefik container. Anyone who
+controls that container controls the host's Docker daemon, which amounts to
+root on the host. Mounting the socket read-only (`:ro`), as every compose
+file here does, does not change that: the Docker API is still fully usable
+over a read-only socket.
+
+That is acceptable for the development compositions in this directory. For
+a production deployment, do not hand Traefik the raw socket. Either put a
+socket proxy such as
+[tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)
+in between, allowing only `CONTAINERS=1`, or replace the Docker provider
+with Traefik's file provider and list the workspaces yourself.
