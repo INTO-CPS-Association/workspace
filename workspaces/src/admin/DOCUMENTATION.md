@@ -19,11 +19,11 @@ services.
 **Request**:
 
 ```bash
-# Without path prefix
-curl http://localhost:8080/services
+# Directly, with the default path prefix (dtaas-user)
+curl http://localhost:8091/dtaas-user/services
 
-# With path prefix
-curl http://localhost:8080/{path-prefix}/services
+# Through nginx in the container, where the prefix is MAIN_USER
+curl http://localhost:8080/{MAIN_USER}/services
 ```
 
 **Response**: Status 200 OK
@@ -54,6 +54,7 @@ curl http://localhost:8080/{path-prefix}/services
 ```
 
 **Notes**:
+
 - Service endpoints are relative paths that should be appended to the base
   workspace URL
 - When using path prefixes, the prefix is automatically prepended to all routes
@@ -66,11 +67,11 @@ Health check endpoint for monitoring service availability.
 **Request**:
 
 ```bash
-# Without path prefix
-curl http://localhost:8091/health
+# With the default path prefix (dtaas-user)
+curl http://localhost:8091/dtaas-user/health
 
-# With path prefix  
-curl http://localhost:8091/{path-prefix}/health
+# Started with --path-prefix ""
+curl http://localhost:8091/health
 ```
 
 **Response**: Status 200 OK
@@ -90,11 +91,11 @@ service's log, which the workspace user never sees.
 **Request**:
 
 ```bash
-# Without path prefix
-curl http://localhost:8091/storage/status
+# With the default path prefix (dtaas-user)
+curl http://localhost:8091/dtaas-user/storage/status
 
-# With path prefix
-curl http://localhost:8091/{path-prefix}/storage/status
+# Started with --path-prefix ""
+curl http://localhost:8091/storage/status
 
 # Through nginx, as the user's browser reaches it
 curl http://localhost/{path-prefix}/storage/status
@@ -167,11 +168,11 @@ Root endpoint providing service metadata and available endpoints.
 **Request**:
 
 ```bash
-# Without path prefix
-curl http://localhost:8091/
+# With the default path prefix (dtaas-user)
+curl http://localhost:8091/dtaas-user
 
-# With path prefix
-curl http://localhost:8091/{path-prefix}
+# Started with --path-prefix ""
+curl http://localhost:8091/
 ```
 
 **Response**: Status 200 OK
@@ -430,8 +431,9 @@ two: git commands run in the working tree find the git directory through it.
      readability), and runs without prompts and within a time limit. See
      [Time limits and prompts](#time-limits-and-prompts).
    - The `-c http.extraHeader=...` option carries `GIT_REPO_TOKEN` as
-     HTTP Basic credentials for this one command. They are not written into the git directory's config and not added to the
-     remote URL, so the token is not stored anywhere in the clone.
+     HTTP Basic credentials for this one command. They are not written
+     into the git directory's config and not added to the remote URL, so
+     the token is not stored anywhere in the clone.
    - The `protocol.*` options make git refuse every transport except
      https, and `--` stops the URL and path from being read as options.
 4. **Report the result.** A successful clone logs
@@ -697,7 +699,7 @@ decision what goes into it.
 
 ### Service Discovery Flow
 
-1. User accesses `http://{domain}/{path-prefix}/services` (or `/services` without prefix)
+1. User accesses `http://{domain}/{MAIN_USER}/services`
 2. nginx receives the request and routes it to the admin service on port 8091
 3. Admin service reads the `config/services_template.json` file
 4. JSON response is returned to the client
@@ -1205,7 +1207,8 @@ module imports the layer above it, so each can be tested on its own.
     `clone_configured_repos()` and then `start_git_sync()` on the
     `git-bootstrap` daemon thread, so the HTTP API never waits for a
     remote. The thread then waits for the sync thread, so
-    `stop_git_backup()`, called on shutdown, has one thread to wait for. Until the clones are done, `/storage/status` reports the backup as
+    `stop_git_backup()`, called on shutdown, has one thread to wait for.
+    Until the clones are done, `/storage/status` reports the backup as
     disabled. `clone_configured_repos()` clones every repository
     `load_config()` returns - `private` and/or `common` - independently:
     one repository that fails to clone (bad credentials, unreachable
@@ -1223,7 +1226,8 @@ module imports the layer above it, so each can be tested on its own.
 ## Environment Variables
 
 - `ADMIN_SERVER_PORT`: Port for the admin service (default: `8091`)
-- `PATH_PREFIX`: Optional path prefix for API routes (can also be set via CLI `--path-prefix` argument)
+- `PATH_PREFIX`: Path prefix for API routes (default: `dtaas-user`; the
+  `--path-prefix` argument overrides it)
 - `WORKSPACE_APP_DIR`: Directory that holds `config.toml`, the git asset
   configuration file read by `admin.git.bootstrap` on startup, both to
   clone the assets and to schedule their backup (default: current
@@ -1243,11 +1247,11 @@ poetry run pytest --cov=admin --cov-report=html --cov-report=term-missing
 The test files mirror the package layout, so a change to a module has one
 obvious test file:
 
-| Test file             | Module under test  | Covers                                     |
+| Test file | Module under test | Covers |
 | --------------------- | ------------------ | ------------------------------------------ |
-| `tests/unit/test_api.py`   | `admin/api.py`     | Routes, responses, path prefix handling, `/storage/status` serving the live status and refusing writes, the shutdown hook running once when the server stops |
+| `tests/unit/test_api.py` | `admin/api.py` | Routes, responses, path prefix handling, `/storage/status` serving the live status and refusing writes, the shutdown hook running once when the server stops |
 | `tests/unit/test_services.py` | `admin/services.py` | Catalogue loading and template integrity |
-| `tests/unit/test_main.py`  | `admin/main.py`    | Argument parsing, CLI flags, git backup handed off before serving with the same status object the API reports, and stopped by the server's shutdown hook, no interval passed on without `--sync-interval`, which is range-checked like the config file |
+| `tests/unit/test_main.py` | `admin/main.py` | Argument parsing, CLI flags, git backup handed off before serving with the same status object the API reports, and stopped by the server's shutdown hook, no interval passed on without `--sync-interval`, which is range-checked like the config file |
 | `tests/unit/test_git_auth.py` | `admin/git/auth.py` | Auth header built/omitted based on credentials, https-only protocol options, credential helpers reset and stalled transfers abandoned, token never in the header text, recognizing (and not mis-recognizing) auth-failure stderr |
 | `tests/unit/test_git_config.py` | `admin/git/config.py` | Parsing, path resolution, missing/empty/mistyped keys, template fallback, token kept out of `repr`, branch names checked with `git check-ref-format` (and a hung check reported), https-only URLs without credentials, `SYNC_INTERVAL_SECONDS` read and defaulted, an out-of-range, mistyped or misplaced value falling back to 300 with a warning while the repositories still load |
 | `tests/unit/test_git_clone.py` | `admin/git/clone.py` | Successful clone, already-cloned skip, failed clone, timed-out clone and its time limit, https-only transport, `--` before the URL, credential handling, clear error on invalid/expired token with the token never in the message |
@@ -1339,7 +1343,8 @@ To add a new service to the workspace:
 }
 ```
 
-2. The service automatically reads and processes the template - no code changes required
+1. The service automatically reads and processes the template - no code
+   changes required
 
 ## Integration with DTaaS
 
