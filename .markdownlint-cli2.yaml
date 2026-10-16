@@ -3,7 +3,6 @@
 # text with a large backlog of findings; remove an entry once its file is
 # clean.
 ignores:
-  - "docs/PENDING_ISSUES.md"
   - "docs/POTENTIAL_IMPROVEMENTS.md"
   - "docs/CHANGELOG.md"
   - "docs/superpowers/**"
