@@ -1,0 +1,15 @@
+# markdownlint-cli2 settings; the rules themselves live in .markdownlint.yaml.
+# Files listed here are not linted. They are working notes or generated
+# text with a large backlog of findings; remove an entry once its file is
+# clean.
+ignores:
+  - "docs/PENDING_ISSUES.md"
+  - "docs/POTENTIAL_IMPROVEMENTS.md"
+  - "docs/CHANGELOG.md"
+  - "docs/superpowers/**"
+  - "workspaces/test/dtaas/MOTIVATION.md"
+  - ".github/copilot-instructions.md"
+  # Legal text, kept verbatim.
+  - "LICENSE.md"
+  - ".superpowers/**"
+  - "**/node_modules/**"

@@ -1,4 +1,5 @@
 # Keycloak Setup
+
 Keycloak is used for both `compose.traefik.secure.yml` and
 `compose.traefik.secure.tls.yml`, and needs to be setup after the compositions
 have been brought up.
@@ -28,9 +29,9 @@ and `<PROTOCOL>` with `http` if setting up `compose.traefik.secure.yml` or
 2. Click **Create client**
 3. Configure the client:
    - **Client type**: OpenID Connect
-   - **Client ID**: `dtaas-workspace` (you can set a different id. If you do so, make so
-  make sure that the value of `KEYCLOAK_CLIENT_ID` in the
-  [environment file `config/.env`](./config/.env) matches this id.)
+   - **Client ID**: `dtaas-workspace` (you can set a different id. If
+     you do so, make sure that the value of `KEYCLOAK_CLIENT_ID` in the
+     [environment file `config/.env`](./config/.env) matches this id.)
    - Click **Next**
 4. Capability config:
    - **Client authentication**: **ON** (confidential client)
@@ -48,7 +49,8 @@ and `<PROTOCOL>` with `http` if setting up `compose.traefik.secure.yml` or
 6. Get the client secret:
    - Go to the **Credentials** tab
    - Copy the **Client secret** value
-   - Update `KEYCLOAK_CLIENT_SECRET` in your [environment file `config/.env`](./config/.env) with this secret
+   - Update `KEYCLOAK_CLIENT_SECRET` in your
+     [environment file `config/.env`](./config/.env) with this secret
 7. Add an Audience mapper so the JWT's `aud` claim contains `dtaas-workspace`
    - Go to the **Client scopes** tab
    - Click `dtaas-workspace-dedicated`
@@ -98,7 +100,8 @@ and `<PROTOCOL>` with `http` if setting up `compose.traefik.secure.yml` or
 1. In the left sidebar, click **Users**
 2. Click **Create new user**
 3. Fill in user details:
-   - **Username**: `user1` (or desired username - make sure this matches the username set during [configuration](#️-initial-configuration))
+   - **Username**: `user1` (or desired username - make sure this matches
+     the username set during [configuration](CONFIGURATION.md))
    - **Email**: user's email (optional)
    - **First name** / **Last name**: optional
    - **Email verified**: OFF

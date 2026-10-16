@@ -10,14 +10,18 @@ assignees: ''
 <!--
 Thanks for reporting a bug 🙌 ❤️
 
-Before opening a new issue, please make sure that we do not have any duplicates already open. You can ensure this by searching the issue list for this repository. If there is a duplicate, please close your issue and add a comment to the existing issue instead. Also, be sure to check our documentation first: https://github.com/ml-tooling/ml-workspace
+Before opening a new issue, please make sure that we do not have any
+duplicates already open. You can ensure this by searching the issue list for
+this repository. If there is a duplicate, please close your issue and add a
+comment to the existing issue instead. Also, be sure to check our
+documentation first: https://github.com/ml-tooling/ml-workspace
 -->
 
-### Describe the bug
+## Describe the bug
 
 A clear and concise description of what the bug is.
 
-### To Reproduce
+## To Reproduce
 
 Steps to reproduce the behavior:
 
@@ -26,15 +30,15 @@ Steps to reproduce the behavior:
 1. Scroll down to '....'
 1. See error
 
-### Expected behavior
+## Expected behavior
 
 A clear and concise description of what you expected to happen.
 
-### Screenshots
+## Screenshots
 
 If applicable, add screenshots to help explain your problem.
 
-### Application Environment
+## Application Environment
 
 Please provide the following information:
 
@@ -44,10 +48,10 @@ Please provide the following information:
 - Command used to start the workspace:
 - Browser (Chrome/Firefox/Safari):
 
-### Possible Fix
+## Possible Fix
 
 <!--- Not obligatory, but suggest a fix or reason for the bug -->
 
-### Additional context
+## Additional context
 
 Add any other context about the problem here.

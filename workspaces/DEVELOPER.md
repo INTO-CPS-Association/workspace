@@ -24,8 +24,11 @@ The one Dockerfile variant:
 
 ## Docker Build Arguments
 
-These arguments are used when building the Docker image. Some (`TARGETARCH`, `TARGETPLATFORM` and `BUILDPLATFORM`) are automatically provided by Docker Buildx during
-multi-platform builds, while others (`INSTALLATION`) can be set manually, changing contents of the resulting image.
+These arguments are used when building the Docker image. Some
+(`TARGETARCH`, `TARGETPLATFORM` and `BUILDPLATFORM`) are automatically
+provided by Docker Buildx during multi-platform builds, while others
+(`INSTALLATION`) can be set manually, changing contents of the resulting
+image.
 
 ### INSTALLATION
 
@@ -33,8 +36,15 @@ multi-platform builds, while others (`INSTALLATION`) can be set manually, changi
 - **Description**: Profile for installation of services.
 - **Possible Values**: `full` or `minimal`
 - **Default**: `full`
-- **Usage**: Set it explicitly when building the image to change what services are installed:
-`docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.xfce --build-arg INSTALLATION=minimal ./workspaces`
+- **Usage**: Set it explicitly when building the image to change what
+  services are installed:
+
+  ```bash
+  docker build -t workspace:latest \
+    -f workspaces/Dockerfile.ubuntu.noble.xfce \
+    --build-arg INSTALLATION=minimal ./workspaces
+  ```
+
 - **Example**:
 
   ```dockerfile
