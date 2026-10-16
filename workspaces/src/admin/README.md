@@ -304,7 +304,10 @@ full process and what each error means.
 ### As a Service (in workspace container)
 
 The service is automatically started when the workspace container starts.
-It runs on port 8091 and is accessible via the nginx reverse proxy at `/services`.
+It runs on port 8091 with `MAIN_USER` as its path prefix. nginx proxies
+two of its routes: `/{MAIN_USER}/services` (e.g. `/user1/services`) and
+`/{MAIN_USER}/storage/status`. No other admin route is reachable through
+nginx.
 
 ### As a CLI Utility
 
