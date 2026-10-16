@@ -1,15 +1,19 @@
 """
-Unit tests for the admin service.
+Unit tests for the HTTP API layer.
 
-Tests the /services endpoint and service discovery functionality.
+Covers the routes exposed by :mod:`admin.api` (``/``, ``/services``,
+``/health`` and ``/storage/status``) and the path prefix handling used for
+multi-user deployments.
 """
 
-import json
+from importlib.metadata import version
 
 import pytest
 from fastapi.testclient import TestClient
 
-from admin.main import create_app, load_services, SERVICES_TEMPLATE_PATH
+from admin.api import APP_VERSION, create_app, normalize_path_prefix
+from admin.git.status import SyncStatus
+from admin.git.sync import SyncErrorKind
 
 
 @pytest.fixture(name='test_client')
@@ -78,74 +82,6 @@ def test_services_endpoint_returns_all_services(test_client):
         assert service_id in services
 
 
-def test_load_services_preserves_structure():
-    """Test that load_services preserves the service structure."""
-    services = load_services()
-
-    # Check all required services exist
-    required_services = ["desktop", "vscode", "notebook", "lab"]
-    for service_id in required_services:
-        assert service_id in services
-        assert "name" in services[service_id]
-        assert "description" in services[service_id]
-        assert "endpoint" in services[service_id]
-
-
-def test_services_template_file_exists():
-    """Test that the services template file exists."""
-    assert SERVICES_TEMPLATE_PATH.exists()
-    assert SERVICES_TEMPLATE_PATH.is_file()
-
-
-def test_services_template_valid_json():
-    """Test that the services template is valid JSON."""
-    with open(SERVICES_TEMPLATE_PATH, 'r', encoding='utf-8') as f:
-        services = json.load(f)
-
-    # Should not raise an exception
-    assert isinstance(services, dict)
-    assert len(services) > 0
-
-
-def test_cli_list_services(monkeypatch, capsys):
-    """Test CLI --list-services flag."""
-    import sys
-    monkeypatch.setattr(sys, 'argv', ['workspace-admin', '--list-services'])
-
-    from admin.main import cli
-
-    with pytest.raises(SystemExit) as exc_info:
-        cli()
-
-    assert exc_info.value.code == 0
-    captured = capsys.readouterr()
-    output = json.loads(captured.out)
-    assert "desktop" in output
-    assert "vscode" in output
-
-
-def test_cli_version(monkeypatch):
-    """Test CLI --version flag."""
-    import sys
-    monkeypatch.setattr(sys, 'argv', ['workspace-admin', '--version'])
-
-    from admin.main import cli
-
-    with pytest.raises(SystemExit) as exc_info:
-        cli()
-
-    # argparse exits with 0 for --version
-    assert exc_info.value.code == 0
-
-
-def test_load_services_with_missing_endpoint():
-    """Test load_services handles services without endpoint field."""
-    services = load_services()
-    # All services should have endpoint field, even if empty
-    for service_info in services.values():
-        assert 'endpoint' in service_info
-
-
 def test_services_endpoint_json_structure(test_client):
     """Test that services endpoint returns proper JSON structure."""
     response = test_client.get("/services")
@@ -168,7 +104,15 @@ def test_root_endpoint_version(test_client):
     response = test_client.get("/")
     data = response.json()
     assert "version" in data
-    assert data["version"] == "0.1.1"
+    assert data["version"] == APP_VERSION
+
+
+def test_app_version_comes_from_package_metadata():
+    """Test that the reported version is read from the installed package."""
+    # Guards against the distribution being renamed without updating the
+    # lookup in admin.api, which would silently fall back to a placeholder.
+    assert APP_VERSION != "0.0.0+unknown"
+    assert APP_VERSION == version("workspace-admin")
 
 
 def test_health_endpoint_returns_json(test_client):
@@ -226,3 +170,83 @@ def test_create_app_with_various_prefixes():
     app4 = create_app("/")
     client4 = TestClient(app4)
     assert client4.get("/health").status_code == 200
+
+
+@pytest.mark.parametrize(
+    "raw_prefix,expected",
+    [
+        ("user1", "/user1"),
+        ("/user1", "/user1"),
+        ("/user1/", "/user1"),
+        ("", ""),
+        ("/", ""),
+    ]
+)
+def test_normalize_path_prefix(raw_prefix, expected):
+    """Test that path prefixes are normalized to a single leading slash."""
+    assert normalize_path_prefix(raw_prefix) == expected
+
+
+def test_storage_status_reports_disabled_without_a_status(test_client):
+    """Test /storage/status works, and says disabled, when no backup runs."""
+    response = test_client.get("/storage/status")
+    assert response.status_code == 200
+    assert response.json() == {"enabled": False, "repositories": {}}
+
+
+def test_storage_status_serves_the_recorded_outcome():
+    """Test /storage/status serves what the scheduler recorded, kind only."""
+    status = SyncStatus()
+    status.enable(["private", "common"])
+    status.record_failure("private", SyncErrorKind.AUTH_FAILED)
+    status.record_success("common")
+    client = TestClient(create_app(sync_status=status))
+
+    data = client.get("/storage/status").json()
+
+    assert data["enabled"] is True
+    assert data["repositories"]["private"]["last_error"]["kind"] == "auth_failed"
+    assert data["repositories"]["common"]["last_error"] is None
+    assert data["repositories"]["common"]["last_success"] is not None
+
+
+def test_storage_status_reflects_later_records():
+    """Test the route reads the live status, not a copy taken at startup."""
+    status = SyncStatus()
+    client = TestClient(create_app(sync_status=status))
+    status.enable(["private"])
+
+    assert client.get("/storage/status").json()["enabled"] is True
+
+
+def test_storage_status_with_prefix():
+    """Test /storage/status is served under the path prefix only."""
+    client = TestClient(create_app(path_prefix="user1"))
+
+    assert client.get("/user1/storage/status").status_code == 200
+    assert client.get("/storage/status").status_code == 404
+
+
+@pytest.mark.parametrize("method", ["post", "put", "delete"])
+def test_storage_status_is_read_only(test_client, method):
+    """Test the status cannot be changed or a backup triggered over HTTP."""
+    response = getattr(test_client, method)("/storage/status")
+    assert response.status_code == 405
+
+
+def test_on_shutdown_runs_when_the_server_stops_not_before():
+    """Test the shutdown hook runs once, as the application shuts down."""
+    calls = []
+    app = create_app(on_shutdown=lambda: calls.append("stopped"))
+
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+        assert not calls
+
+    assert calls == ["stopped"]
+
+
+def test_the_app_shuts_down_without_a_shutdown_hook():
+    """Test the hook is optional."""
+    with TestClient(create_app()) as client:
+        assert client.get("/health").status_code == 200
