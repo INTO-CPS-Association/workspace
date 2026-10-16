@@ -51,8 +51,10 @@ fi
 export HOME="/home/${MAIN_USER}"
 
 if [[ "${CURRENT_USER}" != "${MAIN_USER}" ]]; then
-    convert_current_user_to_main_user
+    # Validates MAIN_USER, so it runs before the rename: a refused name must
+    # leave the user as it was, or the next start would skip this block.
     do_user_dependent_configurations
+    convert_current_user_to_main_user
 fi
 
 echo "Continuing KASM script chain: '$*'"
