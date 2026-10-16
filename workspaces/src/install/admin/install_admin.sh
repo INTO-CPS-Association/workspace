@@ -8,7 +8,9 @@ echo "Installing Admin Service"
 # the wheel itself through the poetry-core backend in pyproject.toml, so
 # neither Poetry nor pipx is needed in the image. As before, the wheel's
 # dependency ranges decide the versions; poetry.lock is not consulted.
-DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y --no-install-recommends \
     python3-venv \
     python-is-python3
 
