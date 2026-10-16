@@ -1,32 +1,15 @@
 #!/usr/bin/env bash
 set -xe
 
-# Trimmed down version of KASM's own firefox install script (the full onw is
+# Trimmed down version of KASM's own firefox install script (the full one is
 # quite verbose!)
+
+source "$(dirname "$0")/../arch.sh"
 
 # Add icon
 if [[ -f /dockerstartup/install/firefox/firefox/firefox.desktop ]]; then
   mv /dockerstartup/install/firefox/firefox.desktop "${HOME}"/Desktop/
 fi
-
-# Prefer TARGETARCH (set by Docker Buildx); fallback to system uname -m
-# Convert to GNU triplet format for library paths
-src_arch="${TARGETARCH:-$(uname -m)}"
-
-case "${src_arch}" in
-  amd64|x86_64)
-    GNU_ARCH="x86_64"
-    ;;
-  arm64|aarch64)
-    GNU_ARCH="aarch64"
-    ;;
-  386)
-    GNU_ARCH="i386"
-    ;;
-  *)
-    GNU_ARCH="${src_arch}"
-    ;;
-esac
 
 echo "Install Firefox"
 if [[ ! -f '/etc/apt/preferences.d/mozilla-firefox' ]]; then
@@ -41,7 +24,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -o Acq
 
 # Update firefox to utilize the system certificate store instead of the one that ships with firefox
 rm -f /usr/lib/firefox/libnssckbi.so
-ln /usr/lib/"${GNU_ARCH}"-linux-gnu/pkcs11/p11-kit-trust.so /usr/lib/firefox/libnssckbi.so
+ln /usr/lib/"${FIREFOX_ARCH}"-linux-gnu/pkcs11/p11-kit-trust.so /usr/lib/firefox/libnssckbi.so
 
 preferences_file=/usr/lib/firefox/browser/defaults/preferences/firefox.js
 
