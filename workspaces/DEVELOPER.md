@@ -142,8 +142,10 @@ both build and runtime.
 #### ADMIN_DIR
 
 - **Default**: `${STARTUPDIR}/admin`
-- **Description**: Directory containing admin service files
-- **Usage**: Location of the admin FastAPI application
+- **Description**: Build-time copy of the admin service sources
+- **Usage**: `install_admin.sh` installs the service from it into
+  `/opt/workspace-admin` and then deletes it; it does not exist in the
+  final image
 
 #### PERSISTENT_DIR
 

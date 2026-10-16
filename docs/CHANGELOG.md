@@ -19,7 +19,8 @@ The main changes made so far are listed here.
 
 * The image has a `HEALTHCHECK` on nginx's `/ping`. Traefik routes nothing
   to a container until it is healthy, so routes through Traefik answer
-  about 10 seconds after the container starts instead of straight away
+  a few seconds after the container starts (7 s in testing) instead of
+  straight away
 * `workspace-admin` is installed in a venv under `/opt/workspace-admin` and
   linked into `/usr/local/bin`. pipx and Poetry are no longer in the image
 * `/{MAIN_USER}/services` is an exact nginx location. Paths that merely
@@ -65,6 +66,10 @@ The main changes made so far are listed here.
   and pointed at `/user/services` instead of `/user1/services`. Steps
   guarded by `${{ a }} && ${{ b }}` always ran; the guards are now single
   expressions
+* A `.` in `MAIN_USER` is matched literally in nginx's regex locations;
+  before, `MAIN_USER=a.b` also served `/aXb/...` as the user's routes
+* `MAIN_USER` is validated before the user is renamed, so a refused name is
+  refused again on restart instead of starting with the stock `nginx.conf`
 * The CI Dex login test never logged in. login-relay asked Dex for token
   introspection at `/dex/token/introspection` (Dex serves
   `/dex/token/introspect`), so every token was reported inactive; over plain

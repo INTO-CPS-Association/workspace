@@ -270,8 +270,8 @@ Location: `workspaces/src/startup/`
 
 - `dtaas_shim.sh`: Runs before base image startup scripts (see
   `workspaces/Dockerfile.ubuntu.noble.xfce`, `ENTRYPOINT`)
-- `configure_nginx.py:12-59`: Configures nginx routing with
-  environment variables
+- `configure_nginx.py`: Validates `MAIN_USER` and the ports, then fills
+  the nginx template; run by `dtaas_shim.sh` before the user is renamed
 - `custom_startup.sh`: Pluggable service configuration
 
 **Python scripts**: Use type hints and error handling. See
