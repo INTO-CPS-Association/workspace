@@ -65,6 +65,14 @@ The main changes made so far are listed here.
   and pointed at `/user/services` instead of `/user1/services`. Steps
   guarded by `${{ a }} && ${{ b }}` always ran; the guards are now single
   expressions
+* The CI Dex login test never logged in. login-relay asked Dex for token
+  introspection at `/dex/token/introspection` (Dex serves
+  `/dex/token/introspect`), so every token was reported inactive; over plain
+  HTTP the Secure state cookie was also dropped. The test still passed
+  because it ignored the login step's status and counted Dex's login page,
+  reached by redirect, as the protected resource. The URL is fixed, the
+  script sends Secure cookies to `http://localhost` as browsers do, and it
+  fails unless the login completes and the protected URL itself answers 200
 * The compose lint in CI fails when it finds no compose files, instead of
   passing
 * The admin docs show the routes nginx actually serves:
