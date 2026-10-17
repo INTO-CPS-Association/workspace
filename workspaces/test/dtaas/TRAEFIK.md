@@ -18,6 +18,13 @@ The `compose.traefik.yml` file sets up:
 - **user2** workspace using the mltooling/ml-workspace-minimal image
 - One Docker network: `dtaas-users`
 
+Earlier versions also created a `dtaas-frontend` network, but only Traefik
+was attached to it, so nothing ever used it and it was removed. Traefik and
+both workspaces share `dtaas-users`, which is all the routing needs. The
+secure compositions (`compose.traefik.secure*.yml`) still have a
+`dtaas-frontend` network, because there it connects Traefik to Keycloak,
+the DTaaS client and the other auth services.
+
 Traefik routes requests to different workspace instances based on URL path prefixes.
 
 ## ⚙️ Initial Configuration
@@ -152,10 +159,3 @@ controls that container controls the host's Docker daemon, which amounts to
 root on the host. Mounting the socket read-only (`:ro`), as every compose
 file here does, does not change that: the Docker API is still fully usable
 over a read-only socket.
-
-That is acceptable for the development compositions in this directory. For
-a production deployment, do not hand Traefik the raw socket. Either put a
-socket proxy such as
-[tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)
-in between, allowing only `CONTAINERS=1`, or replace the Docker provider
-with Traefik's file provider and list the workspaces yourself.
