@@ -1,328 +1,171 @@
 # Admin Service
 
-FastAPI service for workspace service discovery and management.
+A small HTTP service that runs inside every workspace container. It does
+two things:
 
-## Features
+- tells the DTaaS frontend which services the workspace offers, as JSON
+- backs up the workspace's `assets` folders to git repositories on a
+  timer, so the user never runs a git command
 
-- `/services` endpoint - Returns JSON list of available workspace services
-- Path prefix support for multi-user deployments
-- Command-line interface for standalone operation
-- Periodic git backup - commits, pulls and pushes the workspace's git assets
-  every five minutes by default, so users never run a git command themselves
-- Conflict resolution that keeps the workspace's own version of a file when
-  it and the remote have both changed
-- Never commits an unfinished merge or a file with conflict markers; those
-  wait for the user (see
-  [Conflicts](DOCUMENTATION.md#conflicts-what-is-automatic-and-what-is-manual))
-- Git assets configured in one TOML file, `config.toml`, which is validated
-  on startup so a mistake in it is reported by name instead of failing
-  later inside git
+This page is for people who use a workspace or run one. Developers of the
+service should read [DEVELOPER.md](DEVELOPER.md). The git backup is
+described in full in
+[docs/workspace-admin/STORAGE.md](../../../docs/workspace-admin/STORAGE.md).
 
-## Layout
+## URLs
 
-```text
-src/admin/
-├── api.py                        # FastAPI app factory and HTTP routes
-├── services.py                   # Workspace service discovery
-├── main.py                       # Command-line entry point
-├── config/
-│   └── services_template.json    # Service catalogue
-└── git/                          # Git backup of workspace directories
-    ├── config.py                 # config.toml -> RepoConfig
-    ├── auth.py                   # Shared HTTP auth header and failure detection
-    ├── clone.py                  # Clone a single RepoConfig
-    ├── sync.py                   # Commit, pull and push one working tree
-    ├── scheduler.py              # Run the sync on a timer, in the background
-    ├── status.py                 # Outcome of the last backups, for /storage/status
-    ├── provision.py              # Create a missing config.toml from the template
-    ├── runner.py                 # Run one git command with a time limit
-    └── bootstrap.py              # Wire the above together on startup
-```
+The service listens on port 8091 inside the container (`ADMIN_SERVER_PORT`)
+and is started with the workspace's `MAIN_USER` as its path prefix. nginx
+forwards exactly two of its routes:
 
-See [DOCUMENTATION.md](DOCUMENTATION.md) for the full architecture and
-endpoint reference. Parts of it still describe an older layout of
-`config.toml`; where it disagrees with this README, this README is right.
-
-## Where the Config File Lives
-
-The service always reads its config file from one place:
-
-```text
-$PERSISTENT_DIR/.config/workspace-admin/config.toml
-```
-
-When `PERSISTENT_DIR` is not set, your home directory is used instead. The
-directory you start `workspace-admin` from does not matter.
-
-| Where it runs | Config file |
+| URL | Returns |
 | --- | --- |
-| Workspace container | `/workspace/.config/workspace-admin/config.toml` |
-| Locally, Linux or macOS | `~/.config/workspace-admin/config.toml` |
-| Locally, Windows | `%USERPROFILE%\.config\workspace-admin\config.toml` |
+| `/{MAIN_USER}/services` | The list of workspace services |
+| `/{MAIN_USER}/storage/status` | How the last git backups went |
 
-The full path is logged every time the service starts.
-
-- **In the container** the file is created for you the first time.
-- **Locally** you create the directory and the file yourself; see
-  [Run it locally](#run-it-locally).
-
-The repositories are placed below the same root: each one's files in
-`assets/<name>` and its git data in `.local/share/workspace-admin/<name>`.
-
-## Getting Started
-
-These steps take you from nothing to a running git backup:
-
-1. [Prepare the remote repositories](#1-prepare-the-remote-repositories)
-2. [Understand the config file](#2-understand-the-config-file)
-3. Run it, either [locally](#run-it-locally) or
-   [in the workspace container](#run-it-in-the-workspace-container)
-4. [Check the backup](#checking-the-backup)
-
-### 1. Prepare the remote repositories
-
-The service backs up two repositories: `private` for your own files and
-`common` for files shared between users. You need at least one of them.
-
-- Create the repository on GitLab (or another git host). It needs at least
-  one commit on the branch you will use, so tick *Initialize repository
-  with a README* when creating it.
-- Create an access token with the `read_repository` and
-  `write_repository` scopes.
-
-### 2. Understand the config file
-
-This is the complete example. It is the same as
-[`templates/config.toml.example`](../templates/config.toml.example):
-
-```toml
-# Seconds between two backups, from 1 to 86400 (one day). Optional:
-# without it the backup runs every 300 seconds. Keep it above the
-# [assets] sections, or TOML reads it as part of the section before it.
-SYNC_INTERVAL_SECONDS = 300
-
-# Git repository configuration. The section name decides where each
-# repository's files appear: /workspace/assets/<name>.
-
-[assets.private]
-GIT_REPO_URL = "https://gitlab.com/username/repository.git"
-GIT_REPO_BRANCH = "main"
-# HTTP token for authentication
-GIT_REPO_TOKEN = "gitlab-api-token"
-
-# Uncomment to also back up files shared between users.
-# [assets.common]
-# GIT_REPO_URL = "https://gitlab.com/username/repository.git"
-# GIT_REPO_BRANCH = "main"
-# # HTTP token for authentication
-# GIT_REPO_TOKEN = "gitlab-api-token"
-```
-
-What each line means:
-
-| Key | Required | What to put there |
-| --- | --- | --- |
-| `SYNC_INTERVAL_SECONDS` | No | Seconds between two backups, 1 to 86400. Default 300. |
-| `[assets.private]` | One of the two | Your own repository. |
-| `[assets.common]` | One of the two | A repository shared between users. Remove the `#` in front of its lines to use it. |
-| `GIT_REPO_URL` | Yes | The repository's `https://` address, as shown under *Clone* on GitLab. |
-| `GIT_REPO_BRANCH` | Yes | The branch to back up, usually `main`. |
-| `GIT_REPO_TOKEN` | Yes | The access token from step 1. |
-
-Things to know:
-
-- Every text value is quoted, because the file is TOML.
-- The example values (`username/repository.git`, `gitlab-api-token`) are
-  refused. You have to replace them, so nothing is ever sent to the
-  example address.
-- The file holds your token. Keep it readable only by you, and never put
-  it inside one of the backed-up folders.
-
-### Run it locally
-
-You need Python 3.12 or newer, git, and [Poetry](https://python-poetry.org/).
-
-#### Step 1: Install the service
+Both are exact matches. No other route of the service is reachable through
+nginx or, in a multi-user deployment, through Traefik. With
+`MAIN_USER=user1` and the container started with `-p 8080:8080`:
 
 ```bash
-cd workspaces/src/admin
-poetry install
+curl http://localhost:8080/user1/services
+curl http://localhost:8080/user1/storage/status
 ```
 
-#### Step 2: Create the directory
+The bundled compose files publish the workspace on port 80, directly or
+behind Traefik, so there it is `http://localhost/user1/services`.
 
-The directory is `.config/workspace-admin` in your home directory.
+## The service list
 
-Windows PowerShell:
+`/{MAIN_USER}/services` returns one entry per service:
 
-```powershell
-New-Item -ItemType Directory -Force "$HOME\.config\workspace-admin"
+```json
+{
+  "desktop": {
+    "name": "Desktop",
+    "description": "Virtual Desktop Environment",
+    "endpoint": "tools/vnc"
+  },
+  "vscode": {
+    "name": "VS Code",
+    "description": "VS Code IDE",
+    "endpoint": "tools/vscode"
+  },
+  "notebook": {
+    "name": "Jupyter Notebook",
+    "description": "Jupyter Notebook",
+    "endpoint": ""
+  },
+  "lab": {
+    "name": "Jupyter Lab",
+    "description": "Jupyter Lab IDE",
+    "endpoint": "lab"
+  }
+}
 ```
 
-Linux or macOS:
+Each `endpoint` is relative to the workspace's base URL, `/{MAIN_USER}/`.
+An empty endpoint is the base URL itself. The list is fixed when the image
+is built; it does not change with what is running.
 
-```bash
-mkdir -p ~/.config/workspace-admin
-```
+## Turning on the git backup
 
-#### Step 3: Create the config file
+The backup is off until you give it a repository. It takes one restart.
 
-Create an empty `config.toml` in that directory and open it.
-
-Windows PowerShell:
-
-```powershell
-New-Item -ItemType File "$HOME\.config\workspace-admin\config.toml"
-notepad "$HOME\.config\workspace-admin\config.toml"
-```
-
-Linux or macOS:
-
-```bash
-touch ~/.config/workspace-admin/config.toml
-chmod 600 ~/.config/workspace-admin/config.toml
-nano ~/.config/workspace-admin/config.toml
-```
-
-#### Step 4: Paste the example and fill it in
-
-Paste the [example](#2-understand-the-config-file) into the file, then
-replace `GIT_REPO_URL`, `GIT_REPO_BRANCH` and `GIT_REPO_TOKEN` with your
-own values. Save the file.
-
-#### Step 5: Start the service
-
-```bash
-poetry run workspace-admin
-```
-
-The first log line shows which file it read. It must be the file you just
-made:
-
-```text
-INFO:     Git backup config file: C:\Users\<name>\.config\workspace-admin\config.toml
-```
-
-Cloning happens once, on startup. The repositories are cloned into
-`assets/<name>` in your home directory. After a change to the config file,
-stop the service with `Ctrl+C` and start it again.
-
-#### Step 6: Check that it runs
-
-See [Checking the backup](#checking-the-backup).
-
-#### Using another directory
-
-To keep the config file and the repositories somewhere other than your
-home directory, set `PERSISTENT_DIR` before every start. The config file
-then belongs in `$PERSISTENT_DIR/.config/workspace-admin/config.toml`:
-
-```powershell
-$env:PERSISTENT_DIR = "C:\my-workspace"
-poetry run workspace-admin
-```
-
-### Run it in the workspace container
-
-The service starts by itself with the container. These steps use the
-compose files in `workspaces/test/dtaas`, which mount
-`files/<username>` on the host as `/workspace` in the container.
-
-1. **Start the container once.**
-
-   ```bash
-   cd workspaces/test/dtaas
-   docker compose up -d
-   ```
-
-   The service finds no config file and creates one from the template, then
-   waits. The log says:
+1. **Start the workspace once.** On its first start the service creates
+   `/workspace/.config/workspace-admin/config.toml` from a template and
+   logs:
 
    ```text
    WARNING:  Created /workspace/.config/workspace-admin/config.toml; fill in your repositories and restart the workspace
    ```
 
-2. **Fill in the config file.** Edit it from the host, at
-   `files/<username>/.config/workspace-admin/config.toml`, or from inside
-   the workspace. The `.config` folder is hidden, so show hidden files to
-   see it.
+   Nothing is cloned yet.
 
-3. **Restart the container.**
+2. **Prepare a repository.** On GitLab (or another git host over HTTPS),
+   create the repository with at least one commit on the branch you will
+   use (tick *Initialize repository with a README*). Create an access
+   token with the `read_repository` and `write_repository` scopes.
 
-   ```bash
-   docker compose restart workspace
+3. **Fill in the file.** `/workspace` is the host directory mounted into
+   the container (`files/<username>` with the bundled compose files), so
+   you can edit the file from the host or from inside the workspace. The
+   `.config` folder is hidden; show hidden files to see it. Replace the
+   example values:
+
+   ```toml
+   SYNC_INTERVAL_SECONDS = 300
+
+   [assets.private]
+   GIT_REPO_URL = "https://gitlab.com/you/my-workspace.git"
+   GIT_REPO_BRANCH = "main"
+   GIT_REPO_TOKEN = "glpat-..."
    ```
 
-4. **Check that it runs.** See [Checking the backup](#checking-the-backup).
-   The repositories' files appear in `/workspace/assets/<name>`.
+   `private` is your own repository. A second section, `[assets.common]`,
+   can back up files shared between users; leave it commented out if you
+   do not need it. The example values from the template are refused, so
+   an unedited file never contacts anyone.
 
-### Checking the backup
+4. **Restart the container.** The repository is cloned into
+   `/workspace/assets/private` (or `assets/common`), and from then on every
+   300 seconds (`SYNC_INTERVAL_SECONDS`) the service commits what changed,
+   merges what changed on the remote, and pushes. Files you edit in
+   Jupyter, VS Code or the desktop reach the remote within one interval.
 
-The log shows each step. On the first start:
+The file holds your token. It is created readable by you only, and its
+folder carries a `.gitignore` so it is never committed by accident. Do not
+move it inside `assets/`.
 
-```text
-INFO:     Git backup config file: /workspace/.config/workspace-admin/config.toml
-INFO:     Cloned repository 'private' (https://gitlab.com/..., branch main) into /workspace/assets/private
-INFO:     Started git sync for 1 repository/repositories every 300 seconds
-```
-
-On later starts `Cloned repository` is replaced by
-`already cloned ...; skipping`. Then, every interval, each repository is
-committed, pulled and pushed:
-
-```text
-INFO:     Committed changes in repository 'private'
-INFO:     Pushed 1 commit(s) from repository 'private' to branch main
-```
-
-The outcome of the last backups is also served as JSON, under the path
-prefix (`dtaas-user` unless `--path-prefix` says otherwise):
+## Reading the backup status
 
 ```bash
-curl http://localhost:8091/dtaas-user/storage/status
+curl http://localhost:8080/user1/storage/status
 ```
 
-In the container, go through nginx instead: `http://localhost/<username>/storage/status`
-with the bundled compose files.
-
-If nothing happens, the log says why:
-
-| Log line | Meaning |
-| --- | --- |
-| `... config.toml not found; git backup is disabled` | No file at the logged path. Check the path in the first log line. |
-| `... placeholder ...` | The file still holds a value from the template. |
-| `Cannot clone git assets: ...` | The file is not valid; the rest of the line names the problem. |
-| `... GIT_REPO_TOKEN was rejected ...` | The remote refused the token. |
-
-If one repository fails to clone, the other is still cloned and the
-service starts anyway. See
-[Cloning the Git Assets](DOCUMENTATION.md#cloning-the-git-assets) for the
-full process and what each error means.
-
-## Running
-
-### As a Service (in workspace container)
-
-The service is automatically started when the workspace container starts.
-It runs on port 8091 and is accessible via the nginx reverse proxy at `/services`.
-
-### As a CLI Utility
-
-```bash
-poetry install
-poetry run workspace-admin --path-prefix dtaas-user
+```json
+{
+  "enabled": true,
+  "repositories": {
+    "private": {
+      "last_attempt": "2026-10-17T12:05:00+00:00",
+      "last_success": "2026-10-17T12:05:00+00:00",
+      "last_error": null
+    }
+  }
+}
 ```
 
-`poetry run workspace-admin --help` lists every flag. See
-[DOCUMENTATION.md](DOCUMENTATION.md#running-locally) for worked examples.
+- `enabled: false` with no repositories means the backup is not running:
+  there is no usable `config.toml`, nothing has been cloned, or the first
+  clone is still in progress after a start
+- every field is `null` until the first backup, one interval after start
+- `last_error` stays after a later success; if `last_success` is newer
+  than `last_error.at`, the problem is gone
+- `last_error.kind` is one of a fixed set of words, such as
+  `auth_failed`; see the
+  [kinds table](../../../docs/workspace-admin/STORAGE.md#error-kinds)
 
-## Development
+The status never contains a message, file name, URL or token. The full
+reason is in the container log.
 
-```bash
-poetry install
-poetry run pytest --cov=admin --cov-report=term-missing
-poetry run pylint src/admin tests
-```
+## Troubleshooting
 
-See [DOCUMENTATION.md](DOCUMENTATION.md#development) for the full workflow,
-including coverage reports and the checks run in CI.
+Read the container log first: `docker compose logs workspace` (or
+`docker logs <container>`). Lines from the backup look like
+`INFO:     Git backup config file: /workspace/.config/workspace-admin/config.toml`.
+
+| What you see | What it means | What to do |
+| --- | --- | --- |
+| `... config.toml not found; git backup is disabled` | No file at the logged path | Check the path; create the file or restart to have it created |
+| `Created /workspace/.config/...; fill in your repositories and restart` | The file was just made from the template | Fill it in, restart |
+| `... is still the placeholder from config.toml.example` | An example value is still in the file | Replace it, restart |
+| `Cannot clone git assets: ...` or `Cannot start git sync: ...` | The file cannot be used; the rest of the line names the key | Fix the file, restart |
+| `... GIT_REPO_TOKEN was rejected ...` | The remote refused the token | Check the token and its scopes, restart |
+| `Failed to clone repository ...` | The remote, branch or network is wrong | Fix it, restart; a failed clone is only retried on the next start |
+| `last_error.kind` is `wrong_branch`, `detached_head`, `operation_in_progress`, `unresolved_conflicts` or `conflict_markers` | You are in the middle of using git in `assets/<name>`; the backup waits | Finish what you started; see [Conflicts](../../../docs/workspace-admin/STORAGE.md#conflicts-what-is-automatic-and-what-is-manual) |
+| `last_error.kind` is `index_locked` | Another git command was running | Usually nothing; the next interval tries again |
+
+Changes to `config.toml` take effect on the next restart; there is no
+reload. If one repository fails, the other is still backed up and the rest
+of the workspace is unaffected.

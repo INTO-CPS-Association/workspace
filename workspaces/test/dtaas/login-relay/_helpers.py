@@ -248,18 +248,25 @@ async def _fetch_tokens(code: str) -> tuple[str, str, int]:
 
 
 def _set_short_cookie(response: RedirectResponse, key: str, value: str) -> None:
-    """Set a short-lived HttpOnly Secure cookie scoped to the login-relay paths."""
+    """Set a short-lived HttpOnly cookie scoped to the login-relay paths.
+
+    Secure only with TLS: browsers do not send Secure cookies back over plain
+    HTTP (except to localhost), which would break every TLS=false login.
+    """
     response.set_cookie(
         key=key, value=value, max_age=300,
-        httponly=True, secure=True, samesite="lax", path="/login-relay",
+        httponly=True, secure=TLS, samesite="lax", path="/login-relay",
     )
 
 
 def _set_access_token_cookie(
     response: RedirectResponse, token: str, expires_in: int
 ) -> None:
-    """Set the dtaas_access_token cookie with the token's actual lifetime."""
+    """Set the dtaas_access_token cookie with the token's actual lifetime.
+
+    Secure only with TLS, for the same reason as _set_short_cookie.
+    """
     response.set_cookie(
         key="dtaas_access_token", value=token, max_age=expires_in,
-        httponly=True, secure=True, samesite="lax", path="/",
+        httponly=True, secure=TLS, samesite="lax", path="/",
     )

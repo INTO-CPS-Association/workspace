@@ -4,7 +4,37 @@ The main changes made so far are listed here.
 
 ## Week of 12-Oct-2026
 
+### Security
+
+* `configure_nginx.py` no longer builds `sed` commands with `shell=True`
+  from environment variables. `MAIN_USER` must be a valid user name (up to
+  32 letters, digits, `_`, `.` or `-`) and the four ports must be numbers
+  from 1 to 65535; anything else stops startup with a message naming the
+  variable, before nginx's config is touched
+* The development Traefik compose files mount the Docker socket read-only,
+  and `TRAEFIK.md` explains why that is still root-equivalent access
+
 ### Changed
+
+* The image has a `HEALTHCHECK` on nginx's `/ping`. Traefik routes nothing
+  to a container until it is healthy, so routes through Traefik answer
+  a few seconds after the container starts (7 s in testing) instead of
+  straight away
+* `workspace-admin` is installed in a venv under `/opt/workspace-admin` and
+  linked into `/usr/local/bin`. pipx and Poetry are no longer in the image
+* `/{MAIN_USER}/services` is an exact nginx location. Paths that merely
+  start with it, such as `/user1/servicesXYZ`, no longer reach the admin
+  service
+* `custom_startup.sh` stops with an error naming any required binary
+  (`nginx`, `workspace-admin`, and `jupyter` or `code-server` when enabled)
+  that is missing, and logs an error when a restarted service dies at once
+* Markdown files are linted in CI with markdownlint-cli2; the files it
+  skips are listed in `.markdownlint-cli2.yaml`
+* The admin service docs are split by audience: `README.md` for
+  workspace users and operators, `DEVELOPER.md` for developers of the
+  service, and `docs/workspace-admin/STORAGE.md` for the git backup.
+  `DOCUMENTATION.md`, which still described the `config.env` keys and
+  paths, is gone
 
 * The git backup config file is now `config.toml`, since it is TOML. A
   `config.env` is no longer read, so rename an existing one
@@ -32,6 +62,36 @@ The main changes made so far are listed here.
 
 ### Fixed
 
+* `workspace-admin` was not on any `PATH` in the image; it only started
+  because `pipx ensurepath` had written its directory into the default
+  profile's `.bashrc`
+* The CI connectivity check never ran for `compose.yml` and
+  `compose.traefik.yml` (the matrix passed unset flags as empty strings),
+  and pointed at `/user/services` instead of `/user1/services`. Steps
+  guarded by `${{ a }} && ${{ b }}` always ran; the guards are now single
+  expressions
+* A `.` in `MAIN_USER` is matched literally in nginx's regex locations;
+  before, `MAIN_USER=a.b` also served `/aXb/...` as the user's routes
+* `MAIN_USER` is validated before the user is renamed, so a refused name is
+  refused again on restart instead of starting with the stock `nginx.conf`
+* `compose.traefik.secure.yml` could not log in on any domain but
+  localhost: login-relay marked its cookies Secure even with `TLS=false`,
+  so browsers never sent `oauth_state` back over HTTP and the callback
+  answered 400. The cookies are Secure only with TLS now
+* The CI Dex login test never logged in. login-relay asked Dex for token
+  introspection at `/dex/token/introspection` (Dex serves
+  `/dex/token/introspect`), so every token was reported inactive; over plain
+  HTTP the Secure state cookie was also dropped. The test still passed
+  because it ignored the login step's status and counted Dex's login page,
+  reached by redirect, as the protected resource. The URL is fixed, the
+  script sends Secure cookies to `http://localhost` as browsers do, and it
+  fails unless the login completes and the protected URL itself answers 200
+* The compose lint in CI fails when it finds no compose files, instead of
+  passing
+* The admin docs show the routes nginx actually serves:
+  `/{MAIN_USER}/services` and `/{MAIN_USER}/storage/status`
+* Removed leftover `myservice` labels and an unused `frontend` network
+  from the development Traefik compose files
 * A file changed on one side and deleted on the other no longer stops the
   git backup. Local files win: a file changed in the workspace is kept and
   pushed back, a file deleted in the workspace stays deleted. Before, the

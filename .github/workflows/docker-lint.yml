@@ -24,18 +24,25 @@ jobs:
         uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
         with:
           dockerfile: workspaces/Dockerfile.ubuntu.noble.xfce
+          config: .hadolint.yaml
           failure-threshold: error
 
       - name: Lint CI certs Dockerfile
         uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
         with:
           dockerfile: workspaces/test/dtaas/ci/certs/Dockerfile
+          config: .hadolint.yaml
           failure-threshold: error
 
       - name: Lint Docker Compose files
         run: |
-          # Find and lint all compose files
-          for file in $(find . -name "compose*.yaml" -o -name "compose*.yml"); do
+          # Find and lint all compose files; finding none is an error, not a pass
+          mapfile -t files < <(find . -name "compose*.yaml" -o -name "compose*.yml")
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "ERROR: no compose files found" >&2
+            exit 1
+          fi
+          for file in "${files[@]}"; do
             echo "Linting $file"
             docker compose -f "$file" \
               --env-file workspaces/test/dtaas/config/.env.example \

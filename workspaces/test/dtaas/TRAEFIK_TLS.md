@@ -169,6 +169,7 @@ The endpoint values are dynamically populated with the user's username from the
 - **Jupyter Lab**: `https://<DOMAIN_NAME>/user2/lab`
 
 ### Logging Out
+
 When logged in as one of the users:
 
 - **URL**: `https://<DOMAIN_NAME>/logout`
@@ -218,7 +219,7 @@ Follow the appropriate steps in [ADDING_MORE_USER.md](./ADDING_MORE_USERS.md).
 4. Confirm client authentication is **ON** in Keycloak (confidential client)
 5. Verify `KEYCLOAK_CLIENT_SECRET` in `.env` matches the Keycloak credentials tab
 6. Verify that the `dtaas-workspace-audience` client scope is properly configured
-6. Check login-relay logs:
+7. Check login-relay logs:
 
    ```bash
    docker compose -f workspaces/test/dtaas/compose.traefik.secure.tls.yml \

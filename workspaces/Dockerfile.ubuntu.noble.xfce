@@ -8,6 +8,9 @@ ARG TARGETARCH
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
+# The image starts as root on purpose: dtaas_shim.sh renames the main user and
+# writes nginx.conf, then drops to MAIN_USER with setpriv before Kasm starts.
+# hadolint ignore=DL3002
 USER root
 
 ENV ADMIN_SERVER_PORT=8091 \
@@ -33,17 +36,22 @@ WORKDIR $HOME
 COPY ./src/install/ ${INST_DIR}
 COPY ./src/admin/ ${ADMIN_DIR}
 
-RUN bash ${INST_DIR}/image_wegovy.sh
+RUN bash "${INST_DIR}"/image_wegovy.sh
+
+# One RUN per install script, on purpose: each script is its own cached
+# layer, so a failure in one script rebuilds from there instead of from the
+# first install. hadolint's DL3059 ("consolidate RUNs") is therefore ignored
+# in .hadolint.yaml.
 
 FROM configure AS install-full
 
-RUN bash ${INST_DIR}/firefox/install_firefox.sh
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
-RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
-RUN bash ${INST_DIR}/jupyter/install_jupyter.sh
-RUN bash ${INST_DIR}/admin/install_admin.sh
-RUN bash ${INST_DIR}/dtaas_cleanup.sh
-RUN bash ${INST_DIR}/kasm_fixes.sh
+RUN bash "${INST_DIR}"/firefox/install_firefox.sh
+RUN bash "${INST_DIR}"/nginx/install_nginx.sh
+RUN bash "${INST_DIR}"/vscode/install_vscode_server.sh
+RUN bash "${INST_DIR}"/jupyter/install_jupyter.sh
+RUN bash "${INST_DIR}"/admin/install_admin.sh
+RUN bash "${INST_DIR}"/dtaas_cleanup.sh
+RUN bash "${INST_DIR}"/kasm_fixes.sh
 
 FROM configure AS install-minimal
 
@@ -51,11 +59,13 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
-RUN bash ${INST_DIR}/admin/install_admin.sh
-RUN bash ${INST_DIR}/dtaas_cleanup.sh
-RUN bash ${INST_DIR}/kasm_fixes.sh
+RUN bash "${INST_DIR}"/nginx/install_nginx.sh
+RUN bash "${INST_DIR}"/admin/install_admin.sh
+RUN bash "${INST_DIR}"/dtaas_cleanup.sh
+RUN bash "${INST_DIR}"/kasm_fixes.sh
 
+# install-full or install-minimal, both defined above; not an external image.
+# hadolint ignore=DL3006
 FROM install-${INSTALLATION} AS setup
 
 COPY ./src/startup/ ${STARTUPDIR}
@@ -66,12 +76,12 @@ COPY ./src/resources/jupyter/jupyter_notebook_config.py /home/kasm-default-profi
 COPY ./src/resources/xfce4/* /home/kasm-default-profile/.config/xfce4/xfconf/xfce-perchannel-xml/
 COPY ./src/resources/backgrounds/* /usr/share/backgrounds/
 
-RUN chown 1000:0 ${HOME} && \
-    ${STARTUPDIR}/set_user_permission.sh ${HOME} && \
-    rm -Rf ${INST_DIR}
+RUN chown 1000:0 "${HOME}" && \
+    "${STARTUPDIR}"/set_user_permission.sh "${HOME}" && \
+    rm -Rf "${INST_DIR}"
 
-RUN mkdir ${PERSISTENT_DIR} && \
-    chmod a+rwx ${PERSISTENT_DIR}
+RUN mkdir "${PERSISTENT_DIR}" && \
+    chmod a+rwx "${PERSISTENT_DIR}"
 
 RUN mkdir -p /www/Downloads && \
     chown -R 1000:0 /www && \
@@ -80,8 +90,8 @@ RUN mkdir -p /www/Downloads && \
 RUN adduser "$(id -un 1000)" sudo && \
     passwd -d "$(id -un 1000)"
 
-RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}' for k, v in os.environ.items()))" >> ${STARTUPDIR}/.docker_set_envs && \
-    chmod 755 ${STARTUPDIR}/.docker_set_envs
+RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}' for k, v in os.environ.items()))" >> "${STARTUPDIR}"/.docker_set_envs && \
+    chmod 755 "${STARTUPDIR}"/.docker_set_envs
 
 FROM scratch AS deploy
 COPY --from=setup / /
@@ -97,6 +107,12 @@ LABEL org.opencontainers.image.title="workspace" \
       org.opencontainers.image.version="0.2.0"
 
 EXPOSE 8080
+
+# nginx answers /ping itself. Traefik routes nothing to a container until it
+# is healthy. During the start period Docker (Engine 25+) probes every
+# start interval, 5 s by default, so routing begins within seconds of nginx.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/ping || exit 1
 
 ENTRYPOINT ["/dockerstartup/dtaas_shim.sh", "/dockerstartup/kasm_default_profile.sh", "/dockerstartup/vnc_startup.sh"]
 CMD ["--wait"]

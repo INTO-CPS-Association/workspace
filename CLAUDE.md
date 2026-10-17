@@ -46,8 +46,8 @@ on URL paths:
 - Git backup status: `/{path-prefix}/storage/status` (exact match only; no
   other admin route is proxied)
 
-The routing configuration is templated in `startup/nginx.conf` and
-processed by `startup/configure_nginx.py:12-59` which substitutes
+The routing configuration is templated in `workspaces/src/startup/nginx.conf` and
+processed by `workspaces/src/startup/configure_nginx.py` which substitutes
 environment variables at container startup.
 
 ### Admin Service
@@ -77,7 +77,7 @@ routing:
 - `domain.com/user1/...` → User 1's workspace services
 - `domain.com/user2/...` → User 2's workspace services
 
-See `TRAEFIK.md:69-85` for detailed configuration and access patterns.
+See `workspaces/test/dtaas/TRAEFIK.md` for detailed configuration and access patterns.
 
 ### Data Persistence Model
 
@@ -88,18 +88,18 @@ User data is persisted through Docker volume mounts to the
 - This directory persists across container rebuilds and restarts
 - Multiple users can share data through `./persistent_dir/common`
 
-The persistence configuration is defined in `compose.yml:14-15`.
+The persistence configuration is defined in `workspaces/test/dtaas/compose.yml`.
 
 ## Development Commands
 
 ### Build and Run Workspace
 
-**Local single-user workspace** (see `compose.yml:1-20` for
+**Local single-user workspace** (see `workspaces/test/dtaas/compose.yml` for
 configuration):
 
 ```bash
 # Build the image
-docker build -t workspace:latest -f Dockerfile .
+docker build -t workspace:latest -f workspaces/Dockerfile.ubuntu.noble.xfce workspaces
 
 # Run with Docker Compose
 docker compose up -d
@@ -146,11 +146,11 @@ Before submitting a PR, ensure all quality checks pass:
 
 #### Docker & Compose
 
-(see `config/kasm_vnc/kasmvnc.yaml:1-50` and
-`config/jupyter/jupyter_notebook_config.py:1-20`)
+(see `workspaces/src/resources/kasm_vnc/kasmvnc.yaml` and
+`workspaces/src/resources/jupyter/jupyter_notebook_config.py`)
 
 ```bash
-hadolint Dockerfile                                    # Dockerfile linting
+hadolint workspaces/Dockerfile.ubuntu.noble.xfce       # Dockerfile linting
 for file in $(find . -name "compose*.yaml" -o -name "compose*.yml"); do \
   docker compose -f "$file" config --quiet; done  # Compose validation
 ```
@@ -160,7 +160,7 @@ for file in $(find . -name "compose*.yaml" -o -name "compose*.yml"); do \
 (see `.shellcheckrc:1-5` for configuration)
 
 ```bash
-shellcheck install/**/*.sh startup/*.sh               # All shell scripts
+shellcheck workspaces/src/install/**/*.sh workspaces/src/startup/*.sh
 ```
 
 #### Python Scripts
@@ -168,8 +168,9 @@ shellcheck install/**/*.sh startup/*.sh               # All shell scripts
 (see `.pylintrc:1-30` for configuration)
 
 ```bash
-pylint startup/configure_nginx.py                     # Python linting
-flake8 startup/configure_nginx.py                     # Python style
+pylint workspaces/src/startup/configure_nginx.py   # Python linting
+flake8 workspaces/src/startup/configure_nginx.py   # Python style
+python3 -m pytest workspaces/test/startup          # Startup unit tests
 ```
 
 #### YAML & Markdown
@@ -178,7 +179,7 @@ flake8 startup/configure_nginx.py                     # Python style
 
 ```bash
 yamllint .                                            # YAML validation
-markdownlint .                                        # Markdown style
+npx markdownlint-cli2 "**/*.md"                       # Markdown style
 ```
 
 See `.github/workflows/` for all automated checks (see
@@ -186,14 +187,14 @@ See `.github/workflows/` for all automated checks (see
 
 ### Troubleshooting
 
-**Container fails to start**
+#### Container fails to start
 
 ```bash
 docker compose logs workspace    # View container logs
 docker ps -a                     # Check container status
 ```
 
-**Service unreachable**
+#### Service unreachable
 
 - Verify `MAIN_USER` environment variable matches the username in
   your URL
@@ -201,18 +202,18 @@ docker ps -a                     # Check container status
   /etc/nginx/nginx.conf`
 - Confirm all ports are exposed and not blocked by firewall
 
-**Linting failures**
+#### Linting failures
 
 ```bash
 # Run individual linters to identify specific issues
 shellcheck -x <script.sh>        # Verbose shellcheck
-hadolint --no-color Dockerfile   # Verbose hadolint
+hadolint --no-color workspaces/Dockerfile.ubuntu.noble.xfce   # Verbose hadolint
 ```
 
-**Permission errors**
+#### Permission errors
 
 ```bash
-chmod +x install/**/*.sh startup/*.sh    # Ensure scripts are executable
+chmod +x workspaces/src/install/**/*.sh workspaces/src/startup/*.sh    # Ensure scripts are executable
 git update-index --chmod=+x <file>       # Fix git executable bit
 ```
 
@@ -241,22 +242,23 @@ To manually trigger publishing:
 
 ### Installation Scripts
 
-Location: `install/<component>/install_<component>.sh`
+Location: `workspaces/src/install/<component>/install_<component>.sh`
 
 When adding new software (see example patterns in
-`install/firefox/install_firefox.sh:1-30`):
+`workspaces/src/install/firefox/install_firefox.sh`):
 
 1. Create installation script following shell format (see existing
   examples)
 2. Pin versions explicitly
 3. Clean up temporary files
-4. Update `Dockerfile:32-36` to call the installation script
+4. Call the installation script from the `install-full` and
+  `install-minimal` stages of `workspaces/Dockerfile.ubuntu.noble.xfce`
 5. Run installation scripts as part of the Docker build process, not
   at container runtime
 
 ### Configuration Files
 
-Location: `config/<component>/`
+Location: `workspaces/src/resources/<component>/`
 
 - Place service-specific config files here
 - Document any environment variables that affect configuration
@@ -264,16 +266,16 @@ Location: `config/<component>/`
 
 ### Startup Scripts
 
-Location: `startup/`
+Location: `workspaces/src/startup/`
 
 - `dtaas_shim.sh`: Runs before base image startup scripts (see
-  `Dockerfile:61`)
-- `configure_nginx.py:12-59`: Configures nginx routing with
-  environment variables
+  `workspaces/Dockerfile.ubuntu.noble.xfce`, `ENTRYPOINT`)
+- `configure_nginx.py`: Validates `MAIN_USER` and the ports, then fills
+  the nginx template; run by `dtaas_shim.sh` before the user is renamed
 - `custom_startup.sh`: Pluggable service configuration
 
 **Python scripts**: Use type hints and error handling. See
-`startup/configure_nginx.py:1-10` for proper module docstring and
+`workspaces/src/startup/configure_nginx.py` for proper module docstring and
 imports.
 
 ### Admin Service Development
@@ -359,12 +361,22 @@ default 300; `--sync-interval` overrides it) and an `[assets.private]`
 and/or `[assets.common]` table with `GIT_REPO_URL`, `GIT_REPO_BRANCH` and
 `GIT_REPO_TOKEN`. Every path follows from `$PERSISTENT_DIR` and the section
 name: git directories in `.local/share/workspace-admin/<name>`, work trees in
-`assets/<name>`. `workspaces/src/admin/DOCUMENTATION.md` still describes the
-older layout.
+`assets/<name>`.
+
+The admin service is documented in three places, by audience:
+
+- `workspaces/src/admin/README.md`: for workspace users and operators;
+  the proxied URLs, the service list, turning on the backup, reading
+  `/storage/status`
+- `workspaces/src/admin/DEVELOPER.md`: for developers of the service;
+  setup, flags, the full HTTP API, code layout, tests, how it is installed
+  in the image, design decisions
+- `docs/workspace-admin/STORAGE.md`: the git backup in full; `config.toml`,
+  paths, cloning, the sync cycle, conflicts, error kinds, log lines
 
 To add new services to the workspace:
 
-1. Edit `src/admin/src/admin/config/services_template.json`
+1. Edit `workspaces/src/admin/src/admin/config/services_template.json`
 2. Add service definition with name, description, and endpoint
 3. No code changes needed - template is read at runtime
 
@@ -396,7 +408,7 @@ guidelines.
 - Use `set -e` for error handling
 - Quote variables appropriately
 - Include proper shebang lines
-- **Example**: `install/firefox/install_firefox.sh` demonstrates
+- **Example**: `workspaces/src/install/firefox/install_firefox.sh` demonstrates
   proper structure
 
 ### Python Scripts
@@ -405,16 +417,16 @@ guidelines.
 - Include docstrings for functions and modules
 - Use type hints where appropriate
 - Handle errors gracefully
-- **Example**: `startup/configure_nginx.py:1-10` shows proper
+- **Example**: `workspaces/src/startup/configure_nginx.py` shows proper
   docstring and imports
 
 ### Dockerfile
 
 - Pin specific versions for base images and packages (see
-  `Dockerfile:1` uses `1.18.0`)
+  `workspaces/Dockerfile.ubuntu.noble.xfce` uses `kasmweb/core-ubuntu-noble:1.18.0`)
 - Minimize layers by combining RUN commands
 - Clean up package manager caches in the same RUN command
-- Use OCI-compliant labels (see `Dockerfile:4-12`)
+- Use OCI-compliant labels (see the `LABEL` in `workspaces/Dockerfile.ubuntu.noble.xfce`)
 
 ### Docker Compose
 
@@ -436,6 +448,9 @@ guidelines.
 ## Additional Documentation
 
 - **README.md:25-88** - Basic build and run instructions
+- **workspaces/src/admin/README.md**, **workspaces/src/admin/DEVELOPER.md**
+  and **docs/workspace-admin/STORAGE.md** - Admin service for users,
+  developers, and the git backup
 - **workspaces/test/dtaas/TRAEFIK.md** - Multi-user deployment with
   Traefik reverse proxy
 - **docs/PUBLISHING.md** - Docker image publishing workflow and

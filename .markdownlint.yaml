@@ -5,10 +5,7 @@ MD013:
   tables: false
 MD046:
   style: "fenced"
-overrides:
-  files:
-    - ".github/ISSUE_TEMPLATE/bug_report.md"
-    - ".github/ISSUE_TEMPLATE/feature_request.md"
-    - ".github/PULL_REQUEST_TEMPLATE/pull_request_template.md"
-  rules:
-    MD041: false
+# The same heading under different parents (e.g. "Shell Scripts" under both
+# linting and style sections) is fine; only siblings must differ.
+MD024:
+  siblings_only: true
