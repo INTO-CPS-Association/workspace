@@ -10,7 +10,7 @@ see `docs/CHANGELOG.md`, week of 12-Oct-2026. Two items were closed without
 a code change:
 
 - The `--path-prefix` default of `dtaas-user` is intended. It is documented
-  in `workspaces/src/admin/README.md` and the container always passes
+  in `workspaces/src/admin/DEVELOPER.md` and the container always passes
   `MAIN_USER`.
 - The `PATH_PREFIX` substitution in service endpoints no longer exists:
   `load_services()` takes no prefix and the catalogue has no placeholder.

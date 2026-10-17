@@ -333,7 +333,8 @@ not trigger the `ERR` trap, so `cleanup`'s `exit 0` does not get in the way.
 - Modify: `workspaces/src/admin/README.md:307`
 - Modify: `workspaces/src/admin/DOCUMENTATION.md` (`:23`, `:700`, and any
   other example that reaches `/services`, `/health` or `/storage/status`
-  without a prefix)
+  without a prefix). Since split into `workspaces/src/admin/DEVELOPER.md`
+  and `docs/workspace-admin/STORAGE.md`
 
 **Decision (made):** the `--path-prefix` default stays `dtaas-user`;
 `main.py` and `test_main.py` are untouched. Only the prose changes:
