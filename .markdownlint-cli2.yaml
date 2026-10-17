@@ -5,7 +5,6 @@
 ignores:
   - "docs/POTENTIAL_IMPROVEMENTS.md"
   - "docs/CHANGELOG.md"
-  - "docs/superpowers/**"
   - "workspaces/test/dtaas/MOTIVATION.md"
   - ".github/copilot-instructions.md"
   # Legal text, kept verbatim.
