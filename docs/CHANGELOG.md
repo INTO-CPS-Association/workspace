@@ -12,8 +12,7 @@ The main changes made so far are listed here.
   from 1 to 65535; anything else stops startup with a message naming the
   variable, before nginx's config is touched
 * The development Traefik compose files mount the Docker socket read-only,
-  and `TRAEFIK.md` explains why that is still root-equivalent access and
-  what to use in production
+  and `TRAEFIK.md` explains why that is still root-equivalent access
 
 ### Changed
 
