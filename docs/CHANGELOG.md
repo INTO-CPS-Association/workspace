@@ -74,6 +74,10 @@ The main changes made so far are listed here.
   before, `MAIN_USER=a.b` also served `/aXb/...` as the user's routes
 * `MAIN_USER` is validated before the user is renamed, so a refused name is
   refused again on restart instead of starting with the stock `nginx.conf`
+* `compose.traefik.secure.yml` could not log in on any domain but
+  localhost: login-relay marked its cookies Secure even with `TLS=false`,
+  so browsers never sent `oauth_state` back over HTTP and the callback
+  answered 400. The cookies are Secure only with TLS now
 * The CI Dex login test never logged in. login-relay asked Dex for token
   introspection at `/dex/token/introspection` (Dex serves
   `/dex/token/introspect`), so every token was reported inactive; over plain
