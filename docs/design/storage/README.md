@@ -15,13 +15,13 @@ created by GitLab or Keycloak logins through login-relay. Issue
 | 5 | [OIDC security](OIDC_SECURITY.md) | Identity profiles, tokens and lifetimes, flows, Keycloak and GitLab compared |
 | 6 | [Connect storage backends](CONNECT_BACKENDS.md) | Connections, credentials per round, life cycle, status kinds, settings |
 | 7 | [Threat model and protection](THREAT_MODEL.md) | Actors, boundaries, threats, controls, residual risks |
-| 8 | [Login core](LOGIN_CORE.md) | Modules, sequences and errors of the admin's login code |
-| 9 | [Configuration](CONFIGURATION.md) | `config.toml`, the `/config` page and the CLI |
-| 10 | [Complete system design](SYSTEM_DESIGN.md) | Components, deployment, behaviour, decisions |
-| 11 | [Decision record: Route B](ROUTE_B_DECISION.md) | Why GitLab deployments use GitLab directly and login-relay issues storage passes |
+| 8 | [workspace-admin design](../workspace-admin/README.md) | Inside the workspace: requirements, `config.toml`, the `/config` page, direct PKCE sign-in, CLI, login core |
+| 9 | [Complete system design](SYSTEM_DESIGN.md) | Context, deployment, quality requirements, decisions |
+| 10 | [Decision record: Route B](ROUTE_B_DECISION.md) | Why GitLab deployments use GitLab directly and login-relay issues storage passes |
 
-Orders 1 to 4 give the picture with examples; 5 to 10 are the
-reference design; 11 records why.
+Orders 1 to 4 give the picture with examples; 5 to 9 are the
+reference design, with the workspace-admin documents in their own
+folder; 10 records why.
 
 ## Related
 

@@ -25,7 +25,8 @@ login-relay (existing); `rclone`; SeaweedFS 4.40+; Oathkeeper;
 Keycloak; GitLab; nginx; Docker Compose.
 
 **Spec:** [specs/102-s3-backup.md](../specs/102-s3-backup.md); design in
-[design/storage](../design/storage/README.md) and
+[design/storage](../design/storage/README.md),
+[design/workspace-admin](../design/workspace-admin/README.md) and
 [LOGIN_RELAY](../design/auth/LOGIN_RELAY.md).
 
 ## Global Constraints

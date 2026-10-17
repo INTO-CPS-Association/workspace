@@ -57,7 +57,7 @@ sequenceDiagram
     P-->>L: access token (+ rotated refresh token)
     L->>L: save rotated token atomically
     L->>R: POST /token/exchange (access token)
-    R->>P: check token live; user listed?
+    R->>P: check token live, user listed?
     R-->>L: storage pass, 5 minutes
     L->>T: AssumeRoleWithWebIdentity(role, pass, S3_SESSION_SECONDS)
     T-->>L: key, secret, session token
@@ -147,8 +147,8 @@ it. Existing git kinds are unchanged.
 | `s3_failed` | Any other `rclone` failure |
 
 How login-core errors map onto these kinds is in
-[Login core](LOGIN_CORE.md#error-kinds). A rejected GitLab token during
-a push keeps today's `auth_failed`. The connection state `expired`
+[Login core](../workspace-admin/LOGIN_CORE.md#error-kinds). A rejected
+GitLab token during a push keeps today's `auth_failed`. The connection state `expired`
 corresponds to the kind `login_expired`.
 
 ## Concurrency

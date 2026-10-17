@@ -77,7 +77,7 @@ and internal TLS (follow-ups).
   instead of `traefik-forward-auth`, with an introspection cache of
   30 seconds.
 
-### Assets and configuration ([Storage schemes](../design/storage/STORAGE_SCHEMES.md), [Configuration](../design/storage/CONFIGURATION.md))
+### Assets and configuration ([Storage schemes](../design/storage/STORAGE_SCHEMES.md), [config.toml](../design/workspace-admin/CONFIG_FILE.md))
 
 - **FR-3** Asset names match `^[a-z0-9]{1,63}$`; no name is special.
 - **FR-4** Each asset has one backend, `git` (default) or `s3`.
@@ -107,7 +107,7 @@ and internal TLS (follow-ups).
 - **FR-12** An operator can restore an asset or path to a point in
   time by a documented procedure.
 
-### Connections ([OIDC security](../design/storage/OIDC_SECURITY.md), [Connect storage backends](../design/storage/CONNECT_BACKENDS.md))
+### Connections ([OIDC security](../design/storage/OIDC_SECURITY.md), [Connect storage backends](../design/storage/CONNECT_BACKENDS.md), [Sign-in](../design/workspace-admin/SIGN_IN.md))
 
 - **FR-13** Connections: `gitlab`, `keycloak`, `s3keys`; at most one
   of each. S3 uses the deployment's identity provider
@@ -131,7 +131,7 @@ and internal TLS (follow-ups).
 - **FR-19** Git assets choose `GIT_AUTH = "gitlab"` or `"token"`
   (default); pasted `GIT_REPO_TOKEN` stays fully supported.
 
-### Clients and status ([Configuration](../design/storage/CONFIGURATION.md))
+### Clients and status ([`/config` page](../design/workspace-admin/CONFIG_PAGE.md), [CLI](../design/workspace-admin/CLI.md), [sign-in](../design/workspace-admin/SIGN_IN.md))
 
 - **FR-20** `/<user>/config` lists connections and assets with status,
   and adds, removes, connects, disconnects and allows deletions.

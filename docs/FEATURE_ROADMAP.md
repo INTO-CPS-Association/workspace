@@ -3,7 +3,8 @@
 Build order for issue
 [workspace#102](https://github.com/INTO-CPS-Association/workspace/issues/102)
 and the login-relay migration it depends on. Design:
-[storage](design/storage/README.md) and
+[storage](design/storage/README.md),
+[workspace-admin](design/workspace-admin/README.md) and
 [LOGIN_RELAY](design/auth/LOGIN_RELAY.md). Requirements: the
 [spec](specs/102-s3-backup.md). Work items: the
 [plan](plans/102-s3-backup.md) and [tasks](tasks/102-s3-backup.md).
@@ -62,18 +63,18 @@ PR 8 and PR 9 can be built in parallel. PR 12 comes last.
 
 ## Features
 
-| Feature | Delivers |
-| :--- | :--- |
-| F1 Backup foundation | Backend protocol; free asset names; config writer and live reload; admin on `127.0.0.1`; `NET_RAW` dropped in test compose |
-| F2 S3 storage with static keys | SeaweedFS in test compose; S3 backend; `s3keys` connection and token store; `rclone` in the image |
-| F3 login-relay identity profiles | Profile interface; GitLab profile with introspection adapter; PKCE; TLS-aware cookies; Oathkeeper cache |
-| F4 login-relay storage endpoints | `/token/exchange` with signing keys and JWKS; callback bounce |
-| F5 Admin login core and front door | GitLab and Keycloak connections; session checks via login-relay; storage pass and STS each round; control socket; nginx `auth_request` |
-| F6 CLI | `asset`, `connect`, `disconnect`, `status` subcommands |
-| F7 GitLab connection for git | `GIT_AUTH = "gitlab"`; git credentials via environment; `git ls-remote` check |
-| F8 `/config` page | Static page, routes, CSRF, security headers |
-| F9 DTaaS deployments on login-relay | Oathkeeper and login-relay replace `traefik-forward-auth` in `server`, `secure-server`, `secure-server_with_integrated-gitlab`, `workspace/keycloak/production` |
-| F10 Storage in DTaaS deployments | SeaweedFS service; provisioning (bucket, versioning, 365-day lifecycle, IAM trusting login-relay, Keycloak client); variables; operator docs; end-to-end test |
+| Feature | Delivers | Design |
+| :--- | :--- | :--- |
+| F1 Backup foundation | Backend protocol; free asset names; config writer and live reload; admin on `127.0.0.1`; `NET_RAW` dropped in test compose | [Architecture](design/workspace-admin/ARCHITECTURE.md), [config.toml](design/workspace-admin/CONFIG_FILE.md) |
+| F2 S3 storage with static keys | SeaweedFS in test compose; S3 backend; `s3keys` connection and token store; `rclone` in the image | [Storage schemes](design/storage/STORAGE_SCHEMES.md) |
+| F3 login-relay identity profiles | Profile interface; GitLab profile with introspection adapter; PKCE; TLS-aware cookies; Oathkeeper cache | [LOGIN_RELAY](design/auth/LOGIN_RELAY.md) |
+| F4 login-relay storage endpoints | `/token/exchange` with signing keys and JWKS; callback bounce | [LOGIN_RELAY](design/auth/LOGIN_RELAY.md#api) |
+| F5 Admin login core and front door | GitLab and Keycloak connections; session checks via login-relay; storage pass and STS each round; control socket; nginx `auth_request` | [Sign-in](design/workspace-admin/SIGN_IN.md), [Login core](design/workspace-admin/LOGIN_CORE.md) |
+| F6 CLI | `asset`, `connect`, `disconnect`, `status` subcommands | [CLI](design/workspace-admin/CLI.md) |
+| F7 GitLab connection for git | `GIT_AUTH = "gitlab"`; git credentials via environment; `git ls-remote` check | [Connect storage backends](design/storage/CONNECT_BACKENDS.md) |
+| F8 `/config` page | Static page, routes, CSRF, security headers | [`/config` page](design/workspace-admin/CONFIG_PAGE.md) |
+| F9 DTaaS deployments on login-relay | Oathkeeper and login-relay replace `traefik-forward-auth` in `server`, `secure-server`, `secure-server_with_integrated-gitlab`, `workspace/keycloak/production` | [LOGIN_RELAY](design/auth/LOGIN_RELAY.md#in-short) |
+| F10 Storage in DTaaS deployments | SeaweedFS service; provisioning (bucket, versioning, 365-day lifecycle, IAM trusting login-relay, Keycloak client); variables; operator docs; end-to-end test | [STORAGE_GITLAB](design/storage/STORAGE_GITLAB.md), [STORAGE_KEYCLOAK](design/storage/STORAGE_KEYCLOAK.md) |
 
 ## Spike
 

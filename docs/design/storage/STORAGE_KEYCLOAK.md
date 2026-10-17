@@ -55,10 +55,10 @@ sequenceDiagram
     participant K as Keycloak
     B->>O: POST /user1/config/api/connections/keycloak/connect (cookie, CSRF)
     O-->>A: allowed (as in LOGIN_RELAY step 2)
-    A->>A: check session again; create state user1.p2Wd and a PKCE secret
+    A->>A: check session again, create state user1.p2Wd and a PKCE secret
     A-->>B: go to Keycloak with client_id=workspace-backup
     B->>K: GET .../protocol/openid-connect/auth?client_id=workspace-backup&scope=openid offline_access&...
-    K-->>B: no password (DTaaS session); "Allow offline access?" (first time)
+    K-->>B: no password (DTaaS session), "Allow offline access?" (first time)
     K-->>B: go to /login-relay/oauth/keycloak/callback?code=Qq31&state=user1.p2Wd
     B->>L: GET /login-relay/oauth/keycloak/callback?code=Qq31&state=user1.p2Wd
     L-->>B: user1 is listed: go to /user1/config/callback/keycloak?code=Qq31&state=user1.p2Wd
@@ -66,7 +66,7 @@ sequenceDiagram
     O-->>A: allowed
     A->>K: POST http://keycloak:8080/auth/realms/dtaas/protocol/openid-connect/token (code, PKCE secret)
     K-->>A: access token + offline refresh token
-    A->>A: preferred_username == MAIN_USER; save tokens/keycloak.json (0600)
+    A->>A: preferred_username == MAIN_USER, save tokens/keycloak.json (0600)
     A-->>B: "Connected as user1"
 ```
 

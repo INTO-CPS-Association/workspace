@@ -24,8 +24,10 @@ good. **workspace-admin**, in each user's room, runs the backups.
 | `workspace/keycloak/production` | `keycloak` | Yes |
 
 GitLab deployments use GitLab directly. Traefik sends every request to
-Oathkeeper first; the diagrams omit it. Examples use
-`https://dtaas.example.org`, `https://gitlab.example.org`, `user1`.
+Oathkeeper first (omitted in diagrams). Examples use
+`https://dtaas.example.org`, `https://gitlab.example.org`, `user1`;
+workspace-admin's own sign-in is in
+[Sign-in](../workspace-admin/SIGN_IN.md).
 
 ## Step 1: logging in
 
@@ -44,14 +46,14 @@ sequenceDiagram
     O-->>B: go to /login-relay?return_to=/user1/
     B->>L: GET /login-relay?return_to=/user1/
     L-->>B: go to GitLab (state, nonce, PKCE kept in a 5-minute cookie)
-    B->>G: GET /oauth/authorize?client_id=<dtaas-login uid>&...
+    B->>G: GET /oauth/authorize?client_id={dtaas-login uid}&...
     G-->>B: sign-in page (skipped if signed in), consent once
     G-->>B: go to /login-relay/callback?code=AbC123&state=Xy9
     B->>L: GET /login-relay/callback?code=AbC123&state=Xy9
     L->>G: POST /oauth/token (code, secret, PKCE verifier, redirect_uri)
-    G-->>L: access token, 2 hours; ID token
+    G-->>L: access token, 2 hours, ID token
     L->>L: check ID token: signature, iss, aud, nonce, expiry
-    L-->>B: Set-Cookie dtaas_access_token; go to /user1/
+    L-->>B: Set-Cookie dtaas_access_token, go to /user1/
 ```
 
 Browser addresses, in order:
@@ -88,11 +90,11 @@ sequenceDiagram
     B->>O: GET /user1/ (cookie)
     O->>L: POST /token/introspect token=...
     L->>G: GET /oauth/token/info, GET /oauth/userinfo
-    G-->>L: valid; application uid; nickname user1
+    G-->>L: valid, application uid, nickname user1
     L-->>O: introspection answer (below)
     O->>L: POST /authz/workspace/user1
     L-->>O: 200
-    O-->>B: allowed; Traefik forwards to the workspace
+    O-->>B: allowed, Traefik forwards to the workspace
 ```
 
 Oathkeeper caches the answer for 30 seconds. GitLab has no standard
@@ -110,9 +112,8 @@ Keycloak's introspection endpoint and applies the same checks.
 
 ## Step 3: logging out
 
-Reception tears up the pass and shows a "signed out" page. It does not
-send the user back into the building, because the provider's own
-session would sign them straight in again.
+Reception tears up the pass and shows a "signed out" page instead of
+sending the user back in, which the provider's session would allow.
 
 ```mermaid
 sequenceDiagram
@@ -122,7 +123,7 @@ sequenceDiagram
     participant P as GitLab or Keycloak
     B->>L: GET /logout
     L->>P: revoke the cookie's token (GitLab /oauth/revoke)
-    L-->>B: delete cookie; show /login-relay/signed-out (Sign in again, Also sign out of GitLab)
+    L-->>B: delete cookie, show /login-relay/signed-out (Sign in again, Also sign out of GitLab)
 ```
 
 "Also sign out of GitLab" links to
@@ -139,14 +140,14 @@ use workspace-admin's own grant.
   `nonce`, as a confidential client. No `prompt` parameter by default;
   `LOGIN_PROMPT` may set one (for example `login`).
 - **LR-3** Validate the ID token (signature, `iss`, `aud`, `nonce`,
-  expiry) before setting the cookie. For GitLab, `iss` is `GITLAB_URL`
-  while keys come from `GITLAB_INTERNAL_URL/oauth/discovery/keys`.
-- **LR-4** Cookies `dtaas_access_token` and `oauth_state`: `HttpOnly`,
+  expiry) before setting the cookie; for GitLab, `iss` is `GITLAB_URL`,
+  keys come from `GITLAB_INTERNAL_URL/oauth/discovery/keys`.
+- **LR-4** Cookies `dtaas_access_token`, `oauth_state`: `HttpOnly`,
   `SameSite=Lax`, `Secure` exactly when `TLS=true`.
 - **LR-5** `/token/introspect` answers the contract below: `active:
   true` only for a live token of a client in `INTROSPECT_CLIENT_IDS`
   (login and website clients) whose user is in `WORKSPACE_USERS`.
-- **LR-6** `/authz/workspace/<user>` allows only that user (exists).
+- **LR-6** `/authz/workspace/<user>` allows only that user (as today).
 - **LR-7** `/token/exchange` turns a live token of `BACKUP_CLIENT_ID`
   for a listed user into a 5-minute ES256 JWT; it answers 503 when no
   signing key is configured.
@@ -185,10 +186,12 @@ confirms which fields reach Oathkeeper's `.Extra`.
 
 **Exchange** (RFC 8693 shape):
 
-```text
-POST http://login-relay:8080/token/exchange   (form-encoded)
-grant_type=urn:ietf:params:oauth:grant-type:token-exchange
-&subject_token=<access token>&subject_token_type=urn:ietf:params:oauth:token-type:access_token
+```http
+POST /token/exchange HTTP/1.1
+Host: login-relay:8080
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token=<access token>&subject_token_type=urn:ietf:params:oauth:token-type:access_token
 ```
 
 Answer `{"access_token": "<JWT>", "issued_token_type":
@@ -220,15 +223,13 @@ Answer `{"access_token": "<JWT>", "issued_token_type":
 
 **Compatibility.** Unchanged compose files keep working: Keycloak is
 the default profile, old names are aliases, only the active profile's
-secret is required, the `OIDC_*` overrides stay, and CI runs today's
-Keycloak and Dex stacks unchanged.
+secret is required, and the `OIDC_*` overrides and CI stacks stay.
 
-**Signing key.** A JWK set of ES256 private keys with `kid` (for
-example `2026-10`); the first signs, all public halves are published.
-Generated by a one-shot service in the test compose (F4) and at setup
-in DTaaS (F9). Without it, logins work and exchange answers 503.
-Rotation: add the new key second, wait past SeaweedFS's JWKS cache
-(measured in S1), move it first, remove the old one.
+**Signing key.** A JWK set of ES256 private keys with `kid` (such as
+`2026-10`); the first signs, all public halves are published. A
+one-shot service generates it in the test compose (F4) and at DTaaS
+setup (F9); without it, exchange answers 503. Rotation: add the new key
+second, wait past SeaweedFS's JWKS cache (S1), move it first.
 
 ## Implementation notes
 
@@ -237,13 +238,12 @@ Rotation: add the new key second, wait past SeaweedFS's JWKS cache
   existing nonce in the `oauth_state` cookie.
 - `_active_username` decodes the cookie as a JWT; the cross-user check
   calls `profile.introspect` instead, as GitLab tokens are opaque.
-- Oathkeeper: `cache: {enabled: true, ttl: 30s}` on
-  `oauth2_introspection`; `gitlab.com` rate limits require it.
+  Oathkeeper gets `cache: {enabled: true, ttl: 30s}` on
+  `oauth2_introspection`, which `gitlab.com` rate limits require.
 - `authlib` (a dependency already) signs ES256; `pytest-cov` joins
   `requirements-dev.txt`; Keycloak gets
   `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`.
 - Tests: Keycloak profile against a container; GitLab profile against
-  a fake, plus contract tests replaying responses recorded in spike S3;
-  `redeem` sends the authorize call's `redirect_uri`; logout ends on the
-  signed-out page; bounce and exchange refusals; internal routes
-  unreachable through Traefik.
+  a fake plus contract tests replaying spike S3 responses; `redeem`
+  sends the authorize `redirect_uri`; signed-out page; bounce and
+  exchange refusals; internal routes unreachable through Traefik.

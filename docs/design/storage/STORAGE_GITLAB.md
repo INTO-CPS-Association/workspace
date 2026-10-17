@@ -48,7 +48,7 @@ sequenceDiagram
     participant G as GitLab
     B->>O: POST /user1/config/api/connections/gitlab/connect (cookie, CSRF)
     O-->>A: allowed (as in LOGIN_RELAY step 2)
-    A->>A: check session again; create state user1.k8Qz and a PKCE secret
+    A->>A: check session again, create state user1.k8Qz and a PKCE secret
     A-->>B: go to GitLab with client_id=workspace-backup
     B->>G: GET /oauth/authorize?client_id=workspace-backup&state=user1.k8Qz&...
     G-->>B: "Authorize workspace-backup?" (first time only)

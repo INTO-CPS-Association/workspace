@@ -73,7 +73,7 @@ Oathkeeper, which F9 brings to the four deployments:
    `/token/introspect` reports `active` (a live token of the login
    client, user listed) with `username == MAIN_USER`. `X-User-*`
    headers are ignored. login-relay unreachable means 503, never a
-   pass ([Login core](LOGIN_CORE.md#session-verification)).
+   pass ([Login core](../workspace-admin/LOGIN_CORE.md#session-verification)).
 3. **Forged-request protection.** The cookie is `SameSite=Lax`. Every
    POST needs an `X-CSRF-Token` equal to an HMAC of the session
    username under a key created at service start, and an `Origin`

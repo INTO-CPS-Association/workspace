@@ -6,7 +6,8 @@ GitLab differ. Step-by-step examples are in
 [LOGIN_RELAY](../auth/LOGIN_RELAY.md),
 [STORAGE_GITLAB](STORAGE_GITLAB.md) and
 [STORAGE_KEYCLOAK](STORAGE_KEYCLOAK.md); the code is in
-[Login core](LOGIN_CORE.md).
+[workspace-admin sign-in](../workspace-admin/SIGN_IN.md) and
+[login core](../workspace-admin/LOGIN_CORE.md).
 
 ## Identity profiles
 
