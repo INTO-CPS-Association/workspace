@@ -13,10 +13,13 @@ managed through Keycloak and GitLab logins. Issue
 | 5 | [Login core](05-login-core.md) | Modules, sequences and errors of the login code |
 | 6 | [Configuration](06-config.md) | `config.toml`, the `/config` page and the CLI |
 | 7 | [Complete system design](07-system-design.md) | Components, deployment, behaviour, decisions |
+| 8 | [Effect of Route B](08-route-b-impact.md) | Proposal: GitLab or Keycloak per deployment, `login-relay` as token bridge (pending acceptance) |
 
 Related:
 
 - [Feature roadmap](../../FEATURE_ROADMAP.md): build order.
+- [Auth design, Route B](../auth/login-relay-gitlab.md): `login-relay`
+  and Oathkeeper in place of `traefik-forward-auth`.
 - [Spec](../../specs/102-s3-backup.md),
   [plan](../../plans/102-s3-backup.md) and
   [tasks](../../tasks/102-s3-backup.md).
