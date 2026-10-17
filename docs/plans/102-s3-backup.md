@@ -6,8 +6,7 @@ Implements [the spec](../specs/102-s3-backup.md). Tasks are in
 ## Current state
 
 `workspace-admin` runs inside every workspace container, one process
-per user. Its git backup is built from these modules in
-`workspaces/src/admin/src/admin/git/`:
+per user. Its git backup lives in `workspaces/src/admin/src/admin/git/`:
 
 | Module | Role | Coupling to git |
 | :--- | :--- | :--- |
@@ -18,175 +17,204 @@ per user. Its git backup is built from these modules in
 | `config.py` | Parses `[assets.*]` into `RepoConfig` | Requires `GIT_*` keys |
 | `runner.py` | Runs one git command with a time limit | Git environment only |
 
-`main.py` calls `start_git_backup` and `stop_git_backup`. `api.py`
-serves `SyncStatus.snapshot()` at `/storage/status`.
-
-`sync.py` already exceeds the 250-line limit. That is pre-existing
-and out of scope here; this work does not grow it.
+`main.py` calls `start_git_backup`; `api.py` serves
+`SyncStatus.snapshot()` at `/storage/status`. `sync.py` already
+exceeds the 250-line limit; that is out of scope and not grown here.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     subgraph ws[Workspace container, one per user]
-        main[main.py] --> boot[backup/bootstrap.py]
-        boot --> sched[backup/scheduler.py]
+        login[workspace-admin login] -- device flow --> kc
+        login -- writes --> tok[(token.json 0600)]
+        sched[backup/scheduler.py] --> s3b[s3 backend]
         sched --> gitb[git backend]
-        sched --> s3b[s3 backend]
-        sched --> status[backup/status.py]
-        api[api.py /storage/status] --> status
+        s3b --> auth[s3/auth.py]
+        auth -- reads, rotates --> tok
         s3b --> rclone[[rclone]]
+        api[/storage/status/] --> status[backup/status.py]
+        sched --> status
     end
-    rclone -- dtaas-users network --> sw[(SeaweedFS S3)]
-    prov[provisioning one-shot] -- admin key --> sw
-    prov -- writes config.toml --> files[(./files/user)]
+    auth -- refresh token --> kc[Keycloak]
+    auth -- AssumeRoleWithWebIdentity --> sts
+    rclone -- temporary credentials --> sw
+    subgraph store[S3 store]
+        sts[STS endpoint]
+        sw[(bucket/user/asset)]
+    end
+    sw -. JWKS .-> kc
 ```
 
 ### Backend interface
 
-A new package `admin/backup/` holds everything that is not specific
-to git or S3:
+A new package `admin/backup/` holds what is not git- or S3-specific:
 
 ```python
 class Backend(Protocol):
-    name: str                      # asset name, e.g. "private"
-    def prepare(self, stop_event) -> None: ...   # clone, or check bucket
-    def sync(self, stop_event) -> None: ...      # one backup round
+    name: str                                   # asset name
+    def prepare(self, stop_event) -> None: ...  # clone, or check bucket
+    def sync(self, stop_event) -> None: ...     # one backup round
 ```
 
 - `backup/errors.py`: `BackupErrorKind` (today's `SyncErrorKind`
-  values plus the S3 kinds), `BackupError`, `BackupStopped`.
-  `git/sync.py` re-exports the old names so nothing else changes.
-- `backup/status.py`: today's `SyncStatus`, keyed by asset name and
-  grouped by backend type.
+  values plus the new kinds), `BackupError`, `BackupStopped`.
+  `git/sync.py` re-exports the old names.
+- `backup/status.py`: today's `SyncStatus`, grouped by backend type.
 - `backup/scheduler.py`: today's loop over `list[Backend]`.
-- `backup/bootstrap.py`: reads `config.toml` once, builds one backend
-  per asset, calls `prepare`, then starts the scheduler.
+- `backup/bootstrap.py`: builds one backend per asset, calls
+  `prepare`, starts the scheduler.
 - `git/backend.py`: `GitBackend` wraps `clone_asset` and `sync_once`.
-- `s3/`: the new backend (below).
 
 ### Configuration
 
-The same `[assets.<name>]` sections, plus a selector. Existing files
-need no edit because `git` is the default.
+Deployment-wide settings come from the environment, set once in
+compose for every workspace:
 
-```toml
-[assets.private]
-BACKUP_BACKEND = "s3"
-S3_ENDPOINT = "http://seaweedfs:8333"
-S3_BUCKET = "user1"
-S3_PREFIX = "private"          # optional
-S3_ACCESS_KEY = "..."
-S3_SECRET_KEY = "..."
-```
+| Variable | Example (SeaweedFS) | Example (AWS) |
+| :--- | :--- | :--- |
+| `BACKUP_BACKEND_DEFAULT` | `s3` | `s3` |
+| `S3_ENDPOINT` | `http://seaweedfs:8333` | `https://s3.eu-north-1.amazonaws.com` |
+| `S3_REGION` | `us-east-1` | `eu-north-1` |
+| `S3_BUCKET` | `dtaas-backup` | `dtaas-backup` |
+| `S3_PROVIDER` (rclone) | `SeaweedFS` | `AWS` |
+| `S3_AUTH` | `oidc` | `oidc` |
+| `S3_STS_ENDPOINT` | `http://seaweedfs:8333` | `https://sts.eu-north-1.amazonaws.com` |
+| `S3_ROLE_ARN` | `arn:seaweed:iam::role/WorkspaceBackup` | the IAM role ARN |
+| `OIDC_ISSUER` | `https://<server>/auth/realms/dtaas` | same |
+| `OIDC_CLIENT_ID` | `workspace-backup` | same |
 
-`S3Config` is a dataclass with both keys marked `repr=False`, as
-`RepoConfig.token` is. Validation mirrors the git checks: required
-keys, placeholder values refused, endpoint must be `http(s)://`, and
-the work tree may not contain the config file.
+A `config.toml` section may override per asset, for example
+`BACKUP_BACKEND = "git"` to keep one asset on git. In `keys` mode the
+section carries `S3_ACCESS_KEY` and `S3_SECRET_KEY`, marked
+`repr=False` like `RepoConfig.token`. The object prefix is derived,
+never configured: `<MAIN_USER>/<asset>/`, or `common/`.
 
 ### S3 backend (`admin/s3/`)
 
 | Module | Role |
 | :--- | :--- |
-| `config.py` | Parse and validate an S3 asset section |
-| `runner.py` | Run `rclone` with a time limit and stop event, mirroring `git/runner.py` |
-| `errors.py` | Map `rclone` exit codes and stderr to error kinds |
+| `config.py` | Merge environment and section; validate |
+| `oidc.py` | Device flow, refresh, revoke; Keycloak endpoints from the issuer's discovery document |
+| `token_store.py` | Read and atomically replace `token.json` (`0600`, write then rename) |
+| `sts.py` | `AssumeRoleWithWebIdentity` over HTTPS, parse the XML reply |
+| `auth.py` | One call per round: stored token to temporary credentials, or static keys |
+| `runner.py` | Run `rclone` with a time limit and stop event |
+| `errors.py` | Map HTTP, STS and `rclone` failures to kinds; redact secrets |
 | `backend.py` | `S3Backend.prepare` and `S3Backend.sync` |
 
-- **Credentials** go to `rclone` as environment variables
-  (`RCLONE_CONFIG_BACKUP_TYPE=s3`, `..._ACCESS_KEY_ID`,
-  `..._SECRET_ACCESS_KEY`, `..._ENDPOINT`, `..._PROVIDER=SeaweedFS`).
-  They never appear in argv and there is no `rclone.conf` on disk.
-- **prepare** checks that the bucket exists and versioning is
-  `Enabled` (`rclone backend versioning backup:<bucket>`). Failure
-  sets `s3_bucket_missing` or `s3_versioning_disabled`, and the
-  backend stays registered so the next round retries.
-- **sync** runs `rclone sync <work_tree> backup:<bucket>/<prefix>`
-  with `--exclude` for both admin directories, `--fast-list`,
-  `--max-delete` and a `--contimeout` and `--timeout` below the
-  runner's limit. Deletions propagate, and versioning keeps them
-  recoverable.
-- **Error mapping**: exit codes and recognised stderr lines map to
-  kinds. Only the kind reaches status; the full message goes to the
-  log after secrets are redacted.
+All HTTP uses `urllib.request` with timeouts, so no dependency is
+added. Credentials reach `rclone` only as environment variables
+(`RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID`, `..._SECRET_ACCESS_KEY`,
+`..._SESSION_TOKEN`, `..._ENDPOINT`, `..._PROVIDER`); no
+`rclone.conf` is written.
+
+**prepare** checks the bucket exists and versioning is `Enabled`.
+**sync** first refuses an empty or missing work tree, then runs
+`rclone sync <work_tree> backup:<bucket>/<prefix>` with `--exclude`
+for both admin directories, `--fast-list`, `--max-delete` and
+connection and I/O timeouts.
+
+### Login
+
+`workspace-admin login` and `logout` become subcommands next to
+today's flags, so `workspace-admin` with no subcommand still serves.
+
+1. Fetch the issuer's discovery document; POST to the device
+   authorization endpoint with `client_id` and
+   `scope=openid offline_access`.
+2. Print the verification link and user code; open the link with
+   `xdg-open` in the workspace desktop.
+3. Poll the token endpoint at the returned interval until approved,
+   denied or expired.
+4. Decode the access token's claims (no signature check is needed
+   for this local comparison; SeaweedFS verifies the signature) and
+   refuse unless `preferred_username == MAIN_USER`.
+5. Store the refresh token via `token_store`.
+
+The service never calls the login code. It only reads the file, so
+no inter-process channel and no HTTP route is needed.
+
+### Keycloak client
+
+`workspace-backup`: public client, OAuth 2.0 device authorization
+grant on, standard flow off, `offline_access` allowed, an audience
+mapper for `workspace-backup`, and `preferred_username` in the access
+token. Refresh-token rotation is supported but not required.
+
+### SeaweedFS service and IAM
+
+A single `weed server -s3` container, version 4.40 or later:
+
+- `users` (`dtaas-users`) network only; no `ports:`; no labels.
+- One persistent volume at `/data` (contents, filer LevelDB, master
+  metadata). Docs recommend a disk other than `./files/`.
+- `-s3.config` holds the provisioning admin identity only.
+- `-s3.iam.config` holds the Keycloak provider (issuer as in tokens,
+  `jwksUri` on the internal Keycloak address), the role
+  `WorkspaceBackup` trusting that provider for
+  `AssumeRoleWithWebIdentity`, and its policy:
+  read, write and list on `<bucket>/${jwt:preferred_username}/*` and
+  `<bucket>/common/*`, list on the bucket limited by `s3:prefix`.
+
+On AWS the same policy is written with
+`${aws:PrincipalTag/username}`, fed from a Keycloak session-tag
+mapper; that is configuration, not admin code.
+
+### Provisioning (DTaaS)
+
+A one-shot compose service (profile `provision`) beside
+`deploy/dtaas/docker/secure-server/`, idempotent:
+
+1. Create the bucket, enable versioning, apply the lifecycle rule.
+2. Write the two SeaweedFS config files from templates.
+3. Create or update the Keycloak client through the admin REST API.
+
+It holds the SeaweedFS and Keycloak admin credentials; workspace
+containers receive neither. It touches no user's files.
 
 ### Status
 
-`/storage/status` keeps its current shape. When at least one asset
-uses S3, a sibling key is added:
-
-```json
-{"enabled": true,
- "repositories": {"common": {...}},
- "s3": {"private": {"last_attempt": "...", "last_success": "...",
-                    "last_error": null}}}
-```
-
-Without S3 assets the response is byte-identical to today's, which
-acceptance criterion 3 checks.
-
-### SeaweedFS service
-
-A single-container SeaweedFS (`weed server -s3`) in compose:
-
-- Networks: `users` (`dtaas-users`) only.
-- No `ports:` and no Traefik labels.
-- A named volume for data.
-- `-s3.config=/etc/seaweedfs/s3.json` with the admin identity only,
-  mounted from a file generated by provisioning, mode `0600`.
-- A healthcheck on the S3 port.
-
-The image tag is pinned to a release that enforces lifecycle rules
-on versioned buckets; task T001 picks it.
-
-### Provisioning
-
-A one-shot compose service (profile `provision`) in the DTaaS
-repository, beside `deploy/dtaas/docker/secure-server/`. For each
-user in the user list and for `common`:
-
-1. Create the bucket if missing, enable versioning, apply the
-   noncurrent-version lifecycle rule.
-2. Create the identity with `Read`, `Write`, `List` and `Tagging`
-   scoped to that bucket (`Read:user1`) through `weed shell`, and the
-   same scoped access to `common`.
-3. Write `config.toml` into `./files/<user>/.config/workspace-admin/`
-   with mode `0600` and the workspace user's uid, keeping any
-   existing git sections. An existing S3 key is reused, not rotated.
+`/storage/status` keeps its shape; when an S3 asset exists, a sibling
+`s3` key is added with the same per-asset fields. Without S3 assets
+the response is byte-identical to today's.
 
 ### Restore
 
-A runbook in `DOCUMENTATION.md`, run by an operator from any
-container on `dtaas-users` with the user's key:
+A runbook in `DOCUMENTATION.md`. The operator obtains credentials
+for the user's prefix (an admin identity), then:
 
 ```bash
 rclone copy --s3-version-at "2026-10-16 09:00" \
-  backup:user1/private ./restore/private
+  backup:dtaas-backup/user1/private ./restore/private
 ```
 
-A single path is restored the same way with a narrower source. The
-integration test runs exactly these commands.
+The integration test runs exactly these commands.
 
 ## Testing
 
 | Level | What | How |
 | :--- | :--- | :--- |
-| Unit | S3 config parsing, error mapping, runner timeouts, backend calls | Fake `rclone` script on `PATH`, like `tests/helpers/fake_git.py` |
-| Unit | Refactor safety | Every existing test passes; only import paths change |
-| Unit | No secrets | Assert keys absent from caplog, status JSON and the fake's argv |
-| Integration | Real round-trip | SeaweedFS container in CI: sync, delete, restore, version check; skipped when Docker is absent |
-| Compose | Isolation | `test-compositions.yml`: host cannot reach S3, workspace can; cross-user `AccessDenied` |
+| Unit | Config merge, error mapping, runner, backend calls | Fake `rclone` on `PATH`, like `tests/helpers/fake_git.py` |
+| Unit | Device flow, refresh, rotation, owner check, STS parsing | A local `http.server` fake Keycloak and STS |
+| Unit | Refactor safety | Existing tests pass; only import paths change |
+| Unit | No secrets | Tokens and keys absent from caplog, status and the fake's argv |
+| Integration | Round-trip and isolation | Keycloak and SeaweedFS containers: login by password grant in test, sync, delete, restore, cross-user `AccessDenied`, revoke |
+| Compose | Network | Host cannot reach S3; workspace can |
 
-## Delivery: five pull requests
+## Delivery: six pull requests
+
+The issue proposed five; login and STS are split from the S3 backend
+so each stays reviewable.
 
 | PR | Repository | Content | Depends on |
 | :--- | :--- | :--- | :--- |
-| 1 | workspace | SeaweedFS in `workspaces/test/dtaas` compose files | T001 spike |
-| 2 | workspace | `admin/backup/` refactor, git as one backend, no behaviour change | none |
-| 3 | workspace | `admin/s3/` backend, `rclone` in the image, docs | 2 |
-| 4 | DTaaS | Provisioning one-shot service | 1 |
-| 5 | DTaaS | secure-server integration, docs, restore runbook | 3, 4 |
+| 1 | workspace | SeaweedFS in `workspaces/test/dtaas` compose files | spike |
+| 2 | workspace | `admin/backup/` refactor, no behaviour change | none |
+| 3 | workspace | S3 backend in `keys` mode, `rclone` in the image | 2 |
+| 4 | workspace | `oidc` mode: login, token store, STS | 3 |
+| 5 | DTaaS | Provisioning: bucket, SeaweedFS IAM, Keycloak client | 1 |
+| 6 | DTaaS | secure-server integration, docs, runbook | 4, 5 |
 
 PRs 1 and 2 can be developed in parallel.
 
@@ -194,9 +222,10 @@ PRs 1 and 2 can be developed in parallel.
 
 | Risk | Mitigation |
 | :--- | :--- |
-| SeaweedFS lifecycle on versioned buckets is recent | T001 verifies on the pinned release; fallback is a scheduled `rclone delete --min-age` on old versions |
-| `rclone sync` deletes everything if the work tree is empty (unmounted volume) | Refuse to sync an empty or missing work tree, and use `--max-delete` as a guard |
-| All workspaces share `dtaas-users` | Isolation rests on scoped identities; covered by the cross-user test |
-| Full listing every interval on large trees | `--fast-list`; measure before tuning the interval |
-| Host file ownership of generated `config.toml` | Provisioning sets the uid; tested in PR 4 |
-| Refactor breaks the git backup | PR 2 changes no behaviour; test counts compared against `main` |
+| SeaweedFS OIDC, policy variables and lifecycle on versioned buckets are recent | Spike T001 verifies all three on the pinned release |
+| SeaweedFS rejects split issuer and JWKS addresses | Spike T003; fallback is resolving the public name to Traefik on `dtaas-users` |
+| `rclone sync` with an empty work tree deletes the backup | Refuse empty or missing trees; `--max-delete` |
+| Workspace stopped beyond the offline-session idle time | Status reports `login_expired`; user logs in again |
+| Refresh-token rotation interrupted mid-write | Write then rename; keep the old file until the new one is complete |
+| Single SeaweedFS on the same disk as the files | Documented; recommend separate disk, host or cloud |
+| Refactor breaks the git backup | PR 2 changes no behaviour; counts compared against `main` |
