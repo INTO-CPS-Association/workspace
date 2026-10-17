@@ -1,6 +1,6 @@
-# 7. Complete system design
+# Complete system design
 
-Part of the [storage design](README.md). Puts documents 1 to 6
+Part of the [storage design](README.md). Puts the other documents
 together: context, components, deployment, behaviour, quality
 requirements and decisions.
 
@@ -10,11 +10,13 @@ requirements and decisions.
 flowchart LR
     user([Workspace user]) -- browser --> traefik[Traefik + Oathkeeper]
     op([Operator]) -- compose, consoles --> host[(DTaaS host)]
+    traefik -- introspect, authz --> lr[login-relay]
     traefik --> ws[Workspace container per user]
-    ws -- OAuth, userinfo --> kc[Keycloak]
-    ws -- OAuth, git HTTPS --> gl[GitLab]
+    lr -- OAuth --> idp[GitLab or Keycloak]
+    ws -- OAuth refresh, git HTTPS --> idp
+    ws -- introspect, exchange --> lr
     ws -- STS, S3 --> s3[(SeaweedFS or cloud S3)]
-    s3 -. signing keys .-> kc
+    s3 -. signing keys .-> lr
 ```
 
 ## Components inside a workspace
@@ -48,12 +50,13 @@ flowchart TB
 
 | Package | Owns | Imports |
 | :--- | :--- | :--- |
-| `admin/backup` | `Backend` protocol, scheduler, status, error kinds | standard library only |
-| `admin/login` | Connections, flows, session check, STS | standard library only |
+| `admin/shared.py` | `ProviderName`, `OAuthProvider`, `ConnectionState` | nothing |
+| `admin/backup` | `Backend` protocol, scheduler, status, error kinds; calls a round hook it is given | `shared` |
+| `admin/login` | Connections, flows, session check, storage pass, STS | `shared` |
 | `admin/assets` | Parse, validate, write `config.toml` | `backup` (kinds) |
 | `admin/git` | Git backend: existing clone, sync, auth | `backup`, `login` |
 | `admin/s3` | S3 backend, `rclone` runner, error mapping | `backup`, `login` |
-| `admin/wiring.py` | Builds backends from asset config; the only module that knows every backend | `assets`, `git`, `s3`, `backup` |
+| `admin/wiring.py` | Builds backends from asset config and the round hook; the only module that knows every backend and the login core | `assets`, `git`, `s3`, `backup`, `login` |
 | `admin/web` | Config, callback, `/_auth` and control routes; static page | `login`, `assets`, `backup`, `wiring` |
 | `admin/cli` | Subcommands; socket client; offline writer fallback | `assets` |
 | `admin/api.py` | Public routes (unchanged contract) | `backup` |
@@ -78,11 +81,12 @@ $PERSISTENT_DIR/
 
 | Service | Networks | Ports | Changes |
 | :--- | :--- | :--- | :--- |
-| traefik, oathkeeper, login-relay | as today | as today | none |
-| keycloak | as today | as today | `workspace-backup` client: public, PKCE, consent, audience mapper, per-user redirect URIs |
+| traefik, oathkeeper, login-relay | as today (F9 adds them to every deployment) | as today | login-relay: profile, `/token/exchange`, bounce, signing key secret ([LOGIN_RELAY](../auth/LOGIN_RELAY.md)) |
+| keycloak (Keycloak deployment) | as today | as today | `workspace-backup` client: public, PKCE, consent, `offline_access`, bounce redirect URI |
+| GitLab (GitLab deployments) | external or in the stack | as today | `dtaas-login` and `workspace-backup` applications |
 | `user<N>` workspaces | `users` | none | `cap_drop: [NET_RAW]`; S3, OIDC and GitLab variables; admin on `127.0.0.1`; nginx `auth_request` |
 | `seaweedfs` | `users` only | none | `weed server -s3`, `/data` volume, `s3.json`, `iam.json` |
-| `storage-provision` | `users` | none | One-shot, profile `provision`: bucket, versioning, lifecycle, IAM files, Keycloak client, GitLab application redirect URIs |
+| `storage-provision` | `users` | none | One-shot, profile `provision`: bucket, versioning, lifecycle (`NONCURRENT_VERSION_DAYS`, default 365), IAM files trusting login-relay, Keycloak client |
 
 Admin credentials for SeaweedFS, Keycloak and GitLab exist only in
 `storage-provision` and the operator's `.env`; workspaces never get
@@ -105,10 +109,12 @@ ConfigMap; that port is out of scope here.
 ### A sync round
 
 1. Reload first if `config.toml` changed or a reload was requested.
-2. If any S3 asset exists, call `s3_credentials()` once; if any git
-   asset uses GitLab, call `gitlab_access_token()` once. A failure
-   marks those assets with the mapped status kind and skips them;
-   other assets continue.
+2. The scheduler calls the round hook that `wiring.py` gave it. The
+   hook calls `s3_credentials()` once if any S3 asset exists and
+   `gitlab_access_token()` once if any git asset uses GitLab, and hands
+   the results to those backends for this round. A failure marks those
+   assets with the mapped status kind and skips them; other assets
+   continue.
 3. Sync each asset; record success or the error kind.
 4. Stop between assets when the service is stopping.
 
@@ -142,24 +148,23 @@ removed.
 | D3 | Free asset names `^[a-z0-9]{1,63}$`, no special names | Sharing is a server policy, not a client choice |
 | D4 | Add and remove only | Renaming moves data across folders, prefixes and repositories |
 | D5 | One bucket, prefix per user | Bucket limits and cost in clouds; prefix policies suffice |
-| D6 | Keycloak connection for S3, GitLab connection for git | Central revocation, short-lived credentials |
+| D6 | S3 via the deployment's identity provider, git via GitLab | Central revocation, short-lived credentials |
 | D7 | GitLab connection alongside pasted tokens | Non-breaking; other git hosts keep working |
 | D8 | Browser login with PKCE first; device flow later | Reuses the DTaaS session; works on any GitLab |
 | D9 | Admin on `127.0.0.1`; CLI on a Unix socket in a `0700` directory | Nothing that changes configuration is reachable without the owner's session or account |
-| D10 | Session check through `userinfo`, also for nginx | No crypto dependency; catches logged-out sessions; closes the front door |
+| D10 | Session check through login-relay's `/token/introspect`, also for nginx | One path for opaque GitLab and JWT Keycloak tokens; no crypto dependency; closes the front door |
 | D11 | Hand-editable `config.toml` with version check | Page, CLI and editor coexist; comments lost on machine saves |
 | D12 | Provisioning in the DTaaS repository | User list, compose and Keycloak live there |
 | D13 | Fresh credentials every round | Revocation takes effect next round |
-| D14 | Exact per-user redirect URIs, registered by provisioning | Providers do not accept the needed wildcard |
+| D14 | One bounce redirect URI at login-relay for all users | Providers need exact URIs; adding a user must not change the registration |
 | D15 | `cap_drop: [NET_RAW]` on workspaces | Internal OAuth and STS traffic is plain HTTP |
+| D16 | GitLab deployments use GitLab directly | Decided; no Keycloak added to them |
+| D17 | login-relay issues storage passes in both profiles | GitLab gives no signed token on refresh; one STS trust setup |
+| D18 | One GitLab grant for S3 and git in GitLab deployments | One click; the S3-only user grants `write_repository` too |
+| D19 | Grants end after 180 days; noncurrent versions after 365 days by default | Answers to open questions; both configurable |
 
 ## Open questions
 
-1. Noncurrent-version retention: is 30 days right for course
-   deployments?
-2. Keycloak offline-session maximum for DTaaS: 90 or 180 days?
-3. Which SeaweedFS and GitLab releases are deployed? Pins follow
-   roadmap group G0.
-4. Which DTaaS deployment does G7 target, and does it adopt
-   Oathkeeper and `login-relay`? See the
-   [roadmap](../../FEATURE_ROADMAP.md#groups).
+None at the design level. Versions follow the latest stable
+releases, pinned by the spike tasks S1 to S4 of the
+[roadmap](../../FEATURE_ROADMAP.md).

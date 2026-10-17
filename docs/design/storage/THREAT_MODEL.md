@@ -1,4 +1,4 @@
-# 4. Security threat model and protection
+# Security threat model and protection
 
 Part of the [storage design](README.md). Covers the backup data, the
 connections, the `/config` page, the CLI, the storage servers, and
@@ -12,6 +12,7 @@ the workspace front door they all depend on.
 | Connections (refresh tokens, static keys, pasted git tokens) | Long-lived; whoever holds one can back up as the user |
 | `config.toml` | Decides where files go; a changed URL redirects data |
 | SeaweedFS, Keycloak and GitLab admin credentials | Control every user's storage and identity |
+| login-relay's signing key | Whoever holds it can mint storage passes for any listed user |
 
 ## Actors
 
@@ -31,7 +32,8 @@ Internet ──► Traefik ──► Oathkeeper ──► workspace nginx :8080 
                                           │                   └─► admin 127.0.0.1:8091
                        other workspaces on dtaas-users reach :8080 directly
 workspace terminal ──► admin control socket (0600 in a 0700 directory)
-admin ──► Keycloak (internal HTTP) / GitLab   admin ──► STS + S3   admin ──► git
+admin ──► Keycloak or GitLab   admin ──► login-relay (introspect, exchange)
+admin ──► STS + S3 (SeaweedFS trusts login-relay's keys)   admin ──► git
 ```
 
 ## The front-door problem (exists today)
@@ -45,44 +47,46 @@ also defeats everything below: code running as user1 can read
 user1's tokens and use the control socket.
 
 This design therefore requires two fixes before production (roadmap
-G3 and G7), not as follow-ups. Both assume the Oathkeeper and
-`login-relay` stack, whose `dtaas_access_token` cookie is a Keycloak
-access token (see residual risk 5 for other deployments):
+F5 and F9), not as follow-ups. Both rely on login-relay and
+Oathkeeper, which F9 brings to the four deployments:
 
 1. **Session check at the front door.** nginx calls
-   `auth_request /_auth` for every location except `/ping`. `/_auth`
-   is served by the admin's session verifier (the same check as layer
-   2 below) and answers 204 or 401. Requests that bypass Oathkeeper
-   then fail at nginx.
+   `auth_request /_auth` for every location except `/ping` and
+   today's public read-only routes (`/services`, `/health`,
+   `/storage/status`).
+   `/_auth` is served by the admin's session verifier (the same check
+   as layer 2 below) and answers 204, 401, or 503 when login-relay is
+   unreachable. Requests that bypass Oathkeeper then fail at nginx.
 2. **No packet spoofing between tenants.** Workspaces run with
    `cap_drop: [NET_RAW]`, so one tenant cannot ARP-spoof another and
    read the plain-HTTP traffic on `dtaas-users` (refresh grants,
-   userinfo calls, STS replies with secret keys). TLS on internal hops
-   is the alternative where `NET_RAW` is needed.
+   introspection and exchange calls, STS replies with secret keys).
+   TLS on internal hops is the alternative where `NET_RAW` is needed.
 
 ## Protection layers for the `/config` page and control socket
 
 0. **Front door** (above): nginx session check on every path.
-1. **Oathkeeper** (exists): validates the cookie with Keycloak and
-   requires the username to match the path.
+1. **Oathkeeper**: asks login-relay about the cookie and requires the
+   username to match the path ([LOGIN_RELAY](../auth/LOGIN_RELAY.md)).
 2. **Session verification in the admin.** Every `/config` request
-   must carry a `dtaas_access_token` that Keycloak's `userinfo`
-   endpoint accepts (signature, expiry, live session), with `azp`
-   equal to `DTAAS_LOGIN_CLIENT_ID` and `preferred_username ==
-   MAIN_USER`. `X-User-*` headers are ignored. Keycloak unreachable
-   means 503, never a pass
-   ([Login core](05-login-core.md#session-verification)).
+   must carry a `dtaas_access_token` that login-relay's
+   `/token/introspect` reports `active` (a live token of the login
+   client, user listed) with `username == MAIN_USER`. `X-User-*`
+   headers are ignored. login-relay unreachable means 503, never a
+   pass ([Login core](LOGIN_CORE.md#session-verification)).
 3. **Forged-request protection.** The cookie is `SameSite=Lax`. Every
    POST needs an `X-CSRF-Token` equal to an HMAC of the session
    username under a key created at service start, and an `Origin`
    equal to `PUBLIC_BASE_URL`. The token survives the cookie's
-   five-minute rotation. GET changes nothing except OAuth callbacks.
+   rotation. GET changes nothing except OAuth callbacks.
 4. **OAuth callback protection.** Random `state` and PKCE verifier,
    server-side, single use, 10 minutes, bound to the session username
    of whoever started or completes the login. The verifier never
    leaves the admin. Owner checks run before anything is stored
-   ([OIDC security](02-oidc-security.md#owner-checks-at-connect-time)).
-   Providers accept only the exact per-user redirect URIs.
+   ([OIDC security](OIDC_SECURITY.md#owner-checks-at-connect-time)).
+   Providers return only to login-relay's one bounce address, which
+   forwards only to `/<user>/config/callback/<provider>` for a user in
+   `WORKSPACE_USERS` and never redeems the code.
 5. **Input validation.** Names `^[a-z0-9]{1,63}$`; git URLs HTTPS
    only; the GitLab connection only for `GITLAB_URL`'s host; existing
    branch checks. One validator for page, CLI and hand edits. Saves
@@ -101,28 +105,32 @@ access token (see residual risk 5 for other deployments):
 
 ## Threats and controls
 
-| # | Threat | Control |
+| ID | Threat | Control |
 | :--- | :--- | :--- |
-| T0 | Other workspace runs code in user1's Jupyter or VS Code via `user1:8080` | 0 |
-| T1 | Other user opens `/user1/config` in a browser | 1, 2 |
-| T2 | Other workspace calls `user1:8080/user1/config/api/...` | 0, 2 |
-| T3 | Other workspace calls `user1:8091` | 8 |
-| T4 | Spoofed `X-User-Name` | 2 (ignored) |
-| T5 | Malicious site submits a form in the owner's browser | 3 |
-| T6 | Replayed or leaked callback URL | 4 |
-| T7 | Attacker's account planted as the owner's connection | 4 (owner checks) |
-| T8 | Asset name with `..` or `/` | 5 |
-| T9 | Page overwrites a hand edit | 5 (version check) |
-| T10 | Token leak through page, cache, Referer or logs | 6, 7 |
-| T11 | Script injection into the page | 7 |
-| T12 | Network access to control commands | 8 |
-| T13 | Sniffing tokens on `dtaas-users` | `cap_drop: [NET_RAW]`, or TLS |
-| T14 | Stolen S3 credentials delete history | Role policy denies version deletion |
-| T15 | Stolen git token rewrites history | Protected branch, no force-push |
-| T16 | Unmounted volume mirrored as "delete all" | Empty-source refusal, `--max-delete` |
-| T17 | SeaweedFS trust-policy bypass (CVE-2026-77298) | Pin 4.40 or later |
-| T18 | Abandoned grant used months later | Offline session maximum |
-| T19 | Git token visible in process listings | Credentials via `GIT_CONFIG_*` environment (G5) |
+| TM0 | Other workspace runs code in user1's Jupyter or VS Code via `user1:8080` | 0 |
+| TM1 | Other user opens `/user1/config` in a browser | 1, 2 |
+| TM2 | Other workspace calls `user1:8080/user1/config/api/...` | 0, 2 |
+| TM3 | Other workspace calls `user1:8091` | 8 |
+| TM4 | Spoofed `X-User-Name` | 2 (ignored) |
+| TM5 | Malicious site submits a form in the owner's browser | 3 |
+| TM6 | Replayed or leaked callback URL | 4 |
+| TM7 | Attacker's account planted as the owner's connection | 4 (owner checks) |
+| TM8 | Asset name with `..` or `/` | 5 |
+| TM9 | Page overwrites a hand edit | 5 (version check) |
+| TM10 | Token leak through page, cache, Referer or logs | 6, 7 |
+| TM11 | Script injection into the page | 7 |
+| TM12 | Network access to control commands | 8 |
+| TM13 | Sniffing tokens on `dtaas-users` | `cap_drop: [NET_RAW]`, or TLS |
+| TM14 | Stolen S3 credentials delete history | Role policy denies version deletion |
+| TM15 | Stolen git token rewrites history | Protected branch, no force-push |
+| TM16 | Unmounted volume mirrored as "delete all" | Empty-source refusal, `--max-delete` |
+| TM17 | SeaweedFS trust-policy bypass ([CVE-2026-77298](https://osv.dev/vulnerability/CVE-2026-77298)) | Pin 4.40 or later |
+| TM18 | Abandoned grant used months later | 180-day maximum (Keycloak setting, `CONNECTION_MAX_AGE_DAYS`) |
+| TM19 | Git token visible in process listings | Credentials via `GIT_CONFIG_*` environment (F7) |
+| TM20 | login-relay's signing key stolen | Docker secret, never in workspaces; rotation with overlapping keys |
+| TM21 | `/token/exchange` or `/token/introspect` reached from the internet | Traefik routes only `/login-relay` and `/logout`; compose test |
+| TM22 | Bounce used as an open redirect | Fixed target path; user must be listed; `state` format checked |
+| TM23 | Any GitLab account logs in (public `gitlab.com`) | `WORKSPACE_USERS` allow-list in login-relay |
 
 ## Storage-side hardening
 
@@ -137,8 +145,7 @@ access token (see residual risk 5 for other deployments):
   `s3:PutLifecycleConfiguration`, `s3:PutBucketPolicy`,
   `s3:CreateBucket`. Stolen credentials can hide current objects, but
   every version survives.
-- Trust policy: issuer, audience `workspace-backup`, optionally a
-  required group.
+- Trust policy: issuer login-relay, audience `workspace-backup`.
 
 Shared areas between users are an operator decision in this policy,
 not something a workspace can request.
@@ -161,20 +168,15 @@ only `write_repository`; the GitLab connection asks only for
 3. **Host-side copies.** Tokens live under `$PERSISTENT_DIR`, the host
    bind mount `./files/<user>`. Any host backup of `./files` copies
    long-lived grants. Operators should protect such backups like
-   credentials; the offline-session maximum bounds their life.
+   credentials; the 180-day maximum bounds their life.
 4. **Revocation latency.** A revoked grant stops the next round, but
    STS credentials already issued stay valid up to
    `S3_SESSION_SECONDS`. Logged-out browser sessions stay valid for up
-   to 30 seconds (the `userinfo` cache).
-5. **Deployments using `traefik-forward-auth`.** DTaaS
-   `secure-server` (GitLab login) and `workspace/keycloak/production`
-   (Keycloak login) authenticate with `traefik-forward-auth`, whose
-   cookie is not a Keycloak access token. The admin cannot verify it,
-   so there the front-door check stays off (it is enabled only when
-   `OIDC_ISSUER` and `DTAAS_LOGIN_CLIENT_ID` are set), today's
-   neighbour exposure remains, and the page and browser-mode CLI login
-   are unavailable. They need a session verifier for forward-auth
-   (roadmap G8) or a move to Oathkeeper and `login-relay`; the device
-   flow alone gives them connections but not the front door.
+   to 30 seconds (the introspection caches).
+5. **Until F9 lands.** Deployments still on `traefik-forward-auth`
+   have no cookie the admin can verify. There the front-door check stays
+   off (it is enabled only when `LOGIN_RELAY_INTERNAL_URL` is set),
+   today's neighbour exposure remains, and the page and CLI login are
+   unavailable. F9 removes this for all four deployments.
 6. **Single SeaweedFS on the same disk** loses data with the disk
-   ([storage schemes](01-storage-schemes.md#durability-limit)).
+   ([storage schemes](STORAGE_SCHEMES.md#durability-limit)).

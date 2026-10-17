@@ -1,25 +1,32 @@
 # Storage design
 
 Design of workspace backup to git and S3 storage, with connections
-managed through Keycloak and GitLab logins. Issue
+created by GitLab or Keycloak logins through login-relay. Issue
 [workspace#102](https://github.com/INTO-CPS-Association/workspace/issues/102).
 
-| # | Document | Read it for |
+## Reading order
+
+| Order | Document | Read it for |
 | :--- | :--- | :--- |
-| 1 | [Storage schemes](01-storage-schemes.md) | Assets, git and S3 backup, SeaweedFS storage, cloud S3 |
-| 2 | [OIDC security](02-oidc-security.md) | Tokens, browser PKCE and device flows, Keycloak and GitLab differences |
-| 3 | [Connect storage backends](03-connect-backends.md) | Connections, credentials per round, life cycle, status |
-| 4 | [Threat model and protection](04-threat-model.md) | Actors, boundaries, threats, controls, residual risks |
-| 5 | [Login core](05-login-core.md) | Modules, sequences and errors of the login code |
-| 6 | [Configuration](06-config.md) | `config.toml`, the `/config` page and the CLI |
-| 7 | [Complete system design](07-system-design.md) | Components, deployment, behaviour, decisions |
-| 8 | [Effect of Route B](08-route-b-impact.md) | Proposal: GitLab or Keycloak per deployment, `login-relay` as token bridge (pending acceptance) |
+| 1 | [Storage schemes](STORAGE_SCHEMES.md) | Assets, git and S3 backup, SeaweedFS storage, cloud S3 |
+| 2 | [LOGIN_RELAY](../auth/LOGIN_RELAY.md) | How users log in, what Oathkeeper and login-relay do, login-relay requirements and API |
+| 3 | [Storage in GitLab deployments](STORAGE_GITLAB.md) | Worked examples: connecting and a backup round with GitLab |
+| 4 | [Storage in the Keycloak deployment](STORAGE_KEYCLOAK.md) | The same with Keycloak |
+| 5 | [OIDC security](OIDC_SECURITY.md) | Identity profiles, tokens and lifetimes, flows, Keycloak and GitLab compared |
+| 6 | [Connect storage backends](CONNECT_BACKENDS.md) | Connections, credentials per round, life cycle, status kinds, settings |
+| 7 | [Threat model and protection](THREAT_MODEL.md) | Actors, boundaries, threats, controls, residual risks |
+| 8 | [Login core](LOGIN_CORE.md) | Modules, sequences and errors of the admin's login code |
+| 9 | [Configuration](CONFIGURATION.md) | `config.toml`, the `/config` page and the CLI |
+| 10 | [Complete system design](SYSTEM_DESIGN.md) | Components, deployment, behaviour, decisions |
+| 11 | [Decision record: Route B](ROUTE_B_DECISION.md) | Why GitLab deployments use GitLab directly and login-relay issues storage passes |
 
-Related:
+Orders 1 to 4 give the picture with examples; 5 to 10 are the
+reference design; 11 records why.
 
-- [Feature roadmap](../../FEATURE_ROADMAP.md): build order.
-- [Auth design, Route B](../auth/login-relay-gitlab.md): `login-relay`
-  and Oathkeeper in place of `traefik-forward-auth`.
+## Related
+
+- [Feature roadmap](../../FEATURE_ROADMAP.md): every planned pull
+  request in build order, with dependencies.
 - [Spec](../../specs/102-s3-backup.md),
   [plan](../../plans/102-s3-backup.md) and
   [tasks](../../tasks/102-s3-backup.md).

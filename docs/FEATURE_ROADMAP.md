@@ -1,113 +1,144 @@
 # Feature roadmap: workspace storage backup
 
-Build order for the storage features of issue
-[workspace#102](https://github.com/INTO-CPS-Association/workspace/issues/102).
-The design is in [design/storage](design/storage/README.md); the
-requirements in the [spec](specs/102-s3-backup.md); the work items in
-the [plan](plans/102-s3-backup.md) and [tasks](tasks/102-s3-backup.md).
+Build order for issue
+[workspace#102](https://github.com/INTO-CPS-Association/workspace/issues/102)
+and the login-relay migration it depends on. Design:
+[storage](design/storage/README.md) and
+[LOGIN_RELAY](design/auth/LOGIN_RELAY.md). Requirements: the
+[spec](specs/102-s3-backup.md). Work items: the
+[plan](plans/102-s3-backup.md) and [tasks](tasks/102-s3-backup.md).
 
-## Principles for the order
+## Planned work, in order
 
-1. **Core before clients.** Logic is built and tested without a user
-   interface; the CLI comes before the page because it is the thinner
-   client and exercises the same core.
-2. **No behaviour change first.** The refactor that makes room for a
-   second backend lands alone, so a regression has one cause.
-3. **Simplest credentials first.** S3 works with static keys before
-   it works with Keycloak, so storage and login problems are separate.
-4. **Security prerequisites before production.** The front-door fixes
-   land with the login core and must ship before the DTaaS deployment.
-5. **Every group leaves `main` working.**
+Every planned pull request, in the order to build it. A pull request
+starts only when everything in "Depends on" has merged. Spike tasks
+S1 to S4 produce findings, not pull requests.
 
-## Groups
-
-| Group | Name | Repository | Delivers | Needs |
+| Order | Work | Feature | Repository | Depends on |
 | :--- | :--- | :--- | :--- | :--- |
-| G0 | Spike | both | Pinned SeaweedFS and `rclone`; confirmed OIDC, policy, audience, redirect-URI and token-lifetime behaviour | none |
-| G1 | Backup foundation | workspace | Backend protocol, free asset names, config writer, live reload, admin on `127.0.0.1`, `NET_RAW` dropped in test compose | none |
-| G2 | S3 storage | workspace | SeaweedFS in test compose; S3 backend with the `s3keys` connection; `rclone` in the image | G0, G1 |
-| G3 | Login core, Keycloak connection, front door | workspace | Connections store, PKCE flow, callback, session check, nginx `auth_request` on every path, control socket, STS credentials | G2 |
-| G4 | CLI | workspace | `asset`, `connect`, `disconnect`, `status` subcommands | G3 |
-| G5 | GitLab connection for git | workspace | `GIT_AUTH = "gitlab"`, owner and repository checks, git credentials via environment | G3 |
-| G6 | `/config` page | workspace | Static page, config routes, CSRF and security headers | G3, G5 |
-| G7 | Deployment | DTaaS | Provisioning job (bucket, IAM, Keycloak client, GitLab redirect URIs); SeaweedFS, variables and `cap_drop` in the target deployment's compose; operator docs | G2 (provisioning), G6 (end to end) |
-| G8 | Follow-ups | both | Device flow; GitLab as STS issuer; session verifier for `traefik-forward-auth` deployments; internal TLS; cloud S3 guide | G7 |
+| 1 | S1 SeaweedFS and S2 rclone spike | — | workspace | — |
+| 2 | S3 GitLab and S4 Keycloak spike | — | workspace | — |
+| 3 | PR 1: `admin/backup` refactor, no behaviour change | F1 | workspace | — |
+| 4 | PR 2: asset names, writer, live reload, `127.0.0.1`, `cap_drop` | F1 | workspace | PR 1 |
+| 5 | PR 3: SeaweedFS in test compose | F2 | workspace | S1 |
+| 6 | PR 4: S3 backend, `s3keys`, `rclone` in the image | F2 | workspace | PR 2, PR 3, S2 |
+| 7 | PR 5: login-relay profiles and GitLab adapter | F3 | workspace | S3, S4 |
+| 8 | PR 6: login-relay exchange, JWKS, bounce | F4 | workspace | PR 5, S1, S4 |
+| 9 | PR 11: DTaaS deployments on login-relay | F9 | DTaaS | PR 5 |
+| 10 | PR 7: admin login core, session checks, front door, control socket | F5 | workspace | PR 4, PR 6 |
+| 11 | PR 8: CLI | F6 | workspace | PR 7 |
+| 12 | PR 9: GitLab connection for git | F7 | workspace | PR 7 |
+| 13 | PR 10: `/config` page | F8 | workspace | PR 7, PR 9 |
+| 14 | PR 12: storage in DTaaS deployments | F10 | DTaaS | PR 4, PR 6, PR 10, PR 11 |
+
+PR numbers follow features; the order column is the build order. PR 11
+moves early because it is the riskiest user-facing change and lets the
+later pull requests be tried in real deployments.
 
 ```mermaid
 flowchart LR
-    G0 --> G2
-    G1 --> G2 --> G3
-    G3 --> G4
-    G3 --> G5
-    G3 --> G6
-    G5 --> G6
-    G2 --> G7
-    G6 --> G7 --> G8
+    S1 --> PR3 --> PR4
+    S2 --> PR4
+    PR1 --> PR2 --> PR4
+    S3 --> PR5
+    S4 --> PR5 --> PR6
+    S1 --> PR6
+    S4 --> PR6
+    PR5 --> PR11
+    PR4 --> PR7
+    PR6 --> PR7
+    PR7 --> PR8
+    PR7 --> PR9 --> PR10
+    PR7 --> PR10
+    PR4 --> PR12
+    PR6 --> PR12
+    PR10 --> PR12
+    PR11 --> PR12
 ```
 
-G4 and G5 can be built in parallel. The provisioning half of G7 can
-start once G2 lands.
+Two tracks start in parallel: storage (PR 1 to PR 4) and login-relay
+(PR 5, PR 6). Deployments (PR 11) follow PR 5. The tracks meet at PR 7.
+PR 8 and PR 9 can be built in parallel. PR 12 comes last.
 
-**Deployment target for G7 (open).** The Keycloak connection, the page
-and the front-door check need the Oathkeeper and `login-relay` stack
-(`workspaces/test/dtaas/compose.traefik.secure.tls.yml`). DTaaS
-`secure-server` uses `traefik-forward-auth` with GitLab and has no
-Keycloak; `workspace/keycloak/production` uses `traefik-forward-auth`
-with Keycloak. G7 must either bring Oathkeeper and `login-relay` into
-the chosen DTaaS deployment, or ship only static-key S3 and pasted git
-tokens there until G8.
+## Features
 
-## Pull requests
-
-| PR | Group | Content |
-| :--- | :--- | :--- |
-| 1 | G1 | `admin/backup` refactor; git becomes one backend; no behaviour change |
-| 2 | G1 | Free asset names, `admin/assets` writer, live reload, `127.0.0.1`, `cap_drop` in test compose |
-| 3 | G2 | SeaweedFS service in `workspaces/test/dtaas` compose files |
-| 4 | G2 | S3 backend, `s3keys` connection, `rclone` in the image |
-| 5 | G3 | Login core, Keycloak connection, STS, callback, session check, nginx front door, control socket |
-| 6 | G4 | CLI subcommands |
-| 7 | G5 | GitLab connection for git assets |
-| 8 | G6 | `/config` page |
-| 9 | G7 | DTaaS: provisioning job |
-| 10 | G7 | DTaaS: deployment integration and operator docs |
-| 11+ | G8 | One per follow-up |
-
-PR 3 changes only compose files, so it can be developed in parallel
-with PR 1.
-
-### Mapping to the issue's five pull requests
-
-| Issue PR | Here |
+| Feature | Delivers |
 | :--- | :--- |
-| Compose service | PR 3 |
-| Git backend refactor | PR 1 (and PR 2) |
-| S3 backend | PR 4 |
-| Provisioning | PR 9 |
-| Secure-server integration | PR 10 (target deployment open) |
-| (not in the issue) | PRs 5 to 8: Keycloak and GitLab connections, CLI, page |
+| F1 Backup foundation | Backend protocol; free asset names; config writer and live reload; admin on `127.0.0.1`; `NET_RAW` dropped in test compose |
+| F2 S3 storage with static keys | SeaweedFS in test compose; S3 backend; `s3keys` connection and token store; `rclone` in the image |
+| F3 login-relay identity profiles | Profile interface; GitLab profile with introspection adapter; PKCE; TLS-aware cookies; Oathkeeper cache |
+| F4 login-relay storage endpoints | `/token/exchange` with signing keys and JWKS; callback bounce |
+| F5 Admin login core and front door | GitLab and Keycloak connections; session checks via login-relay; storage pass and STS each round; control socket; nginx `auth_request` |
+| F6 CLI | `asset`, `connect`, `disconnect`, `status` subcommands |
+| F7 GitLab connection for git | `GIT_AUTH = "gitlab"`; git credentials via environment; `git ls-remote` check |
+| F8 `/config` page | Static page, routes, CSRF, security headers |
+| F9 DTaaS deployments on login-relay | Oathkeeper and login-relay replace `traefik-forward-auth` in `server`, `secure-server`, `secure-server_with_integrated-gitlab`, `workspace/keycloak/production` |
+| F10 Storage in DTaaS deployments | SeaweedFS service; provisioning (bucket, versioning, 365-day lifecycle, IAM trusting login-relay, Keycloak client); variables; operator docs; end-to-end test |
 
-The issue's pull requests were independent; here PR 4 builds on PR 1
-because the S3 backend implements the protocol PR 1 introduces.
+## Spike
 
-## What each group leaves usable
+| Task | Confirms |
+| :--- | :--- |
+| S1 SeaweedFS | Versioning, lifecycle on versioned buckets, STS with login-relay as issuer, prefix policy and denies; pin latest stable `>= 4.40` |
+| S2 rclone | `--s3-version-at`, SeaweedFS provider, session tokens, `--skip-links`, `--s3-no-check-bucket`; pin latest stable |
+| S3 GitLab | PKCE for public applications, exact redirect URIs, `/oauth/token/info` and `/oauth/userinfo` fields, refresh rotation, no ID token on refresh, 2-hour access tokens |
+| S4 Keycloak | `KC_HOSTNAME_BACKCHANNEL_DYNAMIC`, offline access with consent, 180-day offline maximum, introspection of `workspace-backup` tokens by login-relay |
+
+## Principles
+
+1. **Core before clients.** Logic is tested without a user interface;
+   the CLI comes before the page.
+2. **No behaviour change first.** PR 1 lands alone.
+3. **Simplest credentials first.** S3 works with static keys (PR 4)
+   before it works with logins (PR 7).
+4. **Security prerequisites before production.** The nginx front door
+   (PR 7) and the `NET_RAW` drop (PR 2, PR 11) ship before PR 12.
+5. **Every pull request leaves `main` working.**
+
+## What each feature leaves usable
 
 | After | A user can | An operator can |
 | :--- | :--- | :--- |
-| G1 | Add a git asset with any name by editing `config.toml`; changes apply without restart | — |
-| G2 | Back up a folder to S3 with keys the operator places in `tokens/s3keys.json` | Run SeaweedFS in the test compose |
-| G3 | Back up to S3 without keys after a Keycloak login started over the control socket (integration-tested; G4 makes it convenient) | Revoke a user's backup in Keycloak; rely on the front-door check |
-| G4 | Do all of the above from a terminal | Script asset setup |
-| G5 | Back up git assets without pasting a token | Revoke GitLab access centrally |
-| G6 | Do everything from a web page | — |
-| G7 | Use it in a real DTaaS deployment | Provision with one command; restore by runbook |
+| F1 | Add a git asset with any name in `config.toml`; changes apply without restart | — |
+| F2 | Back up a folder to S3 with keys placed in `tokens/s3keys.json` | Run SeaweedFS in the test compose |
+| F3 | Log in with GitLab or Keycloak through login-relay in the test compose | Choose the profile per deployment |
+| F4 | — | Issue storage passes; one redirect URI for all users |
+| F5 | Back up to S3 without keys after one login (control socket) | Revoke centrally; rely on the front door |
+| F6 | Do all of it from a terminal | Script asset setup |
+| F7 | Back up git assets without pasting a token | Revoke GitLab access centrally |
+| F8 | Do everything from a web page | — |
+| F9 | Log in to any DTaaS deployment through login-relay | Retire `traefik-forward-auth` |
+| F10 | Use storage backup in a real DTaaS deployment | Provision with one command; restore by runbook |
 
-## Out of scope for this roadmap
+## Follow-ups and out of scope
 
-- Restore through the page or the CLI (runbook only).
-- Renaming assets.
-- Shared areas between users (an operator policy, not a feature).
-- Replicating SeaweedFS to a second site.
-- Kubernetes manifests.
-- Splitting `git/sync.py` (920 lines) below the 250-line limit; a
-  separate technical-debt item.
+Follow-ups: device flow; internal TLS where `NET_RAW` is needed; cloud
+S3 guide (login-relay JWKS on a public HTTPS address, AWS session
+tags).
+
+Out of scope: restore through the page or CLI (runbook only); renaming
+assets; shared areas between users (an operator policy); SeaweedFS
+replication; Kubernetes manifests; splitting `git/sync.py` (920
+lines), a separate technical-debt item.
+
+## Pull requests
+
+| PR | Feature | Repository | Content | Tasks |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | F1 | workspace | `admin/backup` refactor; git becomes one backend; no behaviour change | T101–T102 |
+| 2 | F1 | workspace | Asset names, writer, live reload, `127.0.0.1`, `cap_drop` | T103–T107 |
+| 3 | F2 | workspace | SeaweedFS in `workspaces/test/dtaas` compose files | T201 |
+| 4 | F2 | workspace | S3 backend, `s3keys`, `rclone` in the image | T202–T206 |
+| 5 | F3 | workspace | login-relay profiles, GitLab adapter, PKCE, Oathkeeper cache | T301–T304 |
+| 6 | F4 | workspace | login-relay exchange, JWKS, bounce | T401–T403 |
+| 7 | F5 | workspace | Admin login core, session checks, front door, control socket | T501–T507 |
+| 8 | F6 | workspace | CLI subcommands | T601–T602 |
+| 9 | F7 | workspace | GitLab connection for git assets | T701–T702 |
+| 10 | F8 | workspace | `/config` page | T801–T803 |
+| 11 | F9 | DTaaS | Oathkeeper and login-relay in the four deployments (one PR per deployment if large) | T901–T904 |
+| 12 | F10 | DTaaS | Storage provisioning, integration and operator docs | T1001–T1003 |
+
+Mapping to the issue's five pull requests: compose service is PR 3;
+git backend refactor is PRs 1 and 2; S3 backend is PR 4; provisioning
+is PR 12; secure-server integration is PRs 11 and 12. PRs 5 to 10
+(login-relay, connections, CLI, page) are not in the issue.

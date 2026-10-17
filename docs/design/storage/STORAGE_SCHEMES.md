@@ -1,4 +1,4 @@
-# 1. Storage schemes
+# Storage schemes
 
 Part of the [storage design](README.md). Issue
 [workspace#102](https://github.com/INTO-CPS-Association/workspace/issues/102).
@@ -18,7 +18,7 @@ An asset is a folder `$PERSISTENT_DIR/assets/<name>`, declared in
   anything else is refused.
 - **No name is special.** `private` and `common` are ordinary names.
   The workspace does not decide who else may read an asset; the
-  storage server's policy does (see [threat model](04-threat-model.md)).
+  storage server's policy does (see [threat model](THREAT_MODEL.md)).
 - **Add and remove only.** Renaming would move data between folders,
   prefixes and repositories, so it is not offered. Removing an asset
   stops its backup; it never deletes the folder or the stored copy.
@@ -42,7 +42,7 @@ Each round, per asset:
 | History | Full git history on the remote |
 | Suits | Text, code, small files; collaboration through the remote |
 | Poor fit | Large or binary files; history grows forever |
-| Credentials | GitLab connection or a pasted token ([connect](03-connect-backends.md)) |
+| Credentials | GitLab connection or a pasted token ([connect](CONNECT_BACKENDS.md)) |
 | Hosts | Any HTTPS git server with a token; the deployment's GitLab with a connection |
 
 ## Scheme B: S3 object storage
@@ -59,7 +59,7 @@ Each round, per asset:
 1. Refuse to run if the folder is missing or empty
    (`s3_empty_source`). An unmounted volume must not mirror as
    "delete everything".
-2. Obtain credentials ([connect](03-connect-backends.md)).
+2. Obtain credentials ([connect](CONNECT_BACKENDS.md)).
 3. Check the bucket exists and has versioning enabled
    (`GetBucketVersioning`).
 4. Run `rclone sync` with the admin's own folders excluded,
@@ -78,7 +78,7 @@ without the limit.
 | :--- | :--- |
 | Direction | One-way: the folder is the truth; the bucket follows |
 | History | Bucket versioning keeps every overwritten or deleted object as a noncurrent version |
-| Retention | A lifecycle rule expires noncurrent versions after N days (default 30) |
+| Retention | A lifecycle rule expires noncurrent versions after `NONCURRENT_VERSION_DAYS` (default 365, configurable) |
 | Suits | Large and binary files, datasets, FMUs, models |
 | Poor fit | Collaboration; nothing flows back into the folder |
 | Restore | Operator copies a prefix as it was at a time, with `rclone copy --s3-version-at` |
@@ -91,8 +91,10 @@ user therefore cannot point a backup at another user's prefix by
 editing a file, and the server-side policy enforces the same rule.
 
 This relies on one invariant: **`MAIN_USER` equals the user's
-Keycloak username exactly.** The policy scopes by the token's
-username and the admin builds the prefix from `MAIN_USER`; the owner
+username at the identity provider (GitLab or Keycloak) exactly.** The
+storage pass from login-relay carries that username, the policy scopes
+by it,
+and the admin builds the prefix from `MAIN_USER`; the owner
 check at connect time refuses a mismatch and names both values, so a
 misconfigured deployment fails loudly, not silently.
 
@@ -138,13 +140,13 @@ for example, AWS S3 changes environment values, not code:
 What changes outside the admin:
 
 - Traffic leaves the host: the endpoint must be HTTPS.
-- AWS fetches Keycloak's signing keys itself: Keycloak must be public
-  with a valid certificate.
+- AWS fetches login-relay's signing keys itself: login-relay's JWKS
+  and issuer must be public over HTTPS with a valid certificate.
 - The per-user policy uses `${aws:PrincipalTag/username}` instead of
-  `${jwt:preferred_username}`. Keycloak must emit the
+  `${jwt:preferred_username}`; login-relay adds the
   `https://aws.amazon.com/tags` claim with `principal_tags.username`
-  through a protocol mapper; the exact mapper is part of the cloud
-  guide (roadmap G8).
+  to the storage pass. Details are part of the cloud guide (roadmap
+  follow-ups).
 - Providers without STS web identity (Backblaze B2, Wasabi, R2 and
   others) use the static-key connection instead.
 - Cost and data location become operator decisions.

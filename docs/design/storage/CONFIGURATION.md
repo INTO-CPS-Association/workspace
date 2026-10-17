@@ -1,4 +1,4 @@
-# 6. Configuration: `config.toml`, `/config` page and CLI
+# Configuration: `config.toml`, `/config` page and CLI
 
 Part of the [storage design](README.md). Three ways to change the same
 configuration, all going through one validator and one writer in the
@@ -9,7 +9,7 @@ data files and is left alone).
 
 Location unchanged: `$PERSISTENT_DIR/.config/workspace-admin/config.toml`,
 mode `0600`. Deployment-wide settings are not in it; they come from
-the environment ([connect](03-connect-backends.md#deployment-wide-settings)).
+the environment ([connect](CONNECT_BACKENDS.md#deployment-wide-settings)).
 
 ```toml
 SYNC_INTERVAL_SECONDS = 300
@@ -54,7 +54,7 @@ unset is not an error in the file: the asset reports
   version load with the same meaning: no `BACKUP_BACKEND` means git,
   no `GIT_AUTH` means the pasted token.
 - **Change:** today's loader reads only `private` and `common` and
-  ignores every other `[assets.*]` section. From G1 on, other sections
+  ignores every other `[assets.*]` section. From F1 on, other sections
   are read. A valid one starts being backed up; an invalid one (for
   example `[assets.my-data]`) is logged and skipped, never stopping
   the others. The release notes say so.
@@ -91,11 +91,12 @@ previous configuration keeps running.
 
 Served at `/<user>/config` through nginx, which gains `location`
 blocks for `/config`, `/config/` and the internal `/_auth`. Protected
-as in the [threat model](04-threat-model.md#protection-layers-for-the-config-page-and-control-socket).
+as in the [threat model](THREAT_MODEL.md#protection-layers-for-the-config-page-and-control-socket).
 
 ### Layout
 
-1. **Connections**: Keycloak, GitLab, S3 keys (each only when
+1. **Connections**: GitLab (both profiles), Keycloak (Keycloak profile),
+   S3 keys (each only when
    configured). Each shows "Connected as `<name>` since `<date>`",
    "Not connected" or "Expired", with Connect, Reconnect or
    Disconnect.
@@ -120,11 +121,11 @@ Oathkeeper's login and back.
 | `POST /config/api/assets` | Add an asset |
 | `POST /config/api/assets/<name>/remove` | Remove an asset |
 | `POST /config/api/assets/<name>/allow-delete` | Lift the deletion brake for one round |
-| `POST /config/api/connect/<provider>` | Start a login; returns the authorize URL |
+| `POST /config/api/connections/<provider>/connect` | Start a login; returns the authorize URL |
 | `GET /config/callback/<provider>` | OAuth callback |
-| `POST /config/api/confirm/<provider>` | Confirm the GitLab account (`confirm` mode) |
-| `POST /config/api/disconnect/<provider>` | Disconnect |
-| `POST /config/api/s3keys` | Store a static key pair |
+| `POST /config/api/connections/<provider>/confirm` | Confirm the GitLab account (`confirm` mode) |
+| `POST /config/api/connections/<provider>/disconnect` | Disconnect |
+| `PUT /config/api/connections/s3keys` | Store a static key pair |
 
 Bodies are JSON, so no form-parsing dependency is needed.
 
@@ -153,7 +154,7 @@ directory with mode `0700`, refuses to start if it exists with another
 owner or mode, removes a stale socket, binds the socket itself and
 hands it to `uvicorn`. The directory's mode is the authentication.
 Asset routes mirror the page's under `/control/assets`; login routes
-are in [Login core](05-login-core.md#control-routes-unix-socket-only).
+are in [Login core](LOGIN_CORE.md#control-routes-unix-socket-only).
 
 The service runs two `uvicorn` servers in one event loop: TCP on
 `127.0.0.1:${ADMIN_SERVER_PORT}` for nginx, and the socket for the
@@ -164,8 +165,8 @@ CLI. `main.py` changes its `--host` default to `127.0.0.1`, and
 
 | Option | Works with the browser outside the container | Needs | Verdict |
 | :--- | :--- | :--- | :--- |
-| CLI starts a login, the user's browser completes it on the workspace callback | Yes | A Keycloak session for the callback | **Chosen** (G4) |
-| Device flow: short code, approve anywhere | Yes | Provider support; no callback | Later (G8), for deployments without Keycloak sessions |
+| CLI starts a login, the user's browser completes it on the workspace callback | Yes | A DTaaS session (login-relay) for the callback | **Chosen** (F6) |
+| Device flow: short code, approve anywhere | Yes | Provider support; no callback | Follow-up, if a deployment cannot reach the workspace callback |
 | Loopback redirect to `127.0.0.1:<port>` | No: the browser cannot reach the container | | Rejected |
 | User pastes the code shown on a callback page into the CLI | Yes | An extra copy step; same callback | Rejected: no gain over the chosen flow |
 | CLI writes token files directly after its own login | Yes | Duplicate OAuth code; races token rotation | Rejected |
