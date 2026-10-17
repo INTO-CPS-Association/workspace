@@ -1,0 +1,6 @@
+# hadolint configuration, used locally and by the Dockerfile Lint workflow.
+ignored:
+  # Consecutive RUN instructions are intentional in the workspace Dockerfile:
+  # one cached layer per install script keeps rebuilds short when a script
+  # fails. See the comment above the install stages.
+  - DL3059

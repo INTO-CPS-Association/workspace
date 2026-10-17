@@ -38,15 +38,20 @@ COPY ./src/admin/ ${ADMIN_DIR}
 
 RUN bash "${INST_DIR}"/image_wegovy.sh
 
+# One RUN per install script, on purpose: each script is its own cached
+# layer, so a failure in one script rebuilds from there instead of from the
+# first install. hadolint's DL3059 ("consolidate RUNs") is therefore ignored
+# in .hadolint.yaml.
+
 FROM configure AS install-full
 
-RUN bash "${INST_DIR}"/firefox/install_firefox.sh && \
-    bash "${INST_DIR}"/nginx/install_nginx.sh && \
-    bash "${INST_DIR}"/vscode/install_vscode_server.sh && \
-    bash "${INST_DIR}"/jupyter/install_jupyter.sh && \
-    bash "${INST_DIR}"/admin/install_admin.sh && \
-    bash "${INST_DIR}"/dtaas_cleanup.sh && \
-    bash "${INST_DIR}"/kasm_fixes.sh
+RUN bash "${INST_DIR}"/firefox/install_firefox.sh
+RUN bash "${INST_DIR}"/nginx/install_nginx.sh
+RUN bash "${INST_DIR}"/vscode/install_vscode_server.sh
+RUN bash "${INST_DIR}"/jupyter/install_jupyter.sh
+RUN bash "${INST_DIR}"/admin/install_admin.sh
+RUN bash "${INST_DIR}"/dtaas_cleanup.sh
+RUN bash "${INST_DIR}"/kasm_fixes.sh
 
 FROM configure AS install-minimal
 
@@ -54,10 +59,10 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
-RUN bash "${INST_DIR}"/nginx/install_nginx.sh && \
-    bash "${INST_DIR}"/admin/install_admin.sh && \
-    bash "${INST_DIR}"/dtaas_cleanup.sh && \
-    bash "${INST_DIR}"/kasm_fixes.sh
+RUN bash "${INST_DIR}"/nginx/install_nginx.sh
+RUN bash "${INST_DIR}"/admin/install_admin.sh
+RUN bash "${INST_DIR}"/dtaas_cleanup.sh
+RUN bash "${INST_DIR}"/kasm_fixes.sh
 
 # install-full or install-minimal, both defined above; not an external image.
 # hadolint ignore=DL3006
