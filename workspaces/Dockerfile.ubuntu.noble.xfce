@@ -39,6 +39,11 @@ COPY ./src/admin/ ${ADMIN_DIR}
 RUN bash "${INST_DIR}"/image_wegovy.sh
 COPY ./src/resources/.bashrc /home/kasm-default-profile/.bashrc
 
+# One RUN per install script, on purpose: each script is its own cached
+# layer, so a failure in one script rebuilds from there instead of from the
+# first install. hadolint's DL3059 ("consolidate RUNs") is therefore ignored
+# in .hadolint.yaml.
+
 FROM configure AS install-full
 
 ENV JAVA_HOME=/opt/java
