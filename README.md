@@ -136,8 +136,10 @@ curl http://localhost:8080/user1/services
 }
 ```
 
-The endpoint values are dynamically populated with the user's username from the
-`MAIN_USER` environment variable.
+Each endpoint is relative to the user's base URL, `/user1/` here. The
+endpoint is served by the admin service; see
+[workspaces/src/admin/README.md](workspaces/src/admin/README.md) for the
+service and the git backup it also provides.
 
 ## :broom: Clean Up
 

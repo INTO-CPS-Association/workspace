@@ -361,8 +361,18 @@ default 300; `--sync-interval` overrides it) and an `[assets.private]`
 and/or `[assets.common]` table with `GIT_REPO_URL`, `GIT_REPO_BRANCH` and
 `GIT_REPO_TOKEN`. Every path follows from `$PERSISTENT_DIR` and the section
 name: git directories in `.local/share/workspace-admin/<name>`, work trees in
-`assets/<name>`. `workspaces/src/admin/DOCUMENTATION.md` still describes the
-older layout.
+`assets/<name>`.
+
+The admin service is documented in three places, by audience:
+
+- `workspaces/src/admin/README.md`: for workspace users and operators;
+  the proxied URLs, the service list, turning on the backup, reading
+  `/storage/status`
+- `workspaces/src/admin/DEVELOPER.md`: for developers of the service;
+  setup, flags, the full HTTP API, code layout, tests, how it is installed
+  in the image, design decisions
+- `docs/workspace-admin/STORAGE.md`: the git backup in full; `config.toml`,
+  paths, cloning, the sync cycle, conflicts, error kinds, log lines
 
 To add new services to the workspace:
 
@@ -438,6 +448,9 @@ guidelines.
 ## Additional Documentation
 
 - **README.md:25-88** - Basic build and run instructions
+- **workspaces/src/admin/README.md**, **workspaces/src/admin/DEVELOPER.md**
+  and **docs/workspace-admin/STORAGE.md** - Admin service for users,
+  developers, and the git backup
 - **workspaces/test/dtaas/TRAEFIK.md** - Multi-user deployment with
   Traefik reverse proxy
 - **docs/PUBLISHING.md** - Docker image publishing workflow and

@@ -30,6 +30,11 @@ The main changes made so far are listed here.
   that is missing, and logs an error when a restarted service dies at once
 * Markdown files are linted in CI with markdownlint-cli2; the files it
   skips are listed in `.markdownlint-cli2.yaml`
+* The admin service docs are split by audience: `README.md` for
+  workspace users and operators, `DEVELOPER.md` for developers of the
+  service, and `docs/workspace-admin/STORAGE.md` for the git backup.
+  `DOCUMENTATION.md`, which still described the `config.env` keys and
+  paths, is gone
 
 * The git backup config file is now `config.toml`, since it is TOML. A
   `config.env` is no longer read, so rename an existing one

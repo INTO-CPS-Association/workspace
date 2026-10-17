@@ -115,7 +115,7 @@ Before committing changes:
 2. Update tests in `workspaces/src/admin/tests/unit/` (or `tests/integration/`)
 3. Run tests: `cd workspaces/src/admin && poetry run pytest --cov`
 4. Run linting: `poetry run pylint src/admin tests`
-5. Update documentation in README.md and DOCUMENTATION.md
+5. Update the documentation: `README.md` (users), `DEVELOPER.md` (developers) and, for the git backup, `docs/workspace-admin/STORAGE.md`
 6. Rebuild and reinstall: `poetry build && poetry install`
 
 #### Modifying Startup Behavior
