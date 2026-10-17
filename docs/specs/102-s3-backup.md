@@ -1,224 +1,215 @@
-# Spec: S3 object storage backup for workspace files
+# Spec: workspace storage backup to git and S3
 
 | | |
 | :--- | :--- |
 | Issue | [workspace#102](https://github.com/INTO-CPS-Association/workspace/issues/102) |
 | Status | Draft |
+| Design | [design/storage](../design/storage/README.md) |
+| Roadmap | [FEATURE_ROADMAP.md](../FEATURE_ROADMAP.md) |
 | Plan | [plan](../plans/102-s3-backup.md) |
 | Tasks | [tasks](../tasks/102-s3-backup.md) |
 
 ## Problem
 
-Workspace files are bind-mounted from host directories
-(`./files/<user>` and `./files/common`). Nothing protects them beyond
-the host filesystem. The git backup added in #93 needs a git remote
-per user and suits small text files. Large or binary assets (FMUs,
-datasets, models) bloat a git history and are slow to push.
-
-MinIO is no longer a viable default for a self-hosted S3 store, so
-this feature adopts SeaweedFS.
+Workspace files are bind-mounted from host directories and protected
+by nothing beyond the host filesystem. The git backup (#93) needs a
+git remote and a hand-pasted token, and suits small text files.
+Large or binary assets bloat a git history. Tokens are created,
+pasted and renewed by hand, with no central revocation. MinIO is no
+longer a viable default S3 server, so this feature adopts SeaweedFS.
 
 ## Goals
 
-1. Back up the private and common assets of every workspace to an
-   S3-compatible store, with no git remote involved.
-2. Keep previous versions of every file, so a deleted or overwritten
-   file can be restored from a point in time.
-3. Centralise access control in Keycloak: no per-user S3 keys, and
-   one place to grant or revoke a user's backup.
-4. Ask the user for one login inside the workspace, then nothing more.
-5. Run against SeaweedFS in Docker Compose now, and against Kubernetes
-   or a cloud S3 service later, by configuration only.
-6. Leave existing git-backup users entirely unaffected.
+1. Back up named folders (assets) to git or S3, one scheme per asset.
+2. Keep previous versions of S3-backed files for point-in-time restore.
+3. Centralise access: Keycloak for S3, GitLab for git; revocation in
+   one place; no per-user S3 keys in the default setup.
+4. One login per provider, from the user's own browser, then nothing.
+5. Manage assets and connections from a web page, a CLI or by
+   editing `config.toml`.
+6. SeaweedFS in Docker Compose now; cloud S3 later by configuration.
+7. Existing git-backup configurations keep working.
 
 ## Non-goals
 
-- A restore user interface or a restore HTTP route. Restore is a
-  documented operator procedure.
-- Mounting S3 as a filesystem (S3 FUSE).
-- Kubernetes manifests. The design must not block them.
-- Running git and S3 backup on the same asset at the same time.
-- Encrypting data at rest inside SeaweedFS.
-- Replicating SeaweedFS itself to a second site.
+Restore from the page or CLI (runbook only); renaming assets; shared
+areas chosen by the workspace; S3 FUSE mounts; Kubernetes manifests;
+SeaweedFS replication; encryption at rest in SeaweedFS; device flow
+and GitLab as STS issuer (roadmap G8).
 
 ## Users and scenarios
 
-- **Workspace user**: edits files in `/workspace/assets/<name>`.
-  Logs in once; afterwards every change is in the backup within one
-  sync interval.
-- **Operator**: deploys DTaaS with the secure-server compose file,
-  turns on S3 backup, restores a user's files after an accident,
-  checks backup health and revokes access in Keycloak.
+- **Workspace user** adds assets and connects providers, once.
+- **Operator** provisions storage, Keycloak and GitLab once (again
+  when users are added), monitors status, restores files and revokes
+  access.
 
-Scenarios:
-
-1. The operator runs provisioning once. It creates the bucket, the
-   SeaweedFS IAM configuration and the Keycloak client. No per-user
-   step exists.
-2. A user opens a terminal in the workspace and runs
-   `workspace-admin login`. The workspace browser opens Keycloak; the
-   user approves. Backups start at the next round.
-3. A user deletes a folder by mistake. The operator restores it as it
+1. The operator runs provisioning: bucket, versioning, lifecycle,
+   SeaweedFS IAM, Keycloak client, GitLab application redirect URIs.
+2. The user opens `/<user>/config`, adds asset `models` on S3 and
+   clicks Connect with Keycloak; the DTaaS session means one consent
+   click. Backups start next round.
+3. The user adds git asset `thesis` on the deployment's GitLab and
+   connects GitLab; no token is pasted.
+4. A terminal user does the same with `workspace-admin asset add` and
+   `workspace-admin connect`, approving in their own browser.
+5. A user deletes a folder by mistake; the operator restores it as it
    was an hour ago.
-4. The S3 store is down. Workspaces keep working, `/storage/status`
-   reports `s3_unreachable`, and backups resume when it returns.
-5. An administrator revokes a user's offline session in Keycloak. The
-   next round reports `login_expired` and uploads nothing.
-6. The operator moves the store to AWS S3. They change the endpoint
-   and role settings; the workspace image is unchanged.
-7. A workspace has no S3 configuration. Nothing changes from today.
+6. The S3 server is down; workspaces keep working, status reports
+   `s3_unreachable`, backups resume afterwards.
+7. An administrator revokes the user's offline session; the next
+   round reports `login_expired` and the page offers Reconnect.
+8. A workspace with today's `config.toml` behaves as before.
 
-## Functional requirements
+## Requirements
 
-### Backup
+### Assets and configuration ([design 1](../design/storage/01-storage-schemes.md), [6](../design/storage/06-config.md))
 
-- **FR-1** Each asset selects one backup backend: `git` (today's
-  behaviour, the default) or `s3`. See *Decisions* for why not both.
-- **FR-2** The S3 backend mirrors `<root>/assets/<name>`, including
-  deletions, to `s3://<bucket>/<owner>/<name>/` on every sync
-  interval. The common asset goes to `s3://<bucket>/common/`.
-- **FR-3** The bucket has versioning enabled. A file overwritten or
-  deleted locally stays retrievable as a noncurrent version.
-- **FR-4** A lifecycle rule expires noncurrent versions after a
-  configurable number of days (default 30).
-- **FR-5** The backend refuses to sync when bucket versioning is not
-  enabled, or when the work tree is missing or empty, because either
-  case can destroy the only copy.
-- **FR-6** An operator can restore an asset, or one path in it, to
-  its state at a given time by following a documented procedure.
+- **FR-1** Asset names match `^[a-z0-9]{1,63}$`; no name is special;
+  the `private`/`common` limit is lifted.
+- **FR-2** Each asset has one backend, `git` (default) or `s3`.
+- **FR-3** Assets can be added and removed; removal stops the backup
+  and deletes neither the folder nor stored copies.
+- **FR-4** `config.toml` stays hand-editable. Page and CLI write it
+  through one validator, atomically, refusing to overwrite a file
+  changed since it was read. Comments are lost on a machine save, with
+  a warning before the first.
+- **FR-5** Changes apply without restart. Validation is per section:
+  an invalid section is logged and skipped; the others run.
+- **FR-6** `private` and `common` sections valid today keep their
+  meaning. Other `[assets.*]` sections, ignored today, are read from
+  G1 on; the release notes say so.
 
-### Authentication
+### S3 backup ([design 1](../design/storage/01-storage-schemes.md))
 
-- **FR-7** `workspace-admin login` runs the OAuth 2.0 device
-  authorization flow against Keycloak with scope `offline_access`. It
-  shows a link and a code and opens the link in the workspace browser.
-- **FR-8** On success it stores the offline refresh token in
-  `$PERSISTENT_DIR/.config/workspace-admin/token.json` with mode
-  `0600`. The running service picks it up at the next round; no
-  restart is needed.
-- **FR-9** The login is refused, and nothing is stored, unless the
-  token's `preferred_username` equals the workspace owner
-  (`MAIN_USER`).
-- **FR-10** Each round, the service refreshes the access token, saves
-  a rotated refresh token atomically, exchanges the access token for
-  temporary S3 credentials with STS `AssumeRoleWithWebIdentity`, and
-  passes those to the sync.
-- **FR-11** `workspace-admin logout` deletes the stored token and
-  revokes it in Keycloak.
-- **FR-12** A static-key mode (`S3_AUTH = "keys"`) exists for S3
-  providers without STS web-identity support. `oidc` is the default.
+- **FR-7** An S3 asset is mirrored, including deletions, to
+  `s3://<S3_BUCKET>/<MAIN_USER>/<name>/` every round; the prefix is
+  derived. `MAIN_USER` must equal the Keycloak username.
+- **FR-8** Versioning keeps overwritten and deleted objects; a
+  lifecycle rule expires noncurrent versions after N days (default
+  30).
+- **FR-9** The backend refuses to sync when versioning is off or the
+  folder is missing or empty; skips symbolic links; and stops at
+  `S3_MAX_DELETE` deletions (default 1000) until the user allows them
+  once.
+- **FR-10** An operator can restore an asset or path to a point in
+  time by a documented procedure.
 
-### Configuration and status
+### Connections ([design 2](../design/storage/02-oidc-security.md), [3](../design/storage/03-connect-backends.md), [5](../design/storage/05-login-core.md))
 
-- **FR-13** Deployment-wide settings (endpoint, bucket, region,
-  `rclone` provider, issuer, client id, role, STS endpoint) come from
-  the container environment, set once in compose. Nothing in the
-  admin is specific to SeaweedFS.
-- **FR-14** `BACKUP_BACKEND_DEFAULT=s3` in the environment makes
-  `private` and `common` S3-backed with no user `config.toml`. A
-  section in `config.toml` overrides it per asset.
-- **FR-15** `/storage/status` reports each S3 asset's last attempt,
-  success and error kind. New kinds: `not_logged_in`,
-  `login_expired`, `s3_auth_failed`, `s3_unreachable`,
-  `s3_bucket_missing`, `s3_versioning_disabled`, `s3_empty_source`,
-  `s3_timeout`, `s3_failed`.
-- **FR-16** S3 backup is off unless configured. A missing or broken
-  S3 setting never stops the workspace or its other assets.
+- **FR-11** Connections: `keycloak` (S3 via STS), `gitlab` (git),
+  `s3keys` (static S3 keys for services without STS); at most one of
+  each per workspace.
+- **FR-12** `keycloak` and `gitlab` are created by the browser
+  authorization-code flow with PKCE (S256), public clients, and the
+  exact callback `<PUBLIC_BASE_URL>/<user>/config/callback/<provider>`.
+- **FR-13** Owner check before storing: Keycloak `preferred_username
+  == MAIN_USER`; GitLab username `== MAIN_USER`, or the user confirms
+  the shown account when `GITLAB_OWNER_CHECK = "confirm"`. A mismatch
+  names both values.
+- **FR-14** Every round obtains fresh credentials: refresh, save any
+  rotated refresh token atomically before use, and for S3 exchange the
+  access token with STS `AssumeRoleWithWebIdentity` for
+  `S3_SESSION_SECONDS` (default 3600). Nothing is cached across rounds.
+- **FR-15** Disconnect revokes at the provider, then deletes the
+  stored connection.
+- **FR-16** Git assets choose `GIT_AUTH = "gitlab"` or `"token"`
+  (default); pasted `GIT_REPO_TOKEN` stays fully supported.
+- **FR-17** Deployment-wide settings come from the environment
+  ([table](../design/storage/03-connect-backends.md#deployment-wide-settings));
+  nothing in the admin is specific to SeaweedFS.
 
-### Provisioning
+### Clients ([design 6](../design/storage/06-config.md))
 
-- **FR-17** One idempotent provisioning step creates the bucket with
-  versioning and the lifecycle rule; writes the SeaweedFS IAM file
-  (Keycloak provider, one role, one policy); and creates the Keycloak
-  client `workspace-backup`.
-- **FR-18** The policy limits each user to `<bucket>/<username>/*`
-  and grants all authenticated users `<bucket>/common/*`, using the
-  username claim from the token as a policy variable.
+- **FR-18** A `/<user>/config` page lists connections and assets with
+  status, and adds, removes, connects, disconnects and allows
+  deletions.
+- **FR-19** CLI subcommands `asset list|add|remove|allow-delete`,
+  `connect|disconnect <provider>` and `status`; `asset list|add|remove`
+  work without the running service.
+- **FR-20** A CLI login prints the provider link; the user approves
+  in their own browser; the CLI waits for completion.
 
-## Security requirements
+### Status
 
-- **SR-1** No secret (refresh token, access token, S3 credentials)
-  appears in logs, process arguments, `/storage/status` or errors.
+- **FR-21** `/storage/status` adds `s3` and `connections` only when
+  used, with the kinds listed in
+  [design 3](../design/storage/03-connect-backends.md#status-kinds).
+  Otherwise the response is byte-identical to today's.
+
+### Provisioning (DTaaS)
+
+- **FR-22** One idempotent job creates the bucket with versioning and
+  lifecycle; writes SeaweedFS `s3.json` and `iam.json`; creates the
+  Keycloak `workspace-backup` client (public, PKCE, consent, audience
+  mapper); and registers the per-user redirect URIs on it and on the
+  GitLab application. It writes no user file and creates no per-user
+  secret.
+
+## Security requirements ([design 4](../design/storage/04-threat-model.md))
+
+- **SR-1** No secret in logs, process arguments, status, page
+  responses or error messages; secret fields are write-only. Git
+  credentials reach git through the environment from G5 on.
 - **SR-2** `.config/workspace-admin/` and
   `.local/share/workspace-admin/` are never uploaded.
-- **SR-3** Login and logout are command-line only. The HTTP API stays
-  read-only and unauthenticated, as today.
-- **SR-4** A user's credentials cannot list, read or write another
-  user's prefix.
-- **SR-5** Revoking the user's offline session in Keycloak stops
-  their backup within one round.
-- **SR-6** SeaweedFS is pinned to 4.40 or later (CVE-2026-77298:
-  trust policies not enforced for direct JWT requests).
-- **SR-7** With SeaweedFS in compose, the S3 server is attached only
-  to `dtaas-users`, with no host port and no Traefik route. With a
-  store off the host, the endpoint must be HTTPS.
-- **SR-8** SeaweedFS and Keycloak admin credentials are never given
-  to a workspace container.
+- **SR-3** The admin's TCP listener binds `127.0.0.1`; control routes
+  are served only on a Unix socket in a `0700` directory.
+- **SR-4** In deployments with Oathkeeper and `login-relay`, nginx
+  checks the session (`auth_request`) for every path except `/ping`,
+  so no workspace tool is reachable by bypassing Oathkeeper. Other
+  deployments keep today's exposure until roadmap G8.
+- **SR-5** Every `/config` request and `/_auth` check is verified
+  through Keycloak `userinfo`, `azp == DTAAS_LOGIN_CLIENT_ID` and
+  `preferred_username == MAIN_USER`; `X-User-*` headers are ignored;
+  failure to verify denies.
+- **SR-6** Every state-changing request needs an `X-CSRF-Token` (HMAC
+  of the session username) and `Origin == PUBLIC_BASE_URL`; GET changes
+  nothing except callbacks.
+- **SR-7** OAuth `state` and PKCE verifier are server-side, single
+  use, bound to the session username, valid 10 minutes.
+- **SR-8** The page sends CSP `default-src 'self'; script-src 'self';
+  frame-ancestors 'none'`, `nosniff`, `Referrer-Policy: no-referrer`,
+  `Cache-Control: no-store`.
+- **SR-9** The S3 role allows only the actions in
+  [design 4](../design/storage/04-threat-model.md#storage-side-hardening)
+  under the user's prefix and denies version deletion and bucket
+  configuration changes.
+- **SR-10** SeaweedFS 4.40 or later (CVE-2026-77298). Off-host
+  endpoints use HTTPS.
+- **SR-11** Workspaces run with `cap_drop: [NET_RAW]`, or all
+  internal hops use TLS.
+- **SR-12** SeaweedFS, Keycloak and GitLab admin credentials never
+  reach a workspace.
 
 ## Non-functional requirements
 
-- **NFR-1** A sync never blocks the HTTP API; a stopping service ends
-  it within the existing 8-second shutdown limit.
-- **NFR-2** Every network call and `rclone` run has a time limit.
-- **NFR-3** No new Python runtime dependency: OAuth and STS calls use
-  the standard library. One pinned binary, `rclone`, is added.
-- **NFR-4** Functions under 25 lines, new files under 250 lines,
-  pylint at least 9.0.
-- **NFR-5** Workspace-admin test coverage does not drop.
-
-## Storage and durability
-
-SeaweedFS keeps everything under its data directory (`/data`): file
-contents in volume files (`<id>.dat`, `<id>.idx`), names, metadata
-and version lists in the filer's LevelDB store, and cluster metadata
-from the master. Mounting one persistent volume at `/data` is enough
-to survive restarts.
-
-A single SeaweedFS has no replication. On the same disk as
-`./files/`, it protects against deletion, overwrite and mistakes, not
-against losing the disk or host. The operator documentation must say
-so and recommend a separate disk, another host, or a cloud store.
+- **NFR-1** Sync never blocks HTTP; shutdown within 8 seconds.
+- **NFR-2** Every network call and subprocess has a time limit.
+- **NFR-3** No new Python runtime dependency; one pinned `rclone`.
+- **NFR-4** New files under 250 lines, functions under 25, pylint
+  9.0+; files already over 250 lines do not grow.
+- **NFR-5** Workspace-admin coverage does not drop.
 
 ## Acceptance criteria
 
-1. After one `workspace-admin login`, a file created in
-   `assets/private` appears under `<bucket>/<user>/private/` within
-   one sync interval.
-2. Deleting it locally removes it from the current listing; it can be
-   restored from its previous version.
-3. Logging in as another user in the workspace is refused.
-4. User A's temporary credentials get `AccessDenied` on user B's
-   prefix.
-5. After the offline session is revoked in Keycloak, the next round
-   reports `login_expired`.
-6. Searching logs, status responses and the bucket for any token or
-   key finds nothing.
-7. With S3 not configured, every existing test passes and
-   `/storage/status` returns the same JSON as before.
-8. From the host the S3 port is unreachable; from a workspace it is.
-9. A back-up, delete and restore round-trip passes against a real
-   SeaweedFS in an integration test.
-
-## Decisions
-
-| Question | Decision and reason |
-| :--- | :--- |
-| Sync tool | `rclone` binary: sync, excludes and version restore built in; no Python dependency |
-| Credentials | Keycloak device flow, offline token, STS temporary credentials; static keys only as a fallback mode |
-| Bucket layout | One bucket, one prefix per user: cloud providers limit and bill buckets, and prefixes scope as well |
-| One backend per asset | Git pulls remote changes into the folder while S3 mirrors it one way; together, every pull becomes a new S3 version, an S3 restore can be overwritten by the next pull, and status reports two answers for one folder |
-| Provisioning location | DTaaS repository: the user list, compose files, network and Keycloak live there; the workspace image knows none of them |
-| Status JSON | S3 assets reported beside `repositories`; existing keys unchanged |
-| Restore | Documented runbook; no command yet |
-
-## Open questions
-
-1. Should `common/` be writable by every user, as the shared git
-   repository is today, or read-only with one writer?
-2. Is 30 days the right noncurrent-version retention for course
-   deployments, given host disk?
-3. Which Keycloak offline-session idle and maximum lifespan should
-   DTaaS set? They decide how often a long-stopped workspace needs a
-   new login.
-4. Does every DTaaS deployment use the same name for `MAIN_USER` and
-   the Keycloak username? FR-9 relies on it.
+1. A file in an S3 asset appears under `<bucket>/<user>/<name>/`
+   within one round after a single Keycloak connect.
+2. A locally deleted file can be restored from its previous version.
+3. Logging in as another user is refused, stores nothing, and names
+   both users.
+4. User A's credentials get `AccessDenied` under user B's prefix and
+   on `DeleteObjectVersion`.
+5. A revoked offline session yields `login_expired` next round.
+6. A git asset with `GIT_AUTH = "gitlab"` pushes without a pasted
+   token, and no token appears in `ps` output.
+7. From another workspace, requests to `user1:8080` for Jupyter,
+   VS Code, `/config` or `/_auth`, and to `user1:8091`, are denied.
+8. A POST without CSRF token or with a foreign `Origin` is denied.
+9. Logs, status, page responses and the bucket contain no secret.
+10. Today's configurations and tests pass unchanged, and
+    `/storage/status` is byte-identical for them.
+11. The S3 port is unreachable from the host and reachable from a
+    workspace; workspaces lack `NET_RAW`.
+12. A back-up, delete, restore round-trip passes against real
+    Keycloak and SeaweedFS.

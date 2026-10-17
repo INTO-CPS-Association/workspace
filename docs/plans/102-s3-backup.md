@@ -1,231 +1,205 @@
-# Plan: S3 object storage backup for workspace files
+# Workspace storage backup Implementation Plan
 
-Implements [the spec](../specs/102-s3-backup.md). Tasks are in
-[the task list](../tasks/102-s3-backup.md).
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task-by-task.
+> Tasks are in [tasks](../tasks/102-s3-backup.md) and use checkbox
+> (`- [ ]`) syntax for tracking.
 
-## Current state
+**Goal:** Back up workspace assets to git or S3, with Keycloak and
+GitLab connections managed from a page, a CLI or `config.toml`.
 
-`workspace-admin` runs inside every workspace container, one process
-per user. Its git backup lives in `workspaces/src/admin/src/admin/git/`:
+**Architecture:** workspace-admin gains a backend-neutral scheduler
+(`admin/backup`), an S3 backend that drives `rclone`, a login core
+that owns connections, credentials and session checks, an asset
+configuration package with a safe writer, a composition root that
+builds backends, and two clients (a static page behind nginx and a CLI
+on a Unix socket). Groups G0 to G8 of the
+[roadmap](../FEATURE_ROADMAP.md) are built in dependency order; each
+lands as its own pull requests.
 
-| Module | Role | Coupling to git |
+**Tech Stack:** Python 3.12, FastAPI, uvicorn, standard-library
+`urllib`/`xml.etree`/`fcntl`/`hmac`, `rclone`, SeaweedFS 4.40+,
+Keycloak, GitLab, nginx, Docker Compose.
+
+**Spec:** [specs/102-s3-backup.md](../specs/102-s3-backup.md), with
+the design in [design/storage](../design/storage/README.md).
+
+## Global Constraints
+
+- Python `^3.12`; no new runtime dependency in `pyproject.toml`.
+- `rclone` pinned by version and SHA-256 in the Dockerfile.
+- SeaweedFS image `>= 4.40`.
+- Asset names `^[a-z0-9]{1,63}$`, defined once in `admin/assets`.
+- Files holding secrets or config: mode `0600`, written by temp file,
+  `fsync`, rename.
+- Admin TCP listener `127.0.0.1:${ADMIN_SERVER_PORT}`; control socket
+  in `/tmp/workspace-admin-<uid>/` with mode `0700`.
+- OAuth: PKCE S256 only; `state` single use, 10 minutes.
+- STS session `S3_SESSION_SECONDS`, default `3600`; `S3_MAX_DELETE`
+  default `1000`; noncurrent versions expire after `30` days.
+- Shutdown within `8` seconds.
+- New files under 250 lines; functions under 25 lines; files already
+  over 250 lines (`git/sync.py`, `git/config.py`, `git/bootstrap.py`)
+  do not grow; pylint `--fail-under=9.0`; coverage not below the G1
+  baseline.
+- Every pull request updates the docs it makes stale:
+  `workspaces/src/admin/README.md`, `DOCUMENTATION.md`, the repository
+  `CLAUDE.md` layout section, and `docs/CHANGELOG.md`.
+- Test command, from `workspaces/src/admin`:
+
+  ```bash
+  poetry run pylint src/admin tests --rcfile=../../../.pylintrc --fail-under=9.0
+  poetry run pytest --cov=admin
+  ```
+
+## Review Focus
+
+1. **Hand edit during a page save.** Expect `config_changed` and no
+   write. Test: `test_writer_refuses_changed_file` (G1).
+2. **Crash between receiving and saving a rotated refresh token.**
+   Expect the old file intact and `login_expired` at worst, never a
+   half-written file. Test: `test_store_save_is_atomic` (G2).
+3. **Unmounted or emptied asset folder.** Expect no `rclone` call and
+   `s3_empty_source`. Test: `test_sync_refuses_empty_tree` (G2).
+4. **Keycloak or STS down while git assets exist.** Expect git assets
+   to sync and S3 assets to report `s3_unreachable` or
+   `login_unreachable`. Test: `test_round_isolates_connection_failure`
+   (G3).
+5. **STS session expiring during a long upload.** Expect
+   `s3_auth_failed`, then a resumed upload next round. Test:
+   `test_expired_session_is_retried_next_round` (G3).
+
+## File structure
+
+All paths below `workspaces/src/admin/src/admin/` unless noted.
+
+| Group | Create | Modify |
 | :--- | :--- | :--- |
-| `bootstrap.py` | Loads config, clones, starts the scheduler | Calls git clone directly |
-| `scheduler.py` | Runs `sync_once(repo)` per interval | Takes `RepoConfig`, imports `sync_once` |
-| `status.py` | Thread-safe outcome per repository | Imports `SyncErrorKind` from `git.sync` |
-| `sync.py` | Commit, pull, push (920 lines) | Git only |
-| `config.py` | Parses `[assets.*]` into `RepoConfig` | Requires `GIT_*` keys |
-| `runner.py` | Runs one git command with a time limit | Git environment only |
+| G1 | `backup/{__init__,base,errors,status,scheduler}.py`, `git/backend.py`, `assets/{__init__,model,loader,writer}.py`, `wiring.py` | `main.py`, `api.py`, `git/{config,status,scheduler,bootstrap,sync}.py` (imports move to `backup`), `workspaces/src/startup/custom_startup.sh`, `workspaces/test/dtaas/compose*.yml` (`cap_drop`) |
+| G2 | `s3/{__init__,settings,runner,errors,backend}.py`, `login/{__init__,types,store}.py` | `wiring.py`, `workspaces/Dockerfile.ubuntu.noble.xfce`, `workspaces/test/dtaas/compose*.yml` |
+| G3 | `login/{http,providers,pkce,pending,flow,owner,credentials,session,sts,errors}.py`, `web/{__init__,callbacks,auth,control}.py`, `server.py` | `main.py`, `backup/status.py`, `workspaces/src/startup/nginx.conf` |
+| G4 | `cli/{__init__,client,commands}.py` | `main.py` |
+| G5 | — | `login/providers.py`, `login/owner.py`, `git/{auth,backend}.py`, `assets/loader.py` |
+| G6 | `web/{config_routes,csrf,headers}.py`, `web/static/{index.html,app.js}` | `server.py`, `workspaces/src/startup/nginx.conf` |
+| G7 | DTaaS: `<target deployment>/storage/{provision.sh,s3.json.tmpl,iam.json.tmpl}` (target decided in T702) | DTaaS: the target deployment's `docker-compose.yml`, docs, `mkdocs.yml`, `mkdocs-github.yml` |
 
-`main.py` calls `start_git_backup`; `api.py` serves
-`SyncStatus.snapshot()` at `/storage/status`. `sync.py` already
-exceeds the 250-line limit; that is out of scope and not grown here.
+Tests mirror modules under `tests/unit/`; fakes go to
+`tests/helpers/{fake_rclone,fake_idp,fake_sts}.py`; container tests to
+`tests/integration/`.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    subgraph ws[Workspace container, one per user]
-        login[workspace-admin login] -- device flow --> kc
-        login -- writes --> tok[(token.json 0600)]
-        sched[backup/scheduler.py] --> s3b[s3 backend]
-        sched --> gitb[git backend]
-        s3b --> auth[s3/auth.py]
-        auth -- reads, rotates --> tok
-        s3b --> rclone[[rclone]]
-        api[/storage/status/] --> status[backup/status.py]
-        sched --> status
-    end
-    auth -- refresh token --> kc[Keycloak]
-    auth -- AssumeRoleWithWebIdentity --> sts
-    rclone -- temporary credentials --> sw
-    subgraph store[S3 store]
-        sts[STS endpoint]
-        sw[(bucket/user/asset)]
-    end
-    sw -. JWKS .-> kc
-```
-
-### Backend interface
-
-A new package `admin/backup/` holds what is not git- or S3-specific:
+## Interfaces between groups
 
 ```python
+# backup/errors.py (G1). SyncErrorKind moves here and is renamed; no copy.
+class BackupErrorKind(StrEnum): ...    # today's values + kinds of design 3
+class BackupError(Exception):
+    kind: BackupErrorKind
+class BackupStopped(Exception): ...
+
+# backup/base.py (G1)
+BackendKind = Literal["git", "s3"]
 class Backend(Protocol):
-    name: str                                   # asset name
-    def prepare(self, stop_event) -> None: ...  # clone, or check bucket
-    def sync(self, stop_event) -> None: ...     # one backup round
+    name: str
+    kind: BackendKind
+    def prepare(self, stop_event: threading.Event) -> None: ...
+    def sync(self, stop_event: threading.Event) -> None: ...   # raises BackupError
+
+# backup/status.py (G1, G3)
+class BackupStatus:
+    def set_assets(self, kinds: dict[str, BackendKind]) -> None: ...
+    def record_success(self, name: str) -> None: ...
+    def record_failure(self, name: str, kind: BackupErrorKind) -> None: ...
+    def set_connection(self, provider: ProviderName, state: ConnectionState) -> None: ...
+    def snapshot(self) -> dict[str, Any]: ...
+
+# backup/scheduler.py (G1)
+class Scheduler:
+    def request_reload(self) -> None: ...
+def start_scheduler(build: Callable[[], list[Backend]], interval: int,
+                    stop_event: threading.Event, status: BackupStatus) -> Scheduler: ...
+
+# assets/model.py, assets/writer.py (G1)
+@dataclass(frozen=True)
+class GitSettings:
+    url: str
+    branch: str
+    auth: Literal["token", "gitlab"] = "token"
+    token: str | None = field(default=None, repr=False)
+@dataclass(frozen=True)
+class AssetConfig:
+    name: str
+    backend: BackendKind
+    git: GitSettings | None = None
+@dataclass(frozen=True)
+class ConfigSnapshot:
+    path: Path
+    assets: tuple[AssetConfig, ...]
+    interval: int
+    digest: str                                   # SHA-256 of the file read
+def read_snapshot(path: Path) -> ConfigSnapshot: ...
+def add_asset(snapshot: ConfigSnapshot, asset: AssetConfig) -> ConfigSnapshot: ...
+def remove_asset(snapshot: ConfigSnapshot, name: str) -> ConfigSnapshot: ...
+class ConfigChanged(Exception): ...
+
+# wiring.py (G1, G2)
+def build_backends(snapshot: ConfigSnapshot, status: BackupStatus) -> list[Backend]: ...
+
+# login/types.py, login/store.py (G2)
+ProviderName = Literal["keycloak", "gitlab", "s3keys"]
+ConnectionState = Literal["connected", "not_connected", "expired"]
+@dataclass(frozen=True)
+class Connection:
+    provider: ProviderName
+    subject: str
+    obtained_at: datetime
+    secret: dict[str, str] = field(repr=False)    # refresh_token, or key pair
+def load(provider: ProviderName) -> Connection | None: ...
+def save(connection: Connection) -> None: ...
+def delete(provider: ProviderName) -> None: ...
+def locked(provider: ProviderName) -> ContextManager[None]: ...
+
+# login/sts.py, login/credentials.py (G3, G5); no caching across rounds
+@dataclass(frozen=True)
+class S3Credentials:
+    access_key: str
+    secret_key: str = field(repr=False)
+    session_token: str | None = field(default=None, repr=False)
+def s3_credentials() -> S3Credentials: ...          # raises LoginError
+def gitlab_access_token() -> str: ...               # G5; raises LoginError
+
+# login/flow.py, login/session.py (G3)
+def start(provider: ProviderName, username: str, poll_id: str | None = None) -> str: ...
+def complete(provider: ProviderName, code: str, state: str, username: str) -> Connection: ...
+def verify(access_token: str) -> str: ...           # username; raises SessionError
 ```
 
-- `backup/errors.py`: `BackupErrorKind` (today's `SyncErrorKind`
-  values plus the new kinds), `BackupError`, `BackupStopped`.
-  `git/sync.py` re-exports the old names.
-- `backup/status.py`: today's `SyncStatus`, grouped by backend type.
-- `backup/scheduler.py`: today's loop over `list[Backend]`.
-- `backup/bootstrap.py`: builds one backend per asset, calls
-  `prepare`, starts the scheduler.
-- `git/backend.py`: `GitBackend` wraps `clone_asset` and `sync_once`.
+The scheduler calls `s3_credentials()` and `gitlab_access_token()` at
+most once per round and passes the result to the backends of that
+round.
 
-### Configuration
+## Testing strategy
 
-Deployment-wide settings come from the environment, set once in
-compose for every workspace:
-
-| Variable | Example (SeaweedFS) | Example (AWS) |
+| Level | Scope | Tooling |
 | :--- | :--- | :--- |
-| `BACKUP_BACKEND_DEFAULT` | `s3` | `s3` |
-| `S3_ENDPOINT` | `http://seaweedfs:8333` | `https://s3.eu-north-1.amazonaws.com` |
-| `S3_REGION` | `us-east-1` | `eu-north-1` |
-| `S3_BUCKET` | `dtaas-backup` | `dtaas-backup` |
-| `S3_PROVIDER` (rclone) | `SeaweedFS` | `AWS` |
-| `S3_AUTH` | `oidc` | `oidc` |
-| `S3_STS_ENDPOINT` | `http://seaweedfs:8333` | `https://sts.eu-north-1.amazonaws.com` |
-| `S3_ROLE_ARN` | `arn:seaweed:iam::role/WorkspaceBackup` | the IAM role ARN |
-| `OIDC_ISSUER` | `https://<server>/auth/realms/dtaas` | same |
-| `OIDC_CLIENT_ID` | `workspace-backup` | same |
+| Unit | Every module | pytest; fakes on `PATH` or `http.server` |
+| Contract | `/storage/status` byte-identity for today's configs | Snapshot test, written in G1 before the refactor |
+| Integration | S3 round trip, versions, restore, deletion brake | SeaweedFS container (G2) |
+| Integration | Keycloak connect, STS, isolation, revoke, audience | Keycloak and SeaweedFS containers; password grant in tests only (G3) |
+| Integration | GitLab connection | GitLab container, or skipped without one (G5) |
+| Browser | Page flows, CSRF, headers, expired session | Playwright against the test compose (G6) |
+| Compose | Network exposure, front door, `NET_RAW` | `test-compositions.yml` (G1, G2, G3, G7) |
 
-A `config.toml` section may override per asset, for example
-`BACKUP_BACKEND = "git"` to keep one asset on git. In `keys` mode the
-section carries `S3_ACCESS_KEY` and `S3_SECRET_KEY`, marked
-`repr=False` like `RepoConfig.token`. The object prefix is derived,
-never configured: `<MAIN_USER>/<asset>/`, or `common/`.
-
-### S3 backend (`admin/s3/`)
-
-| Module | Role |
-| :--- | :--- |
-| `config.py` | Merge environment and section; validate |
-| `oidc.py` | Device flow, refresh, revoke; Keycloak endpoints from the issuer's discovery document |
-| `token_store.py` | Read and atomically replace `token.json` (`0600`, write then rename) |
-| `sts.py` | `AssumeRoleWithWebIdentity` over HTTPS, parse the XML reply |
-| `auth.py` | One call per round: stored token to temporary credentials, or static keys |
-| `runner.py` | Run `rclone` with a time limit and stop event |
-| `errors.py` | Map HTTP, STS and `rclone` failures to kinds; redact secrets |
-| `backend.py` | `S3Backend.prepare` and `S3Backend.sync` |
-
-All HTTP uses `urllib.request` with timeouts, so no dependency is
-added. Credentials reach `rclone` only as environment variables
-(`RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID`, `..._SECRET_ACCESS_KEY`,
-`..._SESSION_TOKEN`, `..._ENDPOINT`, `..._PROVIDER`); no
-`rclone.conf` is written.
-
-**prepare** checks the bucket exists and versioning is `Enabled`.
-**sync** first refuses an empty or missing work tree, then runs
-`rclone sync <work_tree> backup:<bucket>/<prefix>` with `--exclude`
-for both admin directories, `--fast-list`, `--max-delete` and
-connection and I/O timeouts.
-
-### Login
-
-`workspace-admin login` and `logout` become subcommands next to
-today's flags, so `workspace-admin` with no subcommand still serves.
-
-1. Fetch the issuer's discovery document; POST to the device
-   authorization endpoint with `client_id` and
-   `scope=openid offline_access`.
-2. Print the verification link and user code; open the link with
-   `xdg-open` in the workspace desktop.
-3. Poll the token endpoint at the returned interval until approved,
-   denied or expired.
-4. Decode the access token's claims (no signature check is needed
-   for this local comparison; SeaweedFS verifies the signature) and
-   refuse unless `preferred_username == MAIN_USER`.
-5. Store the refresh token via `token_store`.
-
-The service never calls the login code. It only reads the file, so
-no inter-process channel and no HTTP route is needed.
-
-### Keycloak client
-
-`workspace-backup`: public client, OAuth 2.0 device authorization
-grant on, standard flow off, `offline_access` allowed, an audience
-mapper for `workspace-backup`, and `preferred_username` in the access
-token. Refresh-token rotation is supported but not required.
-
-### SeaweedFS service and IAM
-
-A single `weed server -s3` container, version 4.40 or later:
-
-- `users` (`dtaas-users`) network only; no `ports:`; no labels.
-- One persistent volume at `/data` (contents, filer LevelDB, master
-  metadata). Docs recommend a disk other than `./files/`.
-- `-s3.config` holds the provisioning admin identity only.
-- `-s3.iam.config` holds the Keycloak provider (issuer as in tokens,
-  `jwksUri` on the internal Keycloak address), the role
-  `WorkspaceBackup` trusting that provider for
-  `AssumeRoleWithWebIdentity`, and its policy:
-  read, write and list on `<bucket>/${jwt:preferred_username}/*` and
-  `<bucket>/common/*`, list on the bucket limited by `s3:prefix`.
-
-On AWS the same policy is written with
-`${aws:PrincipalTag/username}`, fed from a Keycloak session-tag
-mapper; that is configuration, not admin code.
-
-### Provisioning (DTaaS)
-
-A one-shot compose service (profile `provision`) beside
-`deploy/dtaas/docker/secure-server/`, idempotent:
-
-1. Create the bucket, enable versioning, apply the lifecycle rule.
-2. Write the two SeaweedFS config files from templates.
-3. Create or update the Keycloak client through the admin REST API.
-
-It holds the SeaweedFS and Keycloak admin credentials; workspace
-containers receive neither. It touches no user's files.
-
-### Status
-
-`/storage/status` keeps its shape; when an S3 asset exists, a sibling
-`s3` key is added with the same per-asset fields. Without S3 assets
-the response is byte-identical to today's.
-
-### Restore
-
-A runbook in `DOCUMENTATION.md`. The operator obtains credentials
-for the user's prefix (an admin identity), then:
-
-```bash
-rclone copy --s3-version-at "2026-10-16 09:00" \
-  backup:dtaas-backup/user1/private ./restore/private
-```
-
-The integration test runs exactly these commands.
-
-## Testing
-
-| Level | What | How |
-| :--- | :--- | :--- |
-| Unit | Config merge, error mapping, runner, backend calls | Fake `rclone` on `PATH`, like `tests/helpers/fake_git.py` |
-| Unit | Device flow, refresh, rotation, owner check, STS parsing | A local `http.server` fake Keycloak and STS |
-| Unit | Refactor safety | Existing tests pass; only import paths change |
-| Unit | No secrets | Tokens and keys absent from caplog, status and the fake's argv |
-| Integration | Round-trip and isolation | Keycloak and SeaweedFS containers: login by password grant in test, sync, delete, restore, cross-user `AccessDenied`, revoke |
-| Compose | Network | Host cannot reach S3; workspace can |
-
-## Delivery: six pull requests
-
-The issue proposed five; login and STS are split from the S3 backend
-so each stays reviewable.
-
-| PR | Repository | Content | Depends on |
-| :--- | :--- | :--- | :--- |
-| 1 | workspace | SeaweedFS in `workspaces/test/dtaas` compose files | spike |
-| 2 | workspace | `admin/backup/` refactor, no behaviour change | none |
-| 3 | workspace | S3 backend in `keys` mode, `rclone` in the image | 2 |
-| 4 | workspace | `oidc` mode: login, token store, STS | 3 |
-| 5 | DTaaS | Provisioning: bucket, SeaweedFS IAM, Keycloak client | 1 |
-| 6 | DTaaS | secure-server integration, docs, runbook | 4, 5 |
-
-PRs 1 and 2 can be developed in parallel.
+Integration tests skip when Docker is absent.
 
 ## Risks
 
 | Risk | Mitigation |
 | :--- | :--- |
-| SeaweedFS OIDC, policy variables and lifecycle on versioned buckets are recent | Spike T001 verifies all three on the pinned release |
-| SeaweedFS rejects split issuer and JWKS addresses | Spike T003; fallback is resolving the public name to Traefik on `dtaas-users` |
-| `rclone sync` with an empty work tree deletes the backup | Refuse empty or missing trees; `--max-delete` |
-| Workspace stopped beyond the offline-session idle time | Status reports `login_expired`; user logs in again |
-| Refresh-token rotation interrupted mid-write | Write then rename; keep the old file until the new one is complete |
-| Single SeaweedFS on the same disk as the files | Documented; recommend separate disk, host or cloud |
-| Refactor breaks the git backup | PR 2 changes no behaviour; counts compared against `main` |
+| SeaweedFS OIDC, policy variables, audience checks or lifecycle on versioned buckets differ from the wiki | G0 spike before G2; if lifecycle is not enforced, the provisioning job runs a scheduled cleanup that deletes only noncurrent versions older than N days (`ListObjectVersions` + `DeleteObjectVersion` with the admin identity), never current objects |
+| GitLab release lacks PKCE for public applications, or the ID token on refresh | G0 spike; fallback `GITLAB_OWNER_CHECK = "confirm"` |
+| nginx `auth_request` adds latency to every request, or blocks workspaces when Keycloak is down | 30-second cache; Oathkeeper already depends on Keycloak |
+| Users added without re-running provisioning get a redirect-URI error | Operator docs; provisioning reads the same user list as compose |
+| Two `uvicorn` servers in one loop misbehave on shutdown | G3 test for the 8-second shutdown with both |
+| Live reload races a running round | Reload only between rounds; G1 test |
+| Comments lost when the writer rewrites a hand-edited file | Warning before the first save; documented trade-off |
