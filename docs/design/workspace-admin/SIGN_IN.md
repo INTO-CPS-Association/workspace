@@ -46,7 +46,7 @@ sequenceDiagram
     A->>P: POST token (code, code_verifier, redirect_uri = bounce address)
     P-->>A: access token and refresh token
     A->>A: owner check, save tokens/gitlab.json (0600)
-    A-->>B: 302 to /user1/config#connected
+    A-->>B: 302 to /user1/config#35;connected
 ```
 
 The token request in step 10:
