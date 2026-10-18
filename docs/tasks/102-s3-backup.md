@@ -9,7 +9,7 @@ test-first detail for a feature is written just before it starts.
 
 ## Spike
 
-- [ ] **S1 SeaweedFS.** Pin the latest stable release `>= 4.40`.
+- [x] **S1 SeaweedFS.** Pin the latest stable release `>= 4.40`.
   Confirm: versioning and `rclone copy --s3-version-at` restore;
   `NoncurrentVersionExpiration` on a versioned bucket;
   `AssumeRoleWithWebIdentity` with an ES256 JWT from an external
@@ -17,7 +17,7 @@ test-first detail for a feature is written just before it starts.
   `${jwt:preferred_username}` prefix policy with `s3:prefix` denies
   another prefix; the denies and `GetBucketVersioning` allow of the
   threat model; `--s3-no-check-bucket`; role ARN format.
-- [ ] **S2 rclone.** Pin the latest stable release with
+- [x] **S2 rclone.** Pin the latest stable release with
   `--s3-version-at`, the `SeaweedFS` provider, session tokens,
   `--skip-links`, `--s3-no-check-bucket`; record the SHA-256.
 - [ ] **S3 GitLab.** On the latest stable GitLab: non-confidential
@@ -62,13 +62,18 @@ test-first detail for a feature is written just before it starts.
 
 - [ ] **T201 SeaweedFS in test compose**: `users` network only, no
   ports or labels, `/data` volume, config mounts, healthcheck;
-  host refuses, `user1` reaches. (PR 3.)
+  host refuses, `user1` reaches. (PR 3.) Spike S1 added the
+  `seaweedfs` and `seaweedfs-lifecycle` services to
+  `compose.traefik.secure.yml` and `compose.traefik.secure.tls.yml`;
+  still to do: the `ci/` variants and a compose test.
 - [ ] **T202 S3 settings.** Tests: `test_prefix_is_derived`,
   `test_missing_endpoint_reports_not_configured`.
 - [ ] **T203 Token store** `shared.py` and `login/store.py`. Tests:
   `test_store_save_is_atomic`, `test_connection_repr_hides_secret`.
 - [ ] **T204 rclone runner and errors.** Tests:
   `test_credentials_never_in_argv`, `test_timeout_kills_group`.
+  `--delete-before`; exit 7 with `--max-delete threshold reached` is
+  `s3_delete_limit` (S2).
 - [ ] **T205 S3 backend.** Tests: `test_sync_refuses_empty_tree`,
   `test_excludes_on_every_call`, `test_versioning_off_refused`,
   `test_delete_limit_reported`.
@@ -194,8 +199,8 @@ the workspace image includes F5.
 ## F10 Storage in DTaaS deployments (PR 12)
 
 - [ ] **T1001 Provisioning job.** Bucket, versioning, lifecycle
-  (`NONCURRENT_VERSION_DAYS`, default 365), `s3.json`, `iam.json`
-  trusting login-relay; Keycloak `workspace-backup` client (bounce
+  (`NONCURRENT_VERSION_DAYS`, default 365), `iam.json` trusting
+  login-relay; Keycloak `workspace-backup` client (bounce
   redirect URI). *Check*: second run changes
   nothing; adding a user needs no change.
 - [ ] **T1002 Integration.** SeaweedFS on `dtaas-users`; storage
@@ -209,4 +214,111 @@ the workspace image includes F5.
 
 ## Spike findings
 
-To be filled in by S1 to S4.
+S3 and S4 are still open. S1 and S2 ran on 2026-10-18 against the
+SeaweedFS service of `workspaces/test/dtaas/compose.traefik.secure.yml`,
+with `seaweedfs/spike/` standing in for login-relay (an ES256 key with
+`kid`, JWKS at `http://login-relay:8080/.well-known/jwks.json`). 64 of
+64 checks passed, plus 4 after a restart, the lifecycle probe through
+the `seaweedfs-lifecycle` service, and 7 rclone checks for S2.
+
+### S1 SeaweedFS
+
+**Pin:** `chrislusf/seaweedfs:4.48`
+(`sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d`),
+latest stable on 2026-10-18; release archive `linux_amd64.tar.gz`
+SHA-256 `4a7d108384d044d95212d1342cdda9533fa55842c1c9b41f606ca3c8a9561124`.
+
+Confirmed as designed:
+
+- Versioning: an overwrite keeps the old version; a delete adds a
+  marker and keeps every version. `rclone copy --s3-version-at` with the
+  operator's keys restores a prefix exactly as it was.
+- `AssumeRoleWithWebIdentity` accepts an ES256 pass from an external
+  issuer (`iss`, `aud`, JWKS URL). It refuses a wrong `aud` or `iss`, an
+  expired pass, a key not in the JWKS, a tampered signature, `alg:
+  none` and HS256.
+- The `${jwt:preferred_username}` policy: `user1` reads, writes, deletes
+  and lists `user1/` only. It is refused `user2/`, the look-alike
+  `user10/`, the prefix `user1` without slash, and a listing without
+  prefix. A key with `..` is refused (`InvalidRequest`).
+- The denies hold: `DeleteObjectVersion`, `PutBucketVersioning`,
+  `PutLifecycleConfiguration`, `DeleteBucketLifecycle`,
+  `PutBucketPolicy`, `CreateBucket`, `DeleteBucket` and
+  `ListObjectVersions` are refused. `GetBucketVersioning` is allowed.
+  `ListBuckets` is allowed but returns no buckets.
+- Objects, versioning, lifecycle and an STS session issued before a
+  restart all survive it.
+- The service is internal: the host gets no answer on 8333, and a
+  container on `dtaas-users` reaches it.
+
+Differs from the design (docs updated):
+
+1. **Role ARN.** `arn:seaweed:iam::role/WorkspaceBackup` is refused.
+   Use `arn:aws:iam::role/WorkspaceBackup`, the `roleArn` in
+   `iam.json`; `arn:aws:iam::<account>:role/WorkspaceBackup` and
+   `arn:aws:iam:::role/WorkspaceBackup` also work. The response carries
+   no `AssumedRoleUser`.
+2. **No `s3.json`.** The operator identity comes from
+   `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in the container's
+   environment. The admin keys are therefore not in a file.
+3. **STS needs `jwt.filer_signing.key`.** Without it, or a `signingKey`
+   in `iam.json`, STS does not start ("no signing key found"), and the
+   filer's IAM gRPC service accepts unauthenticated calls. The compose
+   sets `WEED_JWT_FILER_SIGNING_KEY` from `S3_SIGNING_KEY`. The
+   healthcheck (`/healthz`) stays green when IAM fails to load, so the
+   provisioning test must call STS.
+4. **Session length is the caller's choice.** With
+   `maxSessionLength` 12h, a stolen 5-minute pass bought keys for 12
+   hours. `iam.json` sets `1h`: `DurationSeconds` above 3600 is refused.
+5. **Lifecycle needs a scheduler.** `weed server` stores the
+   `NoncurrentVersionExpiration` rule but never applies it, and `weed
+   mini`'s worker has no lifecycle capability. The compose adds
+   `seaweedfs-lifecycle`, which runs `s3.lifecycle.run-shard -shards
+   0-15` daily. A probe that ages two versions, as SeaweedFS's own
+   `TestLifecycleNoncurrentVersionExpiration` does, saw the old version
+   expire and the current one stay. Aged entries are honoured only by
+   the walk of a first pass (no cursor yet); later passes replay the
+   filer's meta-log from the moment of demotion, which stock SeaweedFS
+   keeps forever, so `/data` grows with it. A 365-day expiry in steady
+   state cannot be shown in a spike.
+6. **Multipart.** rclone uploads large files in parts; the policy also
+   allows `s3:AbortMultipartUpload` and `s3:ListMultipartUploadParts`
+   on the user's prefix.
+7. **`azp` counts as audience.** A pass with another `aud` but `azp`
+   `workspace-backup` is accepted. Only login-relay's keys are trusted,
+   and it always sets `aud`, so this is noted, not a risk.
+8. **JWKS cache.** A pass with an unknown `kid` makes SeaweedFS fetch
+   the JWKS again, so a new key signs as soon as it is published. A
+   removed key stays trusted until `jwksCacheTTLSeconds` (3600 in
+   `iam.json`); a leaked key is cut off at once only by restarting
+   SeaweedFS.
+9. **`--s3-no-check-bucket`** is not needed by 4.48: rclone without it
+   also syncs under the role. Keep it; other S3 servers differ.
+
+### S2 rclone
+
+**Pin:** rclone v1.75.2, latest stable on 2026-10-18; release
+`rclone-v1.75.2-linux-amd64.zip` SHA-256
+`349ac8fba6ff65d6247043f1750cdcb518ec5d500ef91463a10d37c0ccdf3702`
+(matches the release's `SHA256SUMS`; the extracted binary is
+`ed7ab1f17876bb006c3df3949a3044959671afd9112362dacaa5dd1647735bc1`).
+The `rclone/rclone:1.75.2` image holds a different build; install from
+the zip.
+
+- Present: `--s3-version-at`, `--s3-no-check-bucket`,
+  `--s3-session-token`, `--skip-links`, `--max-delete`, provider
+  `SeaweedFS`.
+- A remote defined only by `RCLONE_CONFIG_<NAME>_*` variables, session
+  token included, syncs with STS keys; no key reaches the command line.
+- `--skip-links` leaves symbolic links out silently, even with `-v`.
+- **The deletion brake deletes first.** With `--max-delete N`, rclone
+  deletes N objects, then stops with exit code 7 and `--max-delete
+  threshold reached` in stderr. Under the default `--delete-after`
+  the round's uploads are already done by then. The S3 backend must
+  pass `--delete-before` so the brake trips before any upload, and
+  should map exit 7 with that message to `s3_delete_limit`. The N
+  deletions are noncurrent versions, so they can be restored.
+- `rclone sync` from an empty folder plans to delete everything, so the
+  admin's `s3_empty_source` refusal is required.
+- A user's STS keys cannot `--s3-version-at` (`ListObjectVersions` is
+  denied); restore stays with the operator, as designed.

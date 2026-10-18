@@ -164,11 +164,12 @@ environment:
   - S3_BUCKET=dtaas-backup
   - S3_PROVIDER=SeaweedFS
   - S3_STS_ENDPOINT=http://seaweedfs:8333
-  - S3_ROLE_ARN=arn:seaweed:iam::role/WorkspaceBackup
+  - S3_ROLE_ARN=arn:aws:iam::role/WorkspaceBackup
 cap_drop: [NET_RAW]
 ```
 
-SeaweedFS `iam.json` (shape; exact keys pinned by the spike):
+SeaweedFS `iam.json` (shape; the full file, checked by spike S1, is
+`workspaces/test/dtaas/seaweedfs/iam.json`):
 
 ```json
 {"providers": [{"name": "login-relay", "type": "oidc",

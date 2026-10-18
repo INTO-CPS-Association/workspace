@@ -1,0 +1,123 @@
+{
+  "sts": {
+    "tokenDuration": "1h",
+    "maxSessionLength": "1h",
+    "issuer": "seaweedfs-sts"
+  },
+  "policy": {
+    "defaultEffect": "Deny"
+  },
+  "providers": [
+    {
+      "name": "login-relay",
+      "type": "oidc",
+      "enabled": true,
+      "config": {
+        "issuer": "http://login-relay:8080",
+        "clientId": "workspace-backup",
+        "jwksUri": "http://login-relay:8080/.well-known/jwks.json",
+        "jwksCacheTTLSeconds": 3600
+      }
+    }
+  ],
+  "roles": [
+    {
+      "roleName": "WorkspaceBackup",
+      "roleArn": "arn:aws:iam::role/WorkspaceBackup",
+      "trustPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Federated": "login-relay"
+            },
+            "Action": [
+              "sts:AssumeRoleWithWebIdentity"
+            ]
+          }
+        ]
+      },
+      "attachedPolicies": [
+        "WorkspaceBackupPrefix"
+      ],
+      "description": "Workspace backups: each user's own prefix in dtaas-backup"
+    }
+  ],
+  "policies": [
+    {
+      "name": "WorkspaceBackupPrefix",
+      "document": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "OwnObjects",
+            "Effect": "Allow",
+            "Action": [
+              "s3:GetObject",
+              "s3:PutObject",
+              "s3:DeleteObject",
+              "s3:AbortMultipartUpload",
+              "s3:ListMultipartUploadParts"
+            ],
+            "Resource": [
+              "arn:aws:s3:::dtaas-backup/${jwt:preferred_username}/*"
+            ]
+          },
+          {
+            "Sid": "ListOwnPrefix",
+            "Effect": "Allow",
+            "Action": [
+              "s3:ListBucket"
+            ],
+            "Resource": [
+              "arn:aws:s3:::dtaas-backup"
+            ],
+            "Condition": {
+              "StringLike": {
+                "s3:prefix": [
+                  "${jwt:preferred_username}/*"
+                ]
+              }
+            }
+          },
+          {
+            "Sid": "ReadVersioning",
+            "Effect": "Allow",
+            "Action": [
+              "s3:GetBucketVersioning"
+            ],
+            "Resource": [
+              "arn:aws:s3:::dtaas-backup"
+            ]
+          },
+          {
+            "Sid": "KeepHistory",
+            "Effect": "Deny",
+            "Action": [
+              "s3:DeleteObjectVersion",
+              "s3:PutBucketVersioning",
+              "s3:PutLifecycleConfiguration",
+              "s3:PutBucketPolicy",
+              "s3:CreateBucket"
+            ],
+            "Resource": [
+              "arn:aws:s3:::*",
+              "arn:aws:s3:::*/*"
+            ]
+          },
+          {
+            "Sid": "Session",
+            "Effect": "Allow",
+            "Action": [
+              "sts:ValidateSession"
+            ],
+            "Resource": [
+              "*"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

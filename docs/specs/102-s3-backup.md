@@ -147,10 +147,11 @@ and internal TLS (follow-ups).
 ### Provisioning (DTaaS)
 
 - **FR-23** One idempotent job creates the bucket with versioning and
-  lifecycle; writes SeaweedFS `s3.json` and `iam.json` trusting
-  login-relay; in the Keycloak deployment creates the
-  `workspace-backup` client. Registration of GitLab applications is
-  documented (or scripted for the integrated GitLab). No per-user
+  lifecycle; writes SeaweedFS `iam.json` trusting login-relay (the
+  operator keys and signing key are environment values); in the
+  Keycloak deployment creates the `workspace-backup` client.
+  Registration of GitLab applications is documented (or scripted for
+  the integrated GitLab). No per-user
   step, file or secret.
 
 ## Security requirements ([Threat model](../design/storage/THREAT_MODEL.md))

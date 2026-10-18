@@ -33,7 +33,8 @@ with its [requirements](../workspace-admin/REQUIREMENTS.md).
 | keycloak (Keycloak deployment) | as today | as today | `workspace-backup` client: public, PKCE, consent, `offline_access`, bounce redirect URI |
 | GitLab (GitLab deployments) | external or in the stack | as today | `dtaas-login` and `workspace-backup` applications |
 | `user<N>` workspaces | `users` | none | `cap_drop: [NET_RAW]`; S3, OIDC and GitLab variables; admin on `127.0.0.1`; nginx `auth_request` |
-| `seaweedfs` | `users` only | none | `weed server -s3`, `/data` volume, `s3.json`, `iam.json` |
+| `seaweedfs` | `users` only | none | `weed server -s3`, `/data` volume, `iam.json`; operator keys and signing key from the environment |
+| `seaweedfs-lifecycle` | `users` only | none | Daily `s3.lifecycle.run-shard`: expires noncurrent versions |
 | `storage-provision` | `users` | none | One-shot, profile `provision`: bucket, versioning, lifecycle (`NONCURRENT_VERSION_DAYS`, default 365), IAM files trusting login-relay, Keycloak client |
 
 Admin credentials for SeaweedFS, Keycloak and GitLab exist only in

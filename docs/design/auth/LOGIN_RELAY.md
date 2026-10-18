@@ -228,8 +228,12 @@ secret is required, and the `OIDC_*` overrides and CI stacks stay.
 **Signing key.** A JWK set of ES256 private keys with `kid` (such as
 `2026-10`); the first signs, all public halves are published. A
 one-shot service generates it in the test compose (F4) and at DTaaS
-setup (F9); without it, exchange answers 503. Rotation: add the new key
-second, wait past SeaweedFS's JWKS cache (S1), move it first.
+setup (F9); without it, exchange answers 503. Rotation: publish the
+new key and move it first at once; SeaweedFS fetches the JWKS again
+when it meets an unknown `kid` (S1). A removed key stays trusted until
+SeaweedFS's `jwksCacheTTLSeconds` (3600) runs out; to cut off a leaked
+key at once, restart SeaweedFS after removing it. Passes need a `kid`
+header and a `sub` claim.
 
 ## Implementation notes
 

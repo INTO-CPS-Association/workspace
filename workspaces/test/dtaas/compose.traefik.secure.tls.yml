@@ -223,6 +223,63 @@ services:
       keycloak:
         condition: service_healthy
 
+  # S3 storage for workspace backups. Internal only: no ports, no Traefik
+  # labels, reachable from the users network as http://seaweedfs:8333.
+  # Trusts storage passes signed by login-relay (seaweedfs/iam.json).
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    command:
+      - "server"
+      - "-s3"
+      - "-s3.iam.config=/etc/seaweedfs/iam.json"
+      - "-ip=seaweedfs"
+      - "-ip.bind=0.0.0.0"
+    environment:
+      # Operator identity (bucket, versioning, lifecycle, restore).
+      - AWS_ACCESS_KEY_ID=${S3_ADMIN_ACCESS_KEY?S3_ADMIN_ACCESS_KEY_not_set}
+      - AWS_SECRET_ACCESS_KEY=${S3_ADMIN_SECRET_KEY?S3_ADMIN_SECRET_KEY_not_set}
+      # jwt.filer_signing.key: signs STS sessions and guards the filer's
+      # IAM gRPC service. Without it STS does not start.
+      - WEED_JWT_FILER_SIGNING_KEY=${S3_SIGNING_KEY?S3_SIGNING_KEY_not_set}
+    volumes:
+      - seaweedfs-data:/data
+      - ./seaweedfs/iam.json:/etc/seaweedfs/iam.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - users
+
+  # weed server stores lifecycle rules but never applies them. This runs
+  # one lifecycle pass a day, which expires noncurrent versions after
+  # NONCURRENT_VERSION_DAYS.
+  seaweedfs-lifecycle:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    user: seaweed
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - |
+        while true; do
+          echo "s3.lifecycle.run-shard -shards 0-15 -s3 seaweedfs:18333 -events 0 -runtime 30m" \
+            | weed shell -master=seaweedfs:9333
+          sleep "$${LIFECYCLE_INTERVAL_SECONDS}"
+        done
+    environment:
+      - LIFECYCLE_INTERVAL_SECONDS=${S3_LIFECYCLE_INTERVAL_SECONDS:-86400}
+      - WEED_JWT_FILER_SIGNING_KEY=${S3_SIGNING_KEY?S3_SIGNING_KEY_not_set}
+    networks:
+      - users
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+
 networks:
   frontend:
     name: dtaas-frontend
@@ -230,4 +287,6 @@ networks:
     name: dtaas-users
 volumes:
   keycloak-data:
+    driver: local
+  seaweedfs-data:
     driver: local

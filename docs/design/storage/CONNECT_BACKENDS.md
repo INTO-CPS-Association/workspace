@@ -68,8 +68,9 @@ STS checks the pass's signature against login-relay's keys, its
 issuer, audience (`workspace-backup`) and expiry, and the role's trust
 policy. The role's policy limits the credentials to
 `<bucket>/${jwt:preferred_username}/*`. Credentials already handed to
-`rclone` stay valid until they expire (up to `S3_SESSION_SECONDS`);
-that is the revocation latency for a round in progress.
+`rclone` stay valid until they expire (up to `S3_SESSION_SECONDS`;
+SeaweedFS refuses sessions longer than one hour, so a stolen pass buys
+no more); that is the revocation latency for a round in progress.
 
 ### S3 with the `s3keys` connection
 
@@ -142,7 +143,7 @@ it. Existing git kinds are unchanged.
 | `s3_bucket_missing` | The bucket does not exist |
 | `s3_versioning_disabled` | Versioning is not `Enabled` |
 | `s3_empty_source` | The asset folder is missing or empty |
-| `s3_delete_limit` | The round would delete more than `S3_MAX_DELETE` objects |
+| `s3_delete_limit` | The round would delete more than `S3_MAX_DELETE` objects (`rclone` exit 7, `--max-delete threshold reached`) |
 | `s3_timeout` | `rclone` exceeded its time limit |
 | `s3_failed` | Any other `rclone` failure |
 
