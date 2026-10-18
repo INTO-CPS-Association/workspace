@@ -28,10 +28,11 @@ change versioning, lifecycle or bucket policy
 `spike/` holds the S1 and S2 checks (findings in
 [tasks](../../../../docs/tasks/102-s3-backup.md#spike-findings)). The
 spike container stands in for login-relay, so do not start the real
-login-relay alongside it. From `workspaces/test/dtaas`:
+login-relay alongside it. Its own project name keeps `down -v` away
+from any running `dtaas` stack. From `workspaces/test/dtaas`:
 
 ```bash
-compose="docker compose -f compose.traefik.secure.yml \
+compose="docker compose -p seaweedfs-spike -f compose.traefik.secure.yml \
   -f seaweedfs/spike/spike.overlay.yml --env-file config/.env"
 $compose up -d --wait seaweedfs
 $compose run --rm --use-aliases spike main           # S1, 64 checks

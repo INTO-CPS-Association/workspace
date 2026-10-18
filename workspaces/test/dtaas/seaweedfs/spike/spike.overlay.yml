@@ -5,10 +5,10 @@
 # with it.
 #
 # Usage, from workspaces/test/dtaas:
-#   docker compose -f compose.traefik.secure.yml \
+#   docker compose -p seaweedfs-spike -f compose.traefik.secure.yml \
 #     -f seaweedfs/spike/spike.overlay.yml \
 #     --env-file config/.env up -d seaweedfs
-#   docker compose -f compose.traefik.secure.yml \
+#   docker compose -p seaweedfs-spike -f compose.traefik.secure.yml \
 #     -f seaweedfs/spike/spike.overlay.yml \
 #     --env-file config/.env run --rm --use-aliases spike
 
