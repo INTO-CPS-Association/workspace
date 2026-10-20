@@ -1,0 +1,167 @@
+"""
+Unit tests for the command-line entry point.
+
+Covers :mod:`admin.main`: argument parsing, the CLI flags that exit
+without starting the HTTP server, and the order of the startup sequence.
+"""
+
+import json
+import sys
+
+import pytest
+
+from admin import main
+from admin.main import build_parser, cli
+
+
+def test_cli_list_services(monkeypatch, capsys):
+    """Test CLI --list-services flag."""
+    monkeypatch.setattr(sys, 'argv', ['workspace-admin', '--list-services'])
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli()
+
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert "desktop" in output
+    assert "vscode" in output
+
+
+def test_cli_version(monkeypatch):
+    """Test CLI --version flag."""
+    monkeypatch.setattr(sys, 'argv', ['workspace-admin', '--version'])
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli()
+
+    # argparse exits with 0 for --version
+    assert exc_info.value.code == 0
+
+
+def test_build_parser_defaults(monkeypatch):
+    """Test that the parser falls back to the documented defaults."""
+    monkeypatch.delenv("ADMIN_SERVER_PORT", raising=False)
+    monkeypatch.delenv("PATH_PREFIX", raising=False)
+
+    args = build_parser().parse_args([])
+
+    assert args.host == "0.0.0.0"
+    assert args.port == 8091
+    assert args.path_prefix == "dtaas-user"
+    assert args.reload is False
+    assert args.list_services is False
+    # No override: the interval comes from the config file.
+    assert args.sync_interval is None
+
+
+def test_build_parser_reads_environment(monkeypatch):
+    """Test that the parser defaults can be overridden by the environment."""
+    monkeypatch.setenv("ADMIN_SERVER_PORT", "9000")
+    monkeypatch.setenv("PATH_PREFIX", "user1")
+
+    args = build_parser().parse_args([])
+
+    assert args.port == 9000
+    assert args.path_prefix == "user1"
+
+
+def test_build_parser_arguments_override_environment(monkeypatch):
+    """Test that command-line arguments win over environment variables."""
+    monkeypatch.setenv("ADMIN_SERVER_PORT", "9000")
+
+    args = build_parser().parse_args(
+        ["--host", "127.0.0.1", "--port", "9100", "--path-prefix", "user2"]
+    )
+
+    assert args.host == "127.0.0.1"
+    assert args.port == 9100
+    assert args.path_prefix == "user2"
+
+
+def test_build_parser_accepts_a_custom_sync_interval():
+    """Test the git backup interval can be shortened, for demos and tests."""
+    args = build_parser().parse_args(["--sync-interval", "30"])
+
+    assert args.sync_interval == 30
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "abc", "86401"])
+def test_build_parser_rejects_an_unusable_sync_interval(value, capsys):
+    """Test an interval that would spin or not parse is refused up front."""
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["--sync-interval", value])
+
+    assert "--sync-interval" in capsys.readouterr().err
+
+
+def test_cli_starts_the_git_backup_in_the_background_then_serves(monkeypatch):
+    """Test startup hands the git backup off before serving, not after a clone."""
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["workspace-admin", "--sync-interval", "42"])
+    monkeypatch.setattr(
+        main, "_print_startup_banner", lambda *_args: calls.append(("banner",))
+    )
+    monkeypatch.setattr(
+        main,
+        "start_git_backup",
+        lambda status, interval, stop_event: calls.append(
+            ("backup", status, interval, stop_event)
+        ),
+    )
+    monkeypatch.setattr(
+        main,
+        "_serve",
+        lambda _args, status, on_shutdown: calls.append(
+            ("serve", status, on_shutdown)
+        ),
+    )
+
+    cli()
+
+    # The banner comes first, so the backup's log lines cannot land inside it.
+    assert [call[0] for call in calls] == ["banner", "backup", "serve"]
+    assert calls[1][2] == 42
+    # The API reports on the very status object the backup writes to.
+    assert calls[1][1] is calls[2][1]
+
+
+def test_cli_stops_the_git_backup_when_the_server_stops(monkeypatch):
+    """Test the server's shutdown hook stops the backup the CLI started."""
+    started = {}
+    stopped = []
+
+    def fake_start_git_backup(_status, _interval, stop_event):
+        started["stop_event"] = stop_event
+        return "thread"
+
+    monkeypatch.setattr(sys, "argv", ["workspace-admin"])
+    monkeypatch.setattr(main, "start_git_backup", fake_start_git_backup)
+    monkeypatch.setattr(
+        main,
+        "stop_git_backup",
+        lambda thread, stop_event: stopped.append((thread, stop_event)),
+    )
+    monkeypatch.setattr(
+        main, "_serve", lambda _args, _status, on_shutdown: on_shutdown()
+    )
+
+    cli()
+
+    assert stopped == [("thread", started["stop_event"])]
+
+
+def test_cli_leaves_the_interval_to_the_config_file_by_default(monkeypatch):
+    """Test that without --sync-interval no interval is passed on."""
+    passed = []
+    monkeypatch.setattr(sys, "argv", ["workspace-admin"])
+    monkeypatch.setattr(
+        main,
+        "start_git_backup",
+        lambda _status, interval, _stop_event: passed.append(interval),
+    )
+    monkeypatch.setattr(main, "_serve", lambda _args, _status, _on_shutdown: None)
+
+    cli()
+
+    assert passed == [None]

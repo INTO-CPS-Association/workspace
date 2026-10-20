@@ -90,7 +90,7 @@ workspaces/test/dtaas/ci/certs/**
 !workspaces/test/dtaas/ci/certs/Dockerfile
 
 # ignore config of workspace admin
-workspaces/src/admin/config.env
+workspaces/src/admin/config.toml
 
 
 # temp files for workspace
@@ -101,5 +101,6 @@ dist/
 build/
 *.egg-info/
 .coverage
+coverage.xml
 
-workspaces/src/admin/config.env
+workspaces/src/admin/config.toml

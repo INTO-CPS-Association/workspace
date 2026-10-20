@@ -43,6 +43,8 @@ on URL paths:
 - VNC Desktop: `/tools/vnc`
 - Admin/Services API: `/{path-prefix}/services` (service discovery
   endpoint)
+- Git backup status: `/{path-prefix}/storage/status` (exact match only; no
+  other admin route is proxied)
 
 The routing configuration is templated in `startup/nginx.conf` and
 processed by `startup/configure_nginx.py:12-59` which substitutes
@@ -57,6 +59,9 @@ that provides:
 - `/{path-prefix}/services` - Path-prefixed route for multi-user
   deployments
 - `/health` - Health check endpoint
+- `/storage/status` - Outcome of the most recent git backups. Read-only and
+  secret-free, because the API is unauthenticated: it reports error kinds,
+  never messages
 - Command-line interface via `workspace-admin` command
 
 The service supports path prefixes for multi-user deployments,
@@ -296,9 +301,70 @@ poetry run workspace-admin --path-prefix dtaas-user
 poetry run workspace-admin --list-services
 ```
 
+The package is layered, and the test files mirror it:
+
+- `src/admin/api.py` - FastAPI app factory and HTTP routes
+  (tested by `tests/unit/test_api.py`)
+- `src/admin/services.py` - Workspace service discovery
+  (tested by `tests/unit/test_services.py`)
+- `src/admin/main.py` - CLI entry point
+  (tested by `tests/unit/test_main.py`)
+- `src/admin/git/` - Git backup of workspace directories
+- `src/admin/config/` - Service catalogue and other configuration data
+
+Dependencies point one way only: `main` → `api` → `services`.
+
+The `git/` package backs the workspace up to its remotes and is layered the
+same way, `bootstrap` → `scheduler` → `sync`/`clone` → `auth` → `config`
+→ `runner`:
+
+- `config.py`: reads `config.toml` and returns one `RepoConfig` per
+  repository, raising `ConfigError` on anything unusable
+- `auth.py`: builds the per-command HTTP Basic header and recognises a
+  rejected token in git's stderr
+- `clone.py`: clones one repository, git directory and working tree kept
+  apart
+- `sync.py`: one cycle for a cloned tree: commit, pull, push. Local files
+  win a conflict. Skips the cycle while the user is busy: an unfinished
+  merge, another branch or detached HEAD, or a fresh `index.lock`
+- `scheduler.py`: runs the cycle on a background daemon thread and records
+  each outcome in a `SyncStatus`
+- `status.py`: thread-safe record of the last attempt, success and error
+  kind per repository, served by `/storage/status`
+- `bootstrap.py`: called once from `main.cli()` on startup; creates a
+  missing config file, or clones and starts the sync, on a background
+  thread, so the HTTP API never waits.
+  `stop_git_backup()` is run by the FastAPI lifespan on shutdown
+- `provision.py`: copies the template into place when `config.toml` is
+  missing (mode `0600`, never overwriting) and adds a `.gitignore` holding
+  `*` to its directory
+- `runner.py`: runs every git command with prompts off, empty stdin and a
+  time limit, stopping an overrunning command and its child processes
+
+Failures here are logged, never raised: a broken git configuration must not
+stop the HTTP API from starting.
+
+`config.toml` is always read from
+`$PERSISTENT_DIR/.config/workspace-admin/config.toml`, with the home
+directory as the root when `PERSISTENT_DIR` is unset; the working directory
+never matters. In the image that is
+`/workspace/.config/workspace-admin/config.toml`. The absolute path is
+logged on every startup. When it is absent it is created from
+the template `workspaces/src/templates/config.toml.example`, which the
+Dockerfile copies to `$WORKSPACE_CONFIG_TEMPLATE`. Nothing is cloned until
+the user fills it in and restarts: its placeholder values are rejected.
+Outside the image no template is set, and the backup stays disabled.
+The file holds an optional top-level `SYNC_INTERVAL_SECONDS` (1 to 86400,
+default 300; `--sync-interval` overrides it) and an `[assets.private]`
+and/or `[assets.common]` table with `GIT_REPO_URL`, `GIT_REPO_BRANCH` and
+`GIT_REPO_TOKEN`. Every path follows from `$PERSISTENT_DIR` and the section
+name: git directories in `.local/share/workspace-admin/<name>`, work trees in
+`assets/<name>`. `workspaces/src/admin/DOCUMENTATION.md` still describes the
+older layout.
+
 To add new services to the workspace:
 
-1. Edit `src/admin/src/admin/services_template.json`
+1. Edit `src/admin/src/admin/config/services_template.json`
 2. Add service definition with name, description, and endpoint
 3. No code changes needed - template is read at runtime
 
@@ -311,9 +377,12 @@ To add new services to the workspace:
 - `NO_VNC_PORT`: Port for KasmVNC (default varies, read by
   `configure_nginx.py`)
 - `PERSISTENT_DIR`: Directory for user data persistence (default:
-  `/workspace`)
+  `/workspace` in the image, the home directory outside it); also the
+  root of `config.toml` and every git backup path
 - `PATH_PREFIX`: Optional path prefix for admin service routes (can
   be set via CLI)
+- `WORKSPACE_CONFIG_TEMPLATE`: Template copied to `config.toml` when it is
+  missing (set by the Dockerfile; unset outside the image)
 
 ## Code Quality Standards
 
@@ -367,11 +436,13 @@ guidelines.
 ## Additional Documentation
 
 - **README.md:25-88** - Basic build and run instructions
-- **TRAEFIK.md:1-20** - Multi-user deployment with Traefik reverse
-  proxy
-- **PUBLISHING.md:1-30** - Docker image publishing workflow and
+- **workspaces/test/dtaas/TRAEFIK.md** - Multi-user deployment with
+  Traefik reverse proxy
+- **docs/PUBLISHING.md** - Docker image publishing workflow and
   registry configuration
-- **CHANGELOG.md** - Version history and release notes
+- **docs/CHANGELOG.md** - Version history and release notes
+- **docs/PENDING_ISSUES.md** and **docs/POTENTIAL_IMPROVEMENTS.md** -
+  Working notes and backlog
 
 ## Getting Help
 
