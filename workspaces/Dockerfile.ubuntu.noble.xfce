@@ -37,10 +37,15 @@ RUN bash ${INST_DIR}/image_wegovy.sh
 
 FROM configure AS install-full
 
+RUN bash ${INST_DIR}/install_python.sh
+#RUN bash ${INST_DIR}/toolchains/install_java.sh
+#RUN bash ${INST_DIR}/toolchains/install_typescript.sh
 RUN bash ${INST_DIR}/firefox/install_firefox.sh
 RUN bash ${INST_DIR}/nginx/install_nginx.sh
 RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
-RUN bash ${INST_DIR}/jupyter/install_jupyter.sh
+RUN python3 ${INST_DIR}/install_java.py
+RUN python3 ${INST_DIR}/install_jupyter.py
+RUN python3 ${INST_DIR}/install_uv.py
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh
@@ -51,6 +56,7 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
+RUN bash ${INST_DIR}/install_python.sh
 RUN bash ${INST_DIR}/nginx/install_nginx.sh
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
