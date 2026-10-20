@@ -1,0 +1,48 @@
+{
+  "packages": {
+    "java": {
+      "type": "bin-tar",
+      "compression": "gz",
+      "amd64": {
+        "source": "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz",
+        "checksum": "dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e"
+      },
+      "arm64": {
+        "source": "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_aarch64_linux_hotspot_25.0.4.1_1.tar.gz",
+        "checksum": "69df11a02cfa3ef7d7ca645e03edce6778ec090e100f6ae2b42097865730ac52"
+      }
+    },
+    "jupyter": {
+      "type": "pip-venv",
+      "pyPackages": {
+        "jupyterlab": {
+          "version": "4.3.4"
+        },
+        "notebook": {
+          "version": "7.3.2"
+        }
+      }
+    },
+    "typescript": {
+      "type": "bin-tar",
+      "compression": "xz",
+      "amd64": {
+        "source": "https://nodejs.org/dist/v24.22.0/node-v24.22.0-linux-x64.tar.xz",
+        "checksum": "cc2f601cee82d9a5a233302fe307abc600727035fd7d2c3a3571755989e95008"
+      },
+      "arm64": {
+        "source": "https://nodejs.org/dist/v24.22.0/node-v24.22.0-linux-arm64.tar.xz",
+        "checksum": "fef00bb4d36e1c50104a9775a10359beee98f162b4104dd12472c75065c6a143"
+      }
+    },
+    "uv": {
+      "type": "pip-venv",
+      "pyPackages": {
+        "uv": {
+          "version": "0.13.3"
+        }
+      }
+    }
+  },
+  "lockVersion": "0.2.1"
+}
