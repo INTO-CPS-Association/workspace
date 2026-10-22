@@ -172,7 +172,7 @@ use workspace-admin's own grant.
 | `POST /token/exchange` | workspace-admin | Internal |
 | `GET /.well-known/jwks.json`, `/.well-known/openid-configuration`, `/health` | SeaweedFS, healthcheck | Internal |
 
-**Introspection answer** (both profiles; Oathkeeper's subject is `username`):
+**Introspection answer** (both profiles):
 
 ```json
 {"active": true, "username": "user1", "sub": "42",
@@ -181,8 +181,14 @@ use workspace-admin's own grant.
 ```
 
 GitLab: `sub` is `resource_owner_id`, `exp` is now plus `expires_in`,
-`username` is `nickname`. Otherwise `{"active": false}`. Spike S3
-confirms which fields reach Oathkeeper's `.Extra`.
+`username` is `nickname`. Otherwise `{"active": false}`.
+
+Oathkeeper's `.Subject` is `sub`, not `username`. `.Extra` holds
+`username`, `client_id`, `scope` and the members of `ext` (so `groups`
+is `.Extra.groups`); `exp` and `token_type` do not reach it (spike
+S3). The `/authz/workspace/<user>` check therefore reads
+`extra.username`, as it does today, and `X-User-Subject` carries the
+provider's user id.
 
 **Exchange** (RFC 8693 shape):
 

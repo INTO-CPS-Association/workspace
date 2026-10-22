@@ -1,0 +1,30 @@
+# Spike S3: the DTaaS Oathkeeper setup, pointed at fake_relay.py, with
+# the 30-second introspection cache of T304.
+serve:
+  proxy: {port: 4455, host: "0.0.0.0"}
+  api: {port: 4456, host: "0.0.0.0"}
+access_rules:
+  matching_strategy: regexp
+  repositories: [file:///etc/oathkeeper/access-rules.yml]
+log: {level: info, format: json}
+authenticators:
+  oauth2_introspection:
+    enabled: true
+    config:
+      introspection_url: http://fake-relay:8080/token/introspect
+      cache: {enabled: true, ttl: 30s}
+authorizers:
+  remote_json:
+    enabled: true
+    config:
+      remote: http://fake-relay:8080/authz/workspace/default
+      payload: '{"subject":{"id":{{ .Subject | toJson }},"extra":{{ .Extra | toJson }}}}'
+mutators:
+  header:
+    enabled: true
+    config:
+      headers:
+        X-User-Name: "{{ print .Extra.username }}"
+        X-User-Subject: "{{ .Subject }}"
+        X-User-Groups: "{{ .Extra.groups | toJson }}"
+        X-Client-Id: "{{ print .Extra.client_id }}"

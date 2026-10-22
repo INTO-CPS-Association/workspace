@@ -24,7 +24,9 @@ test-first detail for a feature is written just before it starts.
   application with PKCE; exact redirect URIs; `openid` and
   `openid write_repository`; fields of `/oauth/token/info` and
   `/oauth/userinfo`; 2-hour access tokens; refresh rotation; no ID
-  token on refresh.
+  token on refresh. *In part*: Oathkeeper's fields are confirmed; the
+  GitLab checks are scripted in `workspaces/test/dtaas/spike/gitlab/`
+  but not yet run (needs a 4 GB container).
 - [ ] **S4 Keycloak.** `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` gives
   internal backchannel URLs and the public `iss`; public
   `workspace-backup` client with PKCE, `offline_access` and consent;
@@ -214,7 +216,7 @@ the workspace image includes F5.
 
 ## Spike findings
 
-S3 and S4 are still open. S1 and S2 ran on 2026-10-18 against the
+S3 ran in part and S4 is open. S1 and S2 ran on 2026-10-18 against the
 SeaweedFS service of `workspaces/test/dtaas/compose.traefik.secure.yml`,
 with `seaweedfs/spike/` standing in for login-relay (an ES256 key with
 `kid`, JWKS at `http://login-relay:8080/.well-known/jwks.json`). 64 of
@@ -322,3 +324,45 @@ the zip.
   admin's `s3_empty_source` refusal is required.
 - A user's STS keys cannot `--s3-version-at` (`ListObjectVersions` is
   denied); restore stays with the operator, as designed.
+
+### S3 GitLab (in part)
+
+Not finished. `workspaces/test/dtaas/spike/gitlab/` holds a GitLab
+19.5.0 compose file (latest stable on 2026-10-18), a seed script and
+`probe.py`, which signs in and consents in headless Chromium and
+checks every S3 item. It also records redacted GitLab responses for
+the T303 contract tests. They have not run: GitLab 19.5 thrashed at
+its 2.8 GB limit, with one Puma process and Sidekiq at two threads,
+and the 4 GB Docker VM of the spike host has no more to give. Run it
+where the container can have 4 GB, such as a GitHub-hosted runner.
+
+Two setup facts found on the way:
+
+- GitLab refuses a root password made of common words
+  (`Password must not contain commonly used combinations of words and
+  letters`), and the first-boot migration then fails.
+- `/-/readiness` answers 404 to any address outside its monitoring
+  allowlist, the Docker host included; wait for `/users/sign_in`
+  instead.
+
+**Oathkeeper** (`oathkeeper_check.sh`; `oryd/oathkeeper:v26.2.0` and a
+stand-in for login-relay answering the
+[introspection contract](../design/auth/LOGIN_RELAY.md#api)):
+
+- `.Subject` is the answer's `sub`, not `username`.
+- `.Extra` holds `username`, `client_id`, `scope` and the members of
+  `ext` at the top level (`groups`); `exp` and `token_type` do not
+  arrive. The `remote_json` payload was
+  `{"subject": {"id": "42", "extra": {"client_id": "...", "groups":
+  ["dtaas"], "scope": "openid", "username": "user1"}}}`.
+- The headers become `X-User-Name: user1`, `X-User-Subject: 42`,
+  `X-User-Groups: ["dtaas"]`.
+- `cache: {enabled: true, ttl: 30s}` on `oauth2_introspection`: two
+  requests with one token cost one introspection call. An inactive
+  token answers 401.
+- `/health/ready` reports ready before the access rules have loaded;
+  decisions answer 500 for a few seconds.
+
+LOGIN_RELAY.md is corrected: the subject is not `username`, and the
+GitLab profile only needs `username` in its answer, because
+`/authz/workspace/<user>` reads `extra.username`.
