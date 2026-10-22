@@ -9,6 +9,9 @@ writes redacted responses to recorded/. Needs requests, pyjwt and
 playwright. Run with: python3 -I probe.py
 """
 
+# The spike's dependencies are not in the CI lint environment.
+# pylint: disable=duplicate-code,import-error
+
 import base64
 import hashlib
 import json

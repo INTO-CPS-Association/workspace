@@ -9,6 +9,9 @@ AUDIENCE_MAPPER=0 leaves the mapper off `workspace-backup`, to show
 introspection refusing its tokens. Run with: python3 -I setup.py
 """
 
+# The spike's dependencies are not in the CI lint environment.
+# pylint: disable=import-error
+
 import json
 import os
 import time
