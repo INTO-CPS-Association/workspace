@@ -39,7 +39,7 @@ login-relay's signing keys in both profiles.
 | Keycloak offline refresh token | Keycloak | 30 days unused, 180 days at most | `tokens/keycloak.json` | Getting Keycloak access tokens |
 | Keycloak access token | Keycloak | 5 minutes | Memory | Input to the storage pass |
 | Storage pass | login-relay `/token/exchange` | 5 minutes | Memory | Web identity for STS |
-| STS temporary credentials | SeaweedFS or AWS STS | `S3_SESSION_SECONDS`, default 3600 | Memory, passed to `rclone` | Signing S3 requests |
+| STS temporary credentials | SeaweedFS or AWS STS | `S3_SESSION_SECONDS`, default 3600; SeaweedFS's `maxSessionLength` caps it at 1 hour | Memory, passed to `rclone` | Signing S3 requests |
 | Static S3 key pair | Operator | Until rotated | `tokens/s3keys.json` | S3 services without STS, and tests |
 | Pasted git token | User | Host policy; GitLab 365 days by default | `config.toml` | Git over HTTPS |
 

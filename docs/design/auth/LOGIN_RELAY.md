@@ -155,7 +155,9 @@ use workspace-admin's own grant.
   `keycloak`) bounces to `/<user>/config/callback/<provider>` when
   `state` matches `^([a-z0-9._-]{1,255})\.([A-Za-z0-9_-]{43})$` (split on
   the last dot) and the user is in `WORKSPACE_USERS`. It never redeems
-  the code.
+  the code. It passes the query on unchanged: Keycloak adds `iss`
+  (RFC 9207), and its refusals arrive as `error` and
+  `error_description` with `state` but no `code`.
 - **LR-9** `/token/*`, `/authz/*`, `/.well-known/*` and `/health` are
   not routed by Traefik, which routes only `/login-relay` and `/logout`.
 - **LR-10** No token, code or secret in logs or error bodies (request
@@ -172,7 +174,7 @@ use workspace-admin's own grant.
 | `POST /token/exchange` | workspace-admin | Internal |
 | `GET /.well-known/jwks.json`, `/.well-known/openid-configuration`, `/health` | SeaweedFS, healthcheck | Internal |
 
-**Introspection answer** (both profiles; Oathkeeper's subject is `username`):
+**Introspection answer** (both profiles):
 
 ```json
 {"active": true, "username": "user1", "sub": "42",
@@ -181,8 +183,14 @@ use workspace-admin's own grant.
 ```
 
 GitLab: `sub` is `resource_owner_id`, `exp` is now plus `expires_in`,
-`username` is `nickname`. Otherwise `{"active": false}`. Spike S3
-confirms which fields reach Oathkeeper's `.Extra`.
+`username` is `nickname`. Otherwise `{"active": false}`.
+
+Oathkeeper's `.Subject` is `sub`, not `username`. `.Extra` holds
+`username`, `client_id`, `scope` and the members of `ext` (so `groups`
+is `.Extra.groups`); `exp` and `token_type` do not reach it (spike
+S3). The `/authz/workspace/<user>` check therefore reads
+`extra.username`, as it does today, and `X-User-Subject` carries the
+provider's user id.
 
 **Exchange** (RFC 8693 shape):
 
@@ -228,8 +236,12 @@ secret is required, and the `OIDC_*` overrides and CI stacks stay.
 **Signing key.** A JWK set of ES256 private keys with `kid` (such as
 `2026-10`); the first signs, all public halves are published. A
 one-shot service generates it in the test compose (F4) and at DTaaS
-setup (F9); without it, exchange answers 503. Rotation: add the new key
-second, wait past SeaweedFS's JWKS cache (S1), move it first.
+setup (F9); without it, exchange answers 503. Rotation: publish the
+new key and move it first at once; SeaweedFS fetches the JWKS again
+when it meets an unknown `kid` (S1). A removed key stays trusted until
+SeaweedFS's `jwksCacheTTLSeconds` (3600) runs out; to cut off a leaked
+key at once, restart SeaweedFS after removing it. Passes need a `kid`
+header and a `sub` claim.
 
 ## Implementation notes
 
@@ -242,7 +254,9 @@ second, wait past SeaweedFS's JWKS cache (S1), move it first.
   `oauth2_introspection`, which `gitlab.com` rate limits require.
 - `authlib` (a dependency already) signs ES256; `pytest-cov` joins
   `requirements-dev.txt`; Keycloak gets
-  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`.
+  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`, and `workspace-backup` gets
+  an Audience mapper for `dtaas-workspace`, without which Keycloak
+  answers login-relay's introspection with `active: false`.
 - Tests: Keycloak profile against a container; GitLab profile against
   a fake plus contract tests replaying spike S3 responses; `redeem`
   sends the authorize `redirect_uri`; signed-out page; bounce and

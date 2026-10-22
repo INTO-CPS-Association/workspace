@@ -32,11 +32,23 @@ deployments: SeaweedFS trusts only login-relay in both.
 | `dtaas-workspace` | login-relay | Confidential | `openid profile` | `https://dtaas.example.org/login-relay/callback` |
 | `workspace-backup` | workspace-admin | Public, PKCE S256, "Consent required" | `openid offline_access` | `https://dtaas.example.org/login-relay/oauth/keycloak/callback` |
 
+Both clients have an Audience mapper with "Included Client Audience"
+`dtaas-workspace`, as `dtaas-workspace` already has today. Keycloak
+answers introspection with `active: true` only to a client named in
+the token's `aud`; without the mapper on `workspace-backup`, login-relay
+sees every backup token as inactive and refuses every exchange
+(spike S4).
+
 Realm settings: "Offline Session Idle" 30 days, "Offline Session Max
 Limited" on with 180 days. Keycloak runs with
 `KC_HOSTNAME=https://dtaas.example.org/auth` and
 `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`, so browsers use the public URL
-and containers `http://keycloak:8080/auth`.
+and containers `http://keycloak:8080/auth`. Every token's `iss` is the
+public URL either way. Discovery fetched from inside gives internal
+token, introspection, userinfo and JWKS addresses, but public
+revocation and end-session addresses, so workspace-admin builds the
+revoke address from `OIDC_INTERNAL_URL` rather than reading it from
+discovery.
 
 Git assets use a GitLab connection when `GITLAB_URL` is set (a
 `workspace-backup` application on that GitLab, as in
@@ -156,6 +168,15 @@ environment:
   from the token endpoint's reply; a mismatch names both users.
 - The 180-day maximum is Keycloak's "Offline Session Max";
   `CONNECTION_MAX_AGE_DAYS` applies as well, so both profiles behave
-  alike.
+  alike. The token reply's `refresh_expires_in` shows the idle limit
+  (30 days), not the maximum.
+- Each refresh returns a new refresh token, but the old one stays valid
+  unless the realm turns on "Revoke Refresh Token"; saving the new one
+  first is right either way. Refresh replies also carry an ID token.
+- Consent is asked once per user; a later connect goes straight back.
+  If the user has no Keycloak session yet, the one created for the
+  offline grant is not kept, so the next login asks for the password
+  again. After a DTaaS login, which is the designed order, connecting
+  leaves that session and its token active.
 - Session checks for `/config` and the nginx front door call
   `http://login-relay:8080/token/introspect`, as in GitLab deployments.

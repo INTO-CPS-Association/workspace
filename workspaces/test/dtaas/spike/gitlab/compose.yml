@@ -1,0 +1,59 @@
+# Spike S3: a throwaway GitLab for checking the OAuth behaviour the
+# storage design relies on. Not part of any deployment.
+# Run: docker compose -f compose.yml up -d; then ./setup.sh; then
+# python3 -I probe.py. Remove with: docker compose -f compose.yml down -v
+# ./oathkeeper_check.sh needs no GitLab: it starts the oathkeeper
+# profile on its own.
+name: spike-gitlab
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:19.5.0-ce.0
+    hostname: gitlab
+    environment:
+      GITLAB_ROOT_PASSWORD: "Kq7vRt2xPz9Lm4wJ"
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8929'
+        puma['worker_processes'] = 0
+        sidekiq['concurrency'] = 2
+        prometheus_monitoring['enable'] = false
+        gitlab_kas['enable'] = false
+        registry['enable'] = false
+        gitlab_rails['usage_ping_enabled'] = false
+        gitlab_rails['env'] = { 'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000' }
+        gitaly['env'] = { 'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000' }
+    ports:
+      - "127.0.0.1:8929:8929"
+    shm_size: 256m
+    # GitLab 19.5 thrashed at 2.8 GB even with the settings above; give it
+    # at least 4 GB, which a 4 GB Docker VM cannot.
+    mem_limit: 4g
+    cpus: 2
+    networks: [spike]
+
+  # Shows what Oathkeeper hands to a remote_json authorizer after
+  # oauth2_introspection with login-relay's answer.
+  oathkeeper:
+    image: oryd/oathkeeper:v26.2.0
+    command: serve -c /etc/oathkeeper/oathkeeper.yml
+    volumes:
+      - ./oathkeeper:/etc/oathkeeper:ro
+    ports:
+      - "127.0.0.1:4456:4456"
+    mem_limit: 128m
+    cpus: 0.5
+    networks: [spike]
+    profiles: [oathkeeper]
+
+  fake-relay:
+    image: python:3.12-alpine
+    command: python3 -u /srv/fake_relay.py
+    volumes:
+      - ./fake_relay.py:/srv/fake_relay.py:ro
+    mem_limit: 64m
+    cpus: 0.25
+    networks: [spike]
+    profiles: [oathkeeper]
+
+networks:
+  spike: {}

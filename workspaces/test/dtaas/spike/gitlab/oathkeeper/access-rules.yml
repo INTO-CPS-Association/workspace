@@ -1,0 +1,15 @@
+- id: user1-workspace
+  match:
+    url: "<^https?://[^/]*/user1(/.*)?$>"
+    methods: [GET]
+  authenticators:
+    - handler: oauth2_introspection
+      config:
+        token_from: {cookie: dtaas_access_token}
+  authorizer:
+    handler: remote_json
+    config:
+      remote: http://fake-relay:8080/authz/workspace/user1
+      payload: '{"subject":{"id":{{ .Subject | toJson }},"extra":{{ .Extra | toJson }}}}'
+  mutators:
+    - handler: header

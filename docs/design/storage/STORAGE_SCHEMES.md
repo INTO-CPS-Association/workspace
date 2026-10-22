@@ -64,12 +64,15 @@ Each round, per asset:
    (`GetBucketVersioning`).
 4. Run `rclone sync` with the admin's own folders excluded,
    `--s3-no-check-bucket` (the role may not create buckets), time
-   limits, and `--max-delete` as a brake. Symbolic links are skipped
-   (`--skip-links`): following them could upload files from outside
-   the asset.
+   limits, and `--max-delete` with `--delete-before` as a brake.
+   Symbolic links are skipped (`--skip-links`): following them could
+   upload files from outside the asset.
 
 A round that would delete more than `S3_MAX_DELETE` objects (default
-1000) stops with `s3_delete_limit` and uploads nothing more. The user
+1000) stops with `s3_delete_limit` and uploads nothing. rclone deletes
+up to the limit before it stops (exit code 7, `--max-delete threshold
+reached`); `--delete-before` makes that happen before any upload, and
+versioning keeps what was deleted. The user
 confirms the deletion once, from the page or with
 `workspace-admin asset allow-delete <name>`, and the next round runs
 without the limit.
@@ -104,8 +107,12 @@ limit and bill buckets, and prefix policies scope just as well.
 ## SeaweedFS as the S3 server
 
 A single `weed server -s3` container on the internal `dtaas-users`
-network, pinned to 4.40 or later. Everything it stores lives below
-its data directory, `/data`:
+network, pinned to 4.40 or later (4.48 since spike S1). The operator's
+keys come from its environment; `jwt.filer_signing.key` signs STS
+sessions. `weed server` keeps lifecycle rules but does not apply them,
+so a second container runs one lifecycle pass a day. The test compose
+configuration is in `workspaces/test/dtaas/seaweedfs/`. Everything
+SeaweedFS stores lives below its data directory, `/data`:
 
 | Component | Keeps | On disk |
 | :--- | :--- | :--- |
@@ -135,7 +142,7 @@ for example, AWS S3 changes environment values, not code:
 | `S3_ENDPOINT` | `http://seaweedfs:8333` | `https://s3.eu-north-1.amazonaws.com` |
 | `S3_PROVIDER` | `SeaweedFS` | `AWS` |
 | `S3_STS_ENDPOINT` | `http://seaweedfs:8333` | `https://sts.eu-north-1.amazonaws.com` |
-| `S3_ROLE_ARN` | `arn:seaweed:iam::role/WorkspaceBackup` | the IAM role ARN |
+| `S3_ROLE_ARN` | `arn:aws:iam::role/WorkspaceBackup` | the IAM role ARN |
 
 What changes outside the admin:
 

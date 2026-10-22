@@ -87,7 +87,7 @@ The threats behind these are in the
 | Responsiveness | No sync, sign-in or network call blocks the HTTP server |
 | Shutdown | Ends within 8 seconds, including a running `git` or `rclone` |
 | Time limits | Every network call and subprocess has one |
-| Dependencies | No new Python runtime dependency; one pinned `rclone` binary in the image |
+| Dependencies | No new Python runtime dependency; one pinned `rclone` binary in the image (v1.75.2, release zip checked by SHA-256) |
 | Code size | New files under 250 lines, functions under 25; files already over 250 lines do not grow |
 | Quality gates | pylint 9.0 or better; coverage not below the baseline recorded before F1 |
 | Portability | Nothing specific to SeaweedFS, GitLab or Keycloak outside configuration and provider modules |

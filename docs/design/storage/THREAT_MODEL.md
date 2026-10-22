@@ -124,7 +124,7 @@ Oathkeeper, which F9 brings to the four deployments:
 | TM14 | Stolen S3 credentials delete history | Role policy denies version deletion |
 | TM15 | Stolen git token rewrites history | Protected branch, no force-push |
 | TM16 | Unmounted volume mirrored as "delete all" | Empty-source refusal, `--max-delete` |
-| TM17 | SeaweedFS trust-policy bypass ([CVE-2026-77298](https://osv.dev/vulnerability/CVE-2026-77298)) | Pin 4.40 or later |
+| TM17 | SeaweedFS trust-policy bypass ([CVE-2026-77298](https://osv.dev/vulnerability/CVE-2026-77298)) | Pin 4.40 or later (4.48) |
 | TM18 | Abandoned grant used months later | 180-day maximum (Keycloak setting, `CONNECTION_MAX_AGE_DAYS`) |
 | TM19 | Git token visible in process listings | Credentials via `GIT_CONFIG_*` environment (F7) |
 | TM20 | login-relay's signing key stolen | Docker secret, never in workspaces; rotation with overlapping keys |
@@ -136,7 +136,8 @@ Oathkeeper, which F9 brings to the four deployments:
 
 **S3 role** (SeaweedFS IAM or AWS IAM):
 
-- Allow `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject` on
+- Allow `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`,
+  `s3:AbortMultipartUpload` and `s3:ListMultipartUploadParts` on
   `<bucket>/${jwt:preferred_username}/*`.
 - Allow `s3:ListBucket` on `<bucket>`, limited by `s3:prefix` to
   `${jwt:preferred_username}/*`; allow `s3:GetBucketVersioning` on
@@ -146,6 +147,8 @@ Oathkeeper, which F9 brings to the four deployments:
   `s3:CreateBucket`. Stolen credentials can hide current objects, but
   every version survives.
 - Trust policy: issuer login-relay, audience `workspace-backup`.
+- STS `maxSessionLength` 1 hour: the caller picks `DurationSeconds`,
+  so this bounds what a stolen storage pass can buy.
 
 Shared areas between users are an operator decision in this policy,
 not something a workspace can request.

@@ -1,0 +1,17 @@
+{
+  "body": {
+    "aud": "http://localhost:8180/auth/realms/dtaas",
+    "aud_x": "dtaas-workspace",
+    "azp": "workspace-backup",
+    "exp": 1795248653,
+    "iat": 1792656653,
+    "iss": "http://localhost:8180/auth/realms/dtaas",
+    "jti": "415d87d9-c0f6-c64c-0fe2-f2bb629cfda2",
+    "prov": "default",
+    "scope": "openid email profile web-origins acr offline_access basic roles",
+    "sid": "z8PNS5BmESbabKsx8HYJII_m",
+    "sub": "d1c0e1f3-9867-4ee4-b7a7-508f329e4ec3",
+    "typ": "Offline"
+  },
+  "status": 200
+}

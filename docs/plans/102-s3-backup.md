@@ -34,7 +34,8 @@ Keycloak; GitLab; nginx; Docker Compose.
 - workspace-admin: Python `^3.12`, no new runtime dependency.
 - login-relay: no new dependency beyond its `requirements.txt`.
 - `rclone` and SeaweedFS (`>= 4.40`) pinned to the latest stable
-  release at spike time, with checksums.
+  release at spike time, with checksums: rclone v1.75.2, SeaweedFS
+  4.48 ([spike findings](../tasks/102-s3-backup.md#spike-findings)).
 - Asset names `^[a-z0-9]{1,63}$`, defined once in `admin/assets`.
 - Secret and config files: mode `0600`, temp file, `fsync`, rename.
 - Admin TCP listener `127.0.0.1`; control socket in
@@ -97,7 +98,7 @@ below `workspaces/test/dtaas/login-relay/`.
 | F7 | — | `login/providers.py`, `login/owner.py`, `git/{auth,backend}.py`, `assets/loader.py` |
 | F8 | `web/{config_routes,csrf,headers}.py`, `web/static/{index.html,app.js}` | `server.py`, `nginx.conf` |
 | F9 | — | DTaaS: compose and docs of the four deployments |
-| F10 | DTaaS: `<deployment>/storage/{provision.sh,s3.json.tmpl,iam.json.tmpl}` | DTaaS: compose, docs, `mkdocs.yml`, `mkdocs-github.yml` |
+| F10 | DTaaS: `<deployment>/storage/{provision.sh,iam.json.tmpl}` | DTaaS: compose, docs, `mkdocs.yml`, `mkdocs-github.yml` |
 
 ## Interfaces between features
 
@@ -191,7 +192,7 @@ the backends, so `admin/backup` never imports `admin/login`.
 
 | Risk | Mitigation |
 | :--- | :--- |
-| SeaweedFS STS with an external issuer, policy variables or lifecycle differ from its wiki | Spike S1 before F2; lifecycle fallback deletes only noncurrent versions with the admin identity |
+| SeaweedFS STS with an external issuer, policy variables or lifecycle differ from its wiki | Spike S1 confirmed all three on 4.48; lifecycle runs only from the daily `seaweedfs-lifecycle` pass |
 | GitLab rate limits on introspection | 30-second Oathkeeper cache; 2-hour tokens |
 | login-relay becomes a single point of failure for logins, sessions and backups | Healthcheck and restart policy; backups retry next round |
 | Signing-key leak | Docker secret; rotation with overlapping keys; never in workspaces |

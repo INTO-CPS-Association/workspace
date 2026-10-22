@@ -1,0 +1,7 @@
+{
+  "body": {
+    "error": "invalid_grant",
+    "error_description": "PKCE code verifier not specified"
+  },
+  "status": 400
+}

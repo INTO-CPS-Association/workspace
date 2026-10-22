@@ -1,0 +1,35 @@
+# Spike S1/S2 overlay: runs the checks in spike_s1.py against the
+# SeaweedFS service of a test compose file. Not named compose*.yml: it
+# is not valid on its own. The spike container takes
+# the network alias login-relay, so do not start the real login-relay
+# with it.
+#
+# Usage, from workspaces/test/dtaas:
+#   docker compose -p seaweedfs-spike -f compose.traefik.secure.yml \
+#     -f seaweedfs/spike/spike.overlay.yml \
+#     --env-file config/.env up -d seaweedfs
+#   docker compose -p seaweedfs-spike -f compose.traefik.secure.yml \
+#     -f seaweedfs/spike/spike.overlay.yml \
+#     --env-file config/.env run --rm --use-aliases spike
+
+services:
+  spike:
+    build:
+      context: ./seaweedfs/spike
+    environment:
+      - S3_ENDPOINT=http://seaweedfs:8333
+      - S3_BUCKET=dtaas-backup
+      - S3_ADMIN_ACCESS_KEY=${S3_ADMIN_ACCESS_KEY}
+      - S3_ADMIN_SECRET_KEY=${S3_ADMIN_SECRET_KEY}
+    volumes:
+      - spike-out:/spike-out
+    networks:
+      users:
+        aliases:
+          - login-relay
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+
+volumes:
+  spike-out:

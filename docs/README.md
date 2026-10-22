@@ -16,6 +16,7 @@ lives beside the code it describes, not here.
 | [design/storage/](design/storage/README.md) | Storage backup design, with its reading order |
 | [design/workspace-admin/](design/workspace-admin/README.md) | workspace-admin requirements, `config.toml`, `/config` page, PKCE sign-in, CLI |
 | [design/auth/LOGIN_RELAY.md](design/auth/LOGIN_RELAY.md) | login-relay and Oathkeeper design, requirements and API |
+| [design/SPIKE_TESTS.md](design/SPIKE_TESTS.md) | Summary of spikes S1 to S4: what was checked, results, design changes |
 | [specs/](specs/), [plans/](plans/), [tasks/](tasks/) | Spec, implementation plan and task list per feature |
 
 ## Elsewhere in the repository
