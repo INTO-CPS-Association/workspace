@@ -155,7 +155,9 @@ use workspace-admin's own grant.
   `keycloak`) bounces to `/<user>/config/callback/<provider>` when
   `state` matches `^([a-z0-9._-]{1,255})\.([A-Za-z0-9_-]{43})$` (split on
   the last dot) and the user is in `WORKSPACE_USERS`. It never redeems
-  the code.
+  the code. It passes the query on unchanged: Keycloak adds `iss`
+  (RFC 9207), and its refusals arrive as `error` and
+  `error_description` with `state` but no `code`.
 - **LR-9** `/token/*`, `/authz/*`, `/.well-known/*` and `/health` are
   not routed by Traefik, which routes only `/login-relay` and `/logout`.
 - **LR-10** No token, code or secret in logs or error bodies (request
@@ -252,7 +254,9 @@ header and a `sub` claim.
   `oauth2_introspection`, which `gitlab.com` rate limits require.
 - `authlib` (a dependency already) signs ES256; `pytest-cov` joins
   `requirements-dev.txt`; Keycloak gets
-  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`.
+  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`, and `workspace-backup` gets
+  an Audience mapper for `dtaas-workspace`, without which Keycloak
+  answers login-relay's introspection with `active: false`.
 - Tests: Keycloak profile against a container; GitLab profile against
   a fake plus contract tests replaying spike S3 responses; `redeem`
   sends the authorize `redirect_uri`; signed-out page; bounce and

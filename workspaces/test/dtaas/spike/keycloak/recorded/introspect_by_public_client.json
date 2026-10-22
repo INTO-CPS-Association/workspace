@@ -1,0 +1,7 @@
+{
+  "body": {
+    "error": "invalid_request",
+    "error_description": "Client not allowed."
+  },
+  "status": 403
+}

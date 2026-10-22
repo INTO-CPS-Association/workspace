@@ -1,0 +1,49 @@
+{
+  "body": {
+    "acr": "0",
+    "active": true,
+    "allowed-origins": [
+      "https://dtaas.example.org"
+    ],
+    "aud": [
+      "dtaas-workspace",
+      "account"
+    ],
+    "auth_time": 1792656654,
+    "azp": "dtaas-workspace",
+    "client_id": "dtaas-workspace",
+    "email": "user1@example.org",
+    "email_verified": true,
+    "exp": 1792656964,
+    "family_name": "Spike",
+    "given_name": "user1",
+    "iat": 1792656664,
+    "iss": "http://localhost:8180/auth/realms/dtaas",
+    "jti": "onrtac:a4163818-1f07-391a-7538-0fd3bfb9c166",
+    "name": "user1 Spike",
+    "preferred_username": "user1",
+    "realm_access": {
+      "roles": [
+        "default-roles-dtaas",
+        "offline_access",
+        "uma_authorization"
+      ]
+    },
+    "resource_access": {
+      "account": {
+        "roles": [
+          "manage-account",
+          "manage-account-links",
+          "view-profile"
+        ]
+      }
+    },
+    "scope": "openid email profile",
+    "sid": "YdOfcJoGGOSR4v1gk5dJLCxE",
+    "sub": "d1c0e1f3-9867-4ee4-b7a7-508f329e4ec3",
+    "token_type": "Bearer",
+    "typ": "Bearer",
+    "username": "user1"
+  },
+  "status": 200
+}

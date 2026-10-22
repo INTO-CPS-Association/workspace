@@ -1,0 +1,40 @@
+# Spike S4: a throwaway Keycloak for checking the behaviour the storage
+# design relies on. Not part of any deployment.
+# Run: docker compose -f compose.yml up -d; python3 -I setup.py;
+# python3 -I probe.py. Remove with: docker compose -f compose.yml down -v
+name: spike-keycloak
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command:
+      - start
+      - --db=dev-file
+      - --http-enabled=true
+      - --http-relative-path=/auth
+      - --health-enabled=true
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: Spike-admin-pw-2026!
+      # Browsers use the public URL; containers that call
+      # http://keycloak:8080/auth get internal backchannel URLs.
+      KC_HOSTNAME: http://localhost:8180/auth
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=60
+    ports:
+      - "127.0.0.1:8180:8080"
+    mem_limit: 1g
+    cpus: 1.0
+    networks: [spike]
+
+  # Stands in for login-relay and workspace-admin: makes the server-side
+  # calls from inside the network, as they would.
+  inside:
+    image: python:3.12-alpine
+    command: sleep infinity
+    mem_limit: 64m
+    cpus: 0.25
+    networks: [spike]
+
+networks:
+  spike: {}

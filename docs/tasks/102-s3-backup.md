@@ -27,7 +27,7 @@ test-first detail for a feature is written just before it starts.
   token on refresh. *In part*: Oathkeeper's fields are confirmed; the
   GitLab checks are scripted in `workspaces/test/dtaas/spike/gitlab/`
   but not yet run (needs a 4 GB container).
-- [ ] **S4 Keycloak.** `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` gives
+- [x] **S4 Keycloak.** `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` gives
   internal backchannel URLs and the public `iss`; public
   `workspace-backup` client with PKCE, `offline_access` and consent;
   180-day offline maximum; login-relay's confidential client can
@@ -203,7 +203,8 @@ the workspace image includes F5.
 - [ ] **T1001 Provisioning job.** Bucket, versioning, lifecycle
   (`NONCURRENT_VERSION_DAYS`, default 365), `iam.json` trusting
   login-relay; Keycloak `workspace-backup` client (bounce
-  redirect URI). *Check*: second run changes
+  redirect URI, Audience mapper for `dtaas-workspace`; S4).
+  *Check*: second run changes
   nothing; adding a user needs no change.
 - [ ] **T1002 Integration.** SeaweedFS on `dtaas-users`; storage
   variables on workspaces; `workspace-backup` GitLab application
@@ -216,8 +217,9 @@ the workspace image includes F5.
 
 ## Spike findings
 
-S3 ran in part and S4 is open. S1 and S2 ran on 2026-10-18 against the
-SeaweedFS service of `workspaces/test/dtaas/compose.traefik.secure.yml`,
+S3 ran in part and S4 ran on 2026-10-22; both are below. S1 and S2
+ran on 2026-10-18 against the SeaweedFS service of
+`workspaces/test/dtaas/compose.traefik.secure.yml`,
 with `seaweedfs/spike/` standing in for login-relay (an ES256 key with
 `kid`, JWKS at `http://login-relay:8080/.well-known/jwks.json`). 64 of
 64 checks passed, plus 4 after a restart, the lifecycle probe through
@@ -366,3 +368,75 @@ stand-in for login-relay answering the
 LOGIN_RELAY.md is corrected: the subject is not `username`, and the
 GitLab profile only needs `username` in its answer, because
 `/authz/workspace/<user>` reads `extra.username`.
+
+### S4 Keycloak
+
+**Pin:** `quay.io/keycloak/keycloak:26.8.1`
+(`sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244`),
+latest stable on 2026-10-22. The test compose files pin 26.7.4.
+
+`workspaces/test/dtaas/spike/keycloak/` runs Keycloak with
+`KC_HOSTNAME=http://localhost:8180/auth` and
+`KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`, seeds realm `dtaas` with the
+two clients and offline limits of STORAGE_KEYCLOAK.md, and a realm
+`short` with limits of seconds. `probe.py` logs in and consents in
+headless Chromium; the token, introspection and revocation calls run
+from a container on the network, as login-relay and workspace-admin
+would. 58 of 58 checks passed. Redacted replies are in `recorded/`.
+
+Confirmed as designed:
+
+- `KC_HOSTNAME_BACKCHANNEL_DYNAMIC`: discovery fetched from inside
+  gives `http://keycloak:8080/auth` token, introspection, userinfo and
+  JWKS addresses and a public authorize address. Every token's `iss`
+  is the public URL, whichever address issued it.
+- `workspace-backup` as a public client: the code is redeemed with the
+  PKCE verifier and no secret. A missing or wrong verifier is refused
+  (`invalid_grant`). An authorize request without `code_challenge`, or
+  with `plain`, comes back to the redirect URI as
+  `error=invalid_request`. A code works once.
+- Redirect URIs match exactly: a trailing slash, an extra query, a
+  sub-path, `http`, another host and the login client's callback all
+  stop at Keycloak's "Invalid parameter: redirect_uri" page.
+- `openid offline_access` yields a refresh token of type `Offline`;
+  the access token lasts 300 seconds and carries
+  `preferred_username` and `azp: workspace-backup` for the owner check.
+- Consent: shown at the first connect, not at later ones. After a DTaaS
+  login with `dtaas-workspace`, connecting asks for no password, only
+  consent, and leaves the DTaaS token active and refreshable.
+- Offline limits: realm `dtaas` stores 30 days idle and 180 days
+  maximum. In realm `short` (idle 60 s, maximum 90 s) a session
+  refreshed every 20 s was refused at 103 s, and an unused one was
+  refused at 204 s ("Token is not active").
+- Stopping a backup: disabling the user refuses the refresh ("User
+  disabled") and makes introspection inactive; deleting the user's
+  consent to `workspace-backup` ends the offline session ("Offline user
+  session not found"); the public client revokes its own refresh token
+  at `/revoke` with `client_id`, after which refresh is refused.
+- Introspection needs `dtaas-workspace`'s secret: a wrong secret gets
+  401 and the public client 403 ("Client not allowed"). An unknown
+  token answers `{"active": false}`.
+
+Differs from the design (docs updated):
+
+1. **Introspection needs the Audience mapper.** Keycloak answers
+   `active: true` only to a client in the token's `aud` ("Client
+   'dtaas-workspace' is not in the token audience" in its events).
+   `dtaas-workspace` has the mapper today (KEYCLOAK_SETUP.md, step 7);
+   `workspace-backup` needs the same one, or login-relay refuses every
+   exchange. With it, the answer carries `active`, `username`,
+   `client_id: workspace-backup`, `azp` and the public `iss`.
+2. **Revocation is not internal in discovery.** From inside,
+   `revocation_endpoint` and `end_session_endpoint` stay public;
+   build the revoke address from `OIDC_INTERNAL_URL`.
+3. **The bounce sees more than `code` and `state`.** Keycloak adds
+   `iss` to every redirect and sends refusals as `error` and
+   `error_description` with `state`; login-relay passes the query on
+   unchanged.
+
+Also observed: each refresh returns a new refresh token, and the old
+one stays valid unless the realm turns on "Revoke Refresh Token";
+refresh replies carry an ID token; `refresh_expires_in` on an offline
+token shows the idle limit, not the maximum. A Keycloak session created
+only for the offline grant is not kept, so without a DTaaS login first
+the next login asks for the password again.
