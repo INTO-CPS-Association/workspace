@@ -83,7 +83,7 @@ jobs:
       - name: Test Jupyter notebook endpoint
         uses: ./.github/actions/check-connectivity
         with:
-          url: "http://localhost/user1/"
+          url: "http://localhost/user1/tree"
           expected_response_code: "200"
 
       - name: Test Jupyter Lab endpoint
