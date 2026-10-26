@@ -55,7 +55,7 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
-RUN bash ${INST_DIR}/install_python.sh
+RUN bash ${INST_DIR}/packages/install_python.sh
 RUN bash ${INST_DIR}/nginx/install_nginx.sh
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
