@@ -70,7 +70,7 @@ def check_version(lock_dict: dict):
 
 def get_dependencies_for_package(package_name: str, **kwargs):
     """Factory function to get the appropriate Dependency object for a given package.
-    
+
     :param package_name: Name of the package to retrieve dependencies for.
     :type package_name: str
     :param kwargs: Additional keyword arguments to pass to the Dependency constructor.
@@ -111,7 +111,7 @@ def get_dependencies_for_package(package_name: str, **kwargs):
 
 class Dependency:
     """An abstract base class representing a generic dependency.
-    
+
     Subclasses should implement the default_installation method.
     """
     def __init__(
@@ -125,7 +125,7 @@ class Dependency:
 
     def default_installation(self):
         """Abstract method to perform the default installation of the dependency.
-        
+
         Subclasses must implement this method.
         """
         raise NotImplementedError("This method should be implemented by subclasses.")
@@ -133,7 +133,7 @@ class Dependency:
 
 class BinTarDependency(Dependency):
     """A class representing a dependency on a tarball containing binaries.
-    
+
     Running the default_installation method will fetch the tarball, check its
     integrity, extract it, move the contents to the installation directory, and
     add the binaries to the system PATH.
@@ -182,7 +182,7 @@ class BinTarDependency(Dependency):
 
     def set_fetch_directory(self, fetch_directory: str):
         """Sets the directory where the tarball will be fetched.
-        
+
         :param fetch_directory: The directory to fetch the tarball to.
         :type fetch_directory: str
         """
@@ -197,7 +197,7 @@ class BinTarDependency(Dependency):
 
     def set_installation_directory(self, installation_directory: str):
         """Sets the directory where the package will be installed.
-        
+
         :param installation_directory: The directory to install the package to.
         :type installation_directory: str
         """
@@ -205,7 +205,7 @@ class BinTarDependency(Dependency):
 
     def set_binaries_location_in_tarball(self, binaries_location_in_tarball: str):
         """Sets the subdirectory within the tarball where binaries are located.
-        
+
         :param binaries_location_in_tarball: The subdirectory in the tarball containing binaries.
         :type binaries_location_in_tarball: str
         """
@@ -213,7 +213,7 @@ class BinTarDependency(Dependency):
 
     def set_installed_package_name(self, installed_package_name: str):
         """Sets the name of the package once installed.
-        
+
         :param installed_package_name: The name to use for the installed package.
         :type installed_package_name: str
         """
@@ -221,7 +221,7 @@ class BinTarDependency(Dependency):
 
     def set_system_bin_directory(self, system_bin_directory: str):
         """Sets the directory where symlinks to binaries will be created.
-        
+
         :param system_bin_directory: The directory to create symlinks in.
         :type system_bin_directory: str
         """
@@ -229,7 +229,7 @@ class BinTarDependency(Dependency):
 
     def default_installation(self):
         """Runs the default installation process for the BinTarDependency.
-        
+
         This method orchestrates the entire installation process, including fetching
         the tarball, checking its integrity, extracting it, moving the contents to
         the installation directory, and adding the binaries to the system PATH.
@@ -242,7 +242,7 @@ class BinTarDependency(Dependency):
 
     def fetch_tarball(self):
         """Fetches the tarball from the specified source URL and saves it to the fetch spot.
-        
+
         Raises a CalledProcessError if the curl command fails.
         """
         import subprocess
@@ -253,7 +253,7 @@ class BinTarDependency(Dependency):
 
     def check_integrity_of_fetched_tarball(self):
         """Checks the integrity of the fetched tarball against its checksum.
-        
+
         Raises a ValueError if the checksum doesn't match.
         """
         if not self.fetch_spot.exists():
@@ -274,7 +274,7 @@ class BinTarDependency(Dependency):
 
     def extract_tarball(self):
         """Extracts the tarball to the unfolding directory.
-        
+
         Raises a FileNotFoundError if the tarball is not found.
         """
         if not self.fetch_spot.exists():
@@ -289,7 +289,7 @@ class BinTarDependency(Dependency):
 
     def move_unfolded_contents_to_installation(self):
         """Moves the contents of the unfolding directory to the installation directory.
-        
+
         Raises a FileNotFoundError if the unfolding directory is not found.
         """
         if not self.unfolding_directory.exists():
@@ -352,7 +352,7 @@ class BinTarDependency(Dependency):
 
 class PipVenvDependency(Dependency):
     """A class representing a dependency that requires a Python virtual environment and pip packages.
-    
+
     Running the default_installation method will create a virtual environment,
     install the specified Python packages, and link the resulting binaries to a
     specified directory.
@@ -380,7 +380,7 @@ class PipVenvDependency(Dependency):
 
     def set_resulting_binaries(self, resulting_binaries: list[str]):
         """Sets the list of resulting binaries to be linked after installation.
-        
+
         :param resulting_binaries: List of binary names to link.
         :type resulting_binaries: list[str]
         """
@@ -388,7 +388,7 @@ class PipVenvDependency(Dependency):
 
     def set_venv_super_directory(self, venv_super_directory: str):
         """Sets the super directory where the virtual environment will be created.
-        
+
         :param venv_super_directory: The directory to create the virtual environment in.
         :type venv_super_directory: str
         """
@@ -404,7 +404,7 @@ class PipVenvDependency(Dependency):
 
     def default_installation(self):
         """Runs the default installation process for the PipVenvDependency.
-        
+
         This method orchestrates the entire installation process, including creating
         the virtual environment, installing the specified Python packages, and linking
         the resulting binaries to the specified directory.
@@ -420,7 +420,7 @@ class PipVenvDependency(Dependency):
 
     def _package_to_pip_format(self, py_package_name: str, py_package_dict: dict) -> str:
         """Converts a Python package name and its dictionary to a pip install format string.
-        
+
         :param py_package_name: The name of the Python package.
         :type py_package_name: str
         :param py_package_dict: The dictionary containing package details, including version.
@@ -435,7 +435,7 @@ class PipVenvDependency(Dependency):
 
     def install_python_packages(self):
         """Installs the specified Python packages into the virtual environment using pip.
-        
+
         Raises a FileNotFoundError if the virtual environment hasn't been created.
         """
         if not self.venv_path.exists():
