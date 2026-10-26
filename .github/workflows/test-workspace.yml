@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'workspaces/src/**'
+      - 'workspaces/Dockerfile.ubuntu.noble.xfce'
       - '.github/workflows/test-workspace.yml'
   workflow_dispatch:
 
@@ -57,6 +58,38 @@ jobs:
         uses: ./.github/actions/check-connectivity
         with:
           url: "http://localhost/user1/services"
+          expected_response_code: "200"
+
+      - name: Verify toolchain binaries are available
+        shell: bash
+        run: |
+          echo "Checking installed toolchain binaries..."
+          FAILED=""
+          for binary in python3 uv node npm tsc java jupyter; do
+            if docker exec workspace which "$binary" > /dev/null 2>&1; then
+              VERSION=$(docker exec workspace "$binary" --version 2>&1 | head -1)
+              echo "✅ $binary: $VERSION"
+            else
+              echo "❌ $binary: not found on PATH"
+              FAILED="$FAILED $binary"
+            fi
+          done
+          if [ -n "$FAILED" ]; then
+            echo ""
+            echo "Missing binaries:$FAILED"
+            exit 1
+          fi
+
+      - name: Test Jupyter notebook endpoint
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "http://localhost/user1/"
+          expected_response_code: "200"
+
+      - name: Test Jupyter Lab endpoint
+        uses: ./.github/actions/check-connectivity
+        with:
+          url: "http://localhost/user1/lab"
           expected_response_code: "200"
 
       - name: Show service logs on failure

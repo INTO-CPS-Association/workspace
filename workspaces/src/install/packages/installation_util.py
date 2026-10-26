@@ -21,6 +21,13 @@ ARCHITECTURE = os.environ.get("TARGETARCH", os.uname().machine).lower()
 
 
 def lock_file_location() -> Path:
+    """Returns the location of the lock file as a Path object.
+
+    Raises a FileNotFoundError if the lock file doesn't exist.
+    
+    :return: Path object to the lock file.
+    :rtype: Path
+    """
     location = Path(DEPENDENCY_LOCK_FILE).resolve()
     if location.exists():
         return location
@@ -28,11 +35,23 @@ def lock_file_location() -> Path:
 
 
 def read_dependency_file() -> dict:
+    """Reads the dependency file and returns its contents as a dictionary.
+
+    :return: Dictionary containing the dependency information.
+    :rtype: dict
+    """
     with open(lock_file_location()) as lock_file:
         return json.load(lock_file)
 
 
 def check_version(lock_dict: dict):
+    """Checks if the lock file version matches the expected version.
+
+    Raises an AssertionError if the versions do not match.
+
+    :param lock_dict: Dictionary containing the lock file contents.
+    :type lock_dict: dict
+    """
     assert lock_dict["lockVersion"] == LOCK_VERSION, f"Lock file uses version {lock_dict["lockVersion"]} formatting, installation util expects version {LOCK_VERSION}"
 
 
@@ -64,14 +83,31 @@ def get_dependencies_for_package(package_name: str, **kwargs):
             raise ValueError(f"Unknown dependency type '{dependency_type}' for package '{package_name}'")
 
 
-class BinTarDependency:
+class Dependency:
+    def __init__(
+            self,
+            package_name: str,
+            package_dict: dict,
+            **kwargs
+        ):
+        self.package_name = package_name
+        self.package_dict = package_dict
+    
+
+    def default_installation(self):
+        raise NotImplementedError("This method should be implemented by subclasses.")
+
+
+class BinTarDependency(Dependency):
     def __init__(
             self,
             package_name: str,
             package_dict: dict,
             fetch_directory: str = "/tmp",
-            unfolding_directory: str = "/opt",
-            installation_directory: str = "/usr/local/bin"
+            installation_directory: str = "/opt",
+            binaries_location_in_tarball: str = "bin",
+            installed_package_name: str = None,
+            system_bin_directory: str = "/usr/local/bin"
         ):
         self.package_name = package_name
         print(ARCHITECTURE)
@@ -94,17 +130,21 @@ class BinTarDependency:
             f"{self.package_name}.tar.{self.compression}"
             ))
         self.unfolding_directory = Path(os.path.join(
-            unfolding_directory,
+            fetch_directory,
             self.package_name
             ))
         self.installation_directory = Path(installation_directory)
+        self.binaries_location_in_tarball = binaries_location_in_tarball
+        self.installed_package_name = installed_package_name
+        self.system_bin_directory = Path(system_bin_directory)
 
 
     def default_installation(self):
         self.fetch_tarball()
         self.check_integrity_of_fetched_tarball()
         self.extract_tarball()
-        self.link_binaries()
+        self.move_unfolded_contents_to_installation()
+        self.add_to_path()
 
 
     def fetch_tarball(self):
@@ -133,22 +173,45 @@ class BinTarDependency:
             tar.extractall(path=self.unfolding_directory)
 
 
-    def link_binaries(self):
-        unfolded_binaries = Path(os.path.join(self.unfolding_directory, "bin"))
-        if not unfolded_binaries.exists():
-            raise FileNotFoundError(f"Directory '{unfolded_binaries}' not found; package '{self.package_name}' hasn't been extracted.")
+    def move_unfolded_contents_to_installation(self):
+        if not self.unfolding_directory.exists():
+            raise FileNotFoundError(f"Directory '{self.unfolding_directory}' not found; package '{self.package_name}' hasn't been extracted.")
         
         os.makedirs(self.installation_directory, exist_ok=True)
-        for binary in os.listdir(unfolded_binaries):
-            binary_path = Path(os.path.join(unfolded_binaries, binary))
-            if binary_path.is_file() and os.access(binary_path, os.X_OK):
-                os.symlink(
-                    binary_path,
-                    Path(os.path.join(self.installation_directory, binary))
-                )
+        unfolded_contents = list(self.unfolding_directory.iterdir())
+        if len(unfolded_contents) == 1 and unfolded_contents[0].is_dir():
+            # If the tarball extracted into a single directory, move that directory into the installation_directory.
+            single_dir = unfolded_contents[0]
+            if self.installed_package_name:
+                self.installation_location = self.installation_directory / self.installed_package_name
+            else:
+                self.installation_location = self.installation_directory / single_dir.name
+            single_dir.rename(self.installation_location)
+        else:
+            # If the tarball extracted multiple items unexpectedly, we raise and error mentioning all the extracted items.
+            extracted_items = [item.name for item in unfolded_contents]
+            raise ValueError(f"Package '{self.package_name}' extracted multiple items unexpectedly: {extracted_items}. Please check the package source or consider using a different installation method.")
 
 
-class PipVenvDependency:
+    def add_to_path(self):
+        if not hasattr(self, "installation_location"):
+            raise AttributeError(f"Installation location for package '{self.package_name}' hasn't been set. Ensure that 'move_unfolded_contents_to_installation' has been called successfully.")
+        binaries_path = self.installation_location / self.binaries_location_in_tarball
+        if not binaries_path.exists():
+            raise FileNotFoundError(f"Binaries path '{binaries_path}' not found; package '{self.package_name}' may not have been installed correctly.")
+
+        os.makedirs(self.system_bin_directory, exist_ok=True)
+
+        for item in binaries_path.iterdir():
+            if not (item.is_file() or item.is_symlink()):
+                continue
+            link = self.system_bin_directory / item.name
+            if link.exists() or link.is_symlink():
+                link.unlink()
+            os.symlink(item, link)
+
+
+class PipVenvDependency(Dependency):
     def __init__(
             self,
             package_name: str,
