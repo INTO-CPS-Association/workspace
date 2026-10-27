@@ -45,7 +45,7 @@
       "gpgKeyUrl": "https://nginx.org/keys/nginx_signing.key",
       "repository": "http://nginx.org/packages/ubuntu"
     },
-    "typescript": {
+    "node": {
       "type": "bin-tar",
       "compression": "xz",
       "amd64": {
@@ -57,6 +57,20 @@
         "checksum": "dbabf7a1cbf947e6059ffad2c27b80041db97dea1e553b62afdee7f13fca336e"
       }
     },
+    "typescript": {
+      "type": "npm",
+      "jsPackages": {
+        "typescript": {
+          "version": "7.0.2"
+        },
+        "tsx": {
+          "version": "4.23.15"
+        },
+        "@types/node": {
+          "version": "26.6.5"
+        }
+      }
+    },
     "uv": {
       "type": "pip-venv",
       "pyPackages": {
@@ -66,5 +80,5 @@
       }
     }
   },
-  "lockVersion": "0.3.1"
+  "lockVersion": "0.4.0"
 }

@@ -7,6 +7,7 @@ downloading, verifying, and installing packages.
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 import venv
@@ -14,7 +15,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 # Determines the lock file formatting that this util works with.
-LOCK_VERSION = "0.3.1"
+LOCK_VERSION = "0.4.0"
 
 # Default location of the lock file.
 DEFAULT_DEPENDENCY_LOCK_FILE = os.path.join(
@@ -28,7 +29,9 @@ DEPENDENCY_LOCK_FILE = os.environ.get(
     DEFAULT_DEPENDENCY_LOCK_FILE
 )
 
-ARCHITECTURE = os.environ.get("TARGETARCH", os.uname().machine).lower()
+ARCHITECTURE = os.environ.get(
+    "TARGETARCH", os.uname().machine
+).lower()
 
 # Default directory for downloaded files
 DEFAULT_FETCH_DIRECTORY = "/tmp"
@@ -51,25 +54,29 @@ def lock_file_location() -> Path:
     location = Path(DEPENDENCY_LOCK_FILE).resolve()
     if location.exists():
         return location
-    raise FileNotFoundError(f"Lock file not present at '{location}'")
+    raise FileNotFoundError(
+        f"Lock file not present at '{location}'"
+    )
 
 
 def read_dependency_file() -> dict:
-    """Reads the dependency file and returns its contents as a dictionary.
+    """Reads the dependency file and returns its contents.
 
     :return: Dictionary containing the dependency information.
     :rtype: dict
     """
-    with open(lock_file_location(), encoding="utf-8") as lock_file:
+    with open(
+        lock_file_location(), encoding="utf-8"
+    ) as lock_file:
         return json.load(lock_file)
 
 
 def check_version(lock_dict: dict):
-    """Checks if the lock file version matches the expected version.
+    """Checks if the lock file version matches expected version.
 
     Raises an AssertionError if the versions do not match.
 
-    :param lock_dict: Dictionary containing the lock file contents.
+    :param lock_dict: Dictionary with the lock file contents.
     :type lock_dict: dict
     """
     lock_ver = lock_dict["lockVersion"]
@@ -80,12 +87,12 @@ def check_version(lock_dict: dict):
 
 
 def get_dependencies_for_package(package_name: str, **kwargs):
-    """Factory function to get the appropriate Dependency object for a given package.
+    """Factory that returns the right Dependency for a package.
 
-    :param package_name: Name of the package to retrieve dependencies for.
+    :param package_name: Name of the package to look up.
     :type package_name: str
-    :param kwargs: Additional keyword arguments to pass to the Dependency constructor.
-    :return: An instance of a subclass of Dependency corresponding to the package's dependency type.
+    :param kwargs: Extra keyword arguments for the constructor.
+    :return: A Dependency subclass instance.
     :rtype: Dependency
     """
     lock_contents = read_dependency_file()
@@ -94,7 +101,9 @@ def get_dependencies_for_package(package_name: str, **kwargs):
     try:
         packages = lock_contents["packages"]
     except Exception as e:
-        raise KeyError("No 'packages' found in dependencies") from e
+        raise KeyError(
+            "No 'packages' found in dependencies"
+        ) from e
 
     try:
         dependencies = packages[package_name]
@@ -113,11 +122,21 @@ def get_dependencies_for_package(package_name: str, **kwargs):
 
     match dependency_type:
         case "pip-venv":
-            return PipVenvDependency(package_name, dependencies, **kwargs)
+            return PipVenvDependency(
+                package_name, dependencies, **kwargs
+            )
         case "bin-tar":
-            return BinTarDependency(package_name, dependencies, **kwargs)
+            return BinTarDependency(
+                package_name, dependencies, **kwargs
+            )
         case "apt":
-            return AptDependency(package_name, dependencies, **kwargs)
+            return AptDependency(
+                package_name, dependencies, **kwargs
+            )
+        case "npm":
+            return NpmDependency(
+                package_name, dependencies, **kwargs
+            )
         case _:
             raise ValueError(
                 f"Unknown dependency type '{dependency_type}' "
@@ -139,11 +158,13 @@ class Dependency:  # pylint: disable=too-few-public-methods
         self.package_dict = package_dict
 
     def default_installation(self):
-        """Abstract method to perform the default installation of the dependency.
+        """Perform the default installation of the dependency.
 
         Subclasses must implement this method.
         """
-        raise NotImplementedError("This method should be implemented by subclasses.")
+        raise NotImplementedError(
+            "This method should be implemented by subclasses."
+        )
 
 
 class BinTarDependency(Dependency):
@@ -155,7 +176,9 @@ class BinTarDependency(Dependency):
     system PATH.
     """
     # pylint: disable=too-many-instance-attributes
-    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
+    def __init__(
         self,
         package_name: str,
         package_dict: dict,
@@ -170,13 +193,18 @@ class BinTarDependency(Dependency):
         match ARCHITECTURE:
             case "amd64" | "x86_64" | "x64":
                 self.source = package_dict["amd64"]["source"]
-                self.checksum = package_dict["amd64"]["checksum"]
+                self.checksum = (
+                    package_dict["amd64"]["checksum"]
+                )
             case "arm64" | "aarch64":
                 self.source = package_dict["arm64"]["source"]
-                self.checksum = package_dict["arm64"]["checksum"]
+                self.checksum = (
+                    package_dict["arm64"]["checksum"]
+                )
             case _:
                 raise ValueError(
-                    f"Script running on unsupported architecture '{ARCHITECTURE}'"
+                    "Script running on unsupported "
+                    f"architecture '{ARCHITECTURE}'"
                 )
         compression = package_dict["compression"].lower()
         match compression:
@@ -189,72 +217,90 @@ class BinTarDependency(Dependency):
                     f"Unknown compression type '{compression}' "
                     f"for package '{package_name}'"
                 )
-        self.fetch_spot = Path(os.path.join(
-            fetch_directory,
+        tar_name = (
             f"{self.package_name}.tar.{self.compression}"
-            ))
-        self.unfolding_directory = Path(os.path.join(
-            fetch_directory,
-            self.package_name
-            ))
-        self.installation_directory = Path(installation_directory)
-        self.binaries_location_in_tarball = binaries_location_in_tarball
+        )
+        self.fetch_spot = (
+            Path(fetch_directory) / tar_name
+        )
+        self.unfolding_directory = (
+            Path(fetch_directory) / self.package_name
+        )
+        self.installation_directory = Path(
+            installation_directory
+        )
+        self.binaries_location_in_tarball = (
+            binaries_location_in_tarball
+        )
         self.installed_package_name = installed_package_name
         self.system_bin_directory = Path(system_bin_directory)
 
     def set_fetch_directory(self, fetch_directory: str):
-        """Sets the directory where the tarball will be fetched.
+        """Sets the directory for tarball fetching.
 
-        :param fetch_directory: The directory to fetch the tarball to.
+        :param fetch_directory: Directory to fetch to.
         :type fetch_directory: str
         """
-        self.fetch_spot = Path(os.path.join(
-            fetch_directory,
+        tar_name = (
             f"{self.package_name}.tar.{self.compression}"
-            ))
-        self.unfolding_directory = Path(os.path.join(
-            fetch_directory,
-            self.package_name
-            ))
+        )
+        self.fetch_spot = (
+            Path(fetch_directory) / tar_name
+        )
+        self.unfolding_directory = (
+            Path(fetch_directory) / self.package_name
+        )
 
-    def set_installation_directory(self, installation_directory: str):
-        """Sets the directory where the package will be installed.
+    def set_installation_directory(
+        self, installation_directory: str
+    ):
+        """Sets the directory for package installation.
 
-        :param installation_directory: The directory to install the package to.
+        :param installation_directory: Directory to install to.
         :type installation_directory: str
         """
-        self.installation_directory = Path(installation_directory)
+        self.installation_directory = Path(
+            installation_directory
+        )
 
-    def set_binaries_location_in_tarball(self, binaries_location_in_tarball: str):
-        """Sets the subdirectory within the tarball where binaries are located.
+    def set_binaries_location_in_tarball(
+        self, binaries_location_in_tarball: str
+    ):
+        """Sets the binaries subdirectory in the tarball.
 
-        :param binaries_location_in_tarball: The subdirectory in the tarball containing binaries.
+        :param binaries_location_in_tarball: Subdirectory name.
         :type binaries_location_in_tarball: str
         """
-        self.binaries_location_in_tarball = binaries_location_in_tarball
+        self.binaries_location_in_tarball = (
+            binaries_location_in_tarball
+        )
 
-    def set_installed_package_name(self, installed_package_name: str):
+    def set_installed_package_name(
+        self, installed_package_name: str
+    ):
         """Sets the name of the package once installed.
 
-        :param installed_package_name: The name to use for the installed package.
+        :param installed_package_name: Installed package name.
         :type installed_package_name: str
         """
         self.installed_package_name = installed_package_name
 
-    def set_system_bin_directory(self, system_bin_directory: str):
-        """Sets the directory where symlinks to binaries will be created.
+    def set_system_bin_directory(
+        self, system_bin_directory: str
+    ):
+        """Sets the directory for binary symlinks.
 
-        :param system_bin_directory: The directory to create symlinks in.
+        :param system_bin_directory: Symlink directory.
         :type system_bin_directory: str
         """
         self.system_bin_directory = Path(system_bin_directory)
 
     def default_installation(self):
-        """Runs the default installation process for the BinTarDependency.
+        """Runs the default BinTarDependency installation.
 
-        This method orchestrates the entire installation process, including fetching
-        the tarball, checking its integrity, extracting it, moving the contents to
-        the installation directory, and adding the binaries to the system PATH.
+        Fetches the tarball, checks its integrity, extracts it,
+        moves the contents to the installation directory, and
+        adds the binaries to the system PATH.
         """
         self.fetch_tarball()
         self.check_integrity_of_fetched_tarball()
@@ -263,17 +309,18 @@ class BinTarDependency(Dependency):
         self.add_to_path()
 
     def fetch_tarball(self):
-        """Fetches the tarball from the specified source URL and saves it to the fetch spot.
+        """Fetches the tarball from the source URL.
 
         Raises a CalledProcessError if the curl command fails.
         """
         subprocess.run(
-            ["curl", "-fsSL", self.source, "-o", self.fetch_spot],
+            ["curl", "-fsSL", self.source, "-o",
+             self.fetch_spot],
             check=True
         )
 
     def check_integrity_of_fetched_tarball(self):
-        """Checks the integrity of the fetched tarball against its checksum.
+        """Checks the tarball integrity against its checksum.
 
         Raises a ValueError if the checksum doesn't match.
         """
@@ -284,12 +331,15 @@ class BinTarDependency(Dependency):
                 "downloaded."
             )
         with open(self.fetch_spot, "rb") as f:
-            file_hash = hashlib.file_digest(f, "sha256").hexdigest()
+            file_hash = hashlib.file_digest(
+                f, "sha256"
+            ).hexdigest()
             if file_hash != self.checksum:
                 raise ValueError(
                     f"Checksum mismatch for package "
                     f"'{self.package_name}' - was "
-                    f"'{file_hash}', expected '{self.checksum}'"
+                    f"'{file_hash}', expected "
+                    f"'{self.checksum}'"
                 )
 
     def extract_tarball(self):
@@ -303,13 +353,17 @@ class BinTarDependency(Dependency):
                 f"package '{self.package_name}' hasn't been "
                 "downloaded."
             )
-        with tarfile.open(self.fetch_spot, f"r:{self.compression}") as tar:
-            tar.extractall(path=self.unfolding_directory, filter="data")
+        with tarfile.open(
+            self.fetch_spot, f"r:{self.compression}"
+        ) as tar:
+            tar.extractall(
+                path=self.unfolding_directory, filter="data"
+            )
 
     def move_unfolded_contents_to_installation(self):
-        """Moves the contents of the unfolding directory to the installation directory.
+        """Moves extracted contents to the installation directory.
 
-        Raises a FileNotFoundError if the unfolding directory is not found.
+        Raises a FileNotFoundError if not yet extracted.
         """
         if not self.unfolding_directory.exists():
             raise FileNotFoundError(
@@ -318,39 +372,51 @@ class BinTarDependency(Dependency):
                 "been extracted."
             )
 
-        os.makedirs(self.installation_directory, exist_ok=True)
-        unfolded_contents = list(self.unfolding_directory.iterdir())
-        if len(unfolded_contents) == 1 and unfolded_contents[0].is_dir():
+        os.makedirs(
+            self.installation_directory, exist_ok=True
+        )
+        unfolded_contents = list(
+            self.unfolding_directory.iterdir()
+        )
+        if (
+            len(unfolded_contents) == 1
+            and unfolded_contents[0].is_dir()
+        ):
             single_dir = unfolded_contents[0]
             if self.installed_package_name:
                 self.installation_location = (
-                    self.installation_directory
-                    / self.installed_package_name
+                    self.installation_directory /
+                    self.installed_package_name
                 )
             else:
                 self.installation_location = (
-                    self.installation_directory / single_dir.name
+                    self.installation_directory /
+                    single_dir.name
                 )
             single_dir.rename(self.installation_location)
         else:
-            extracted = [item.name for item in unfolded_contents]
+            extracted = [
+                item.name for item in unfolded_contents
+            ]
             raise ValueError(
                 f"Package '{self.package_name}' extracted "
                 f"multiple items unexpectedly: {extracted}."
             )
 
     def add_to_path(self):
-        """Adds the binaries from the installation location to the system PATH by creating symlinks.
-        """
+        """Adds binaries to PATH by creating symlinks."""
         if self.installation_location is None:
             raise AttributeError(
                 f"Installation location for package "
                 f"'{self.package_name}' hasn't been set. "
-                "Ensure 'move_unfolded_contents_to_installation'"
+                "Ensure "
+                "'move_unfolded_contents_to_installation'"
                 " has been called successfully."
             )
         bin_subdir = self.binaries_location_in_tarball
-        binaries_path = self.installation_location / bin_subdir
+        binaries_path = (
+            self.installation_location / bin_subdir
+        )
         if not binaries_path.exists():
             raise FileNotFoundError(
                 f"Binaries path '{binaries_path}' not found; "
@@ -376,7 +442,9 @@ class PipVenvDependency(Dependency):
     environment, install the specified Python packages, and link
     the resulting binaries to a specified directory.
     """
-    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
+    def __init__(
         self,
         package_name: str,
         package_dict: dict,
@@ -393,96 +461,116 @@ class PipVenvDependency(Dependency):
                 "'pip-venv' and therefore should include one or "
                 "more python package definitions in 'pyPackages'"
             ) from e
-        self.resulting_binaries = resulting_binaries or [package_name]
-        self.venv_path = Path(os.path.join(venv_super_directory, f"{package_name}_env"))
+        self.resulting_binaries = (
+            resulting_binaries or [package_name]
+        )
+        self.venv_path = Path(
+            venv_super_directory
+        ) / f"{package_name}_env"
         self.installation_directory = installation_directory
 
-    def set_resulting_binaries(self, resulting_binaries: list[str]):
-        """Sets the list of resulting binaries to be linked after installation.
+    def set_resulting_binaries(
+        self, resulting_binaries: list[str]
+    ):
+        """Sets the binaries to be linked after installation.
 
-        :param resulting_binaries: List of binary names to link.
+        :param resulting_binaries: List of binary names.
         :type resulting_binaries: list[str]
         """
         self.resulting_binaries = resulting_binaries
 
-    def set_venv_super_directory(self, venv_super_directory: str):
-        """Sets the super directory where the virtual environment will be created.
+    def set_venv_super_directory(
+        self, venv_super_directory: str
+    ):
+        """Sets the parent directory for the virtual environment.
 
-        :param venv_super_directory: The directory to create the virtual environment in.
+        :param venv_super_directory: Parent directory path.
         :type venv_super_directory: str
         """
-        self.venv_path = Path(os.path.join(venv_super_directory, f"{self.package_name}_env"))
+        self.venv_path = Path(
+            venv_super_directory
+        ) / f"{self.package_name}_env"
 
-    def set_installation_directory(self, installation_directory: str):
-        """Sets the directory where the resulting binaries will be linked.
+    def set_installation_directory(
+        self, installation_directory: str
+    ):
+        """Sets the directory for binary symlinks.
 
-        :param installation_directory: The directory to link the binaries in.
+        :param installation_directory: Symlink directory.
         :type installation_directory: str
         """
         self.installation_directory = installation_directory
 
     def default_installation(self):
-        """Runs the default installation process for the PipVenvDependency.
+        """Runs the default PipVenvDependency installation.
 
-        This method orchestrates the entire installation process, including creating
-        the virtual environment, installing the specified Python packages, and linking
-        the resulting binaries to the specified directory.
+        Creates the virtual environment, installs the specified
+        Python packages, and links resulting binaries.
         """
         self.create_venv()
         self.install_python_packages()
         self.link_binaries()
 
     def create_venv(self):
-        """Creates a Python virtual environment at the specified venv_path."""
+        """Creates a virtual environment at venv_path."""
         venv.create(self.venv_path, with_pip=True)
 
-    def _package_to_pip_format(self, py_package_name: str, py_package_dict: dict) -> str:
-        """Converts a Python package name and its dictionary to a pip install format string.
+    def _package_to_pip_format(
+        self, py_package_name: str, py_package_dict: dict
+    ) -> str:
+        """Converts a package name and dict to pip format.
 
-        :param py_package_name: The name of the Python package.
+        :param py_package_name: The Python package name.
         :type py_package_name: str
-        :param py_package_dict: The dictionary containing package details, including version.
+        :param py_package_dict: Dict with package details.
         :type py_package_dict: dict
-        :return: A string in the format 'package_name==version'
-            or just 'package_name' if version is not specified.
+        :return: 'name==version' or just 'name'.
         :rtype: str
         """
         try:
-            return f"{py_package_name}=={py_package_dict['version']}"
+            return (
+                f"{py_package_name}=="
+                f"{py_package_dict['version']}"
+            )
         except KeyError:
             return f"{py_package_name}"
 
     def install_python_packages(self):
-        """Installs the specified Python packages into the virtual environment using pip.
+        """Installs Python packages into the virtual environment.
 
-        Raises a FileNotFoundError if the virtual environment hasn't been created.
+        Raises FileNotFoundError if the venv doesn't exist.
         """
         if not self.venv_path.exists():
-            raise FileNotFoundError("Virtual environment hasn't been created.")
+            raise FileNotFoundError(
+                "Virtual environment hasn't been created."
+            )
 
-        pip_bin = os.path.join(self.venv_path, "bin", "pip")
+        pip_bin = os.path.join(
+            self.venv_path, "bin", "pip"
+        )
 
         run_command = [pip_bin, "install", "--no-cache-dir"]
         run_command.extend([
-            self._package_to_pip_format(package_name, package_dict)
+            self._package_to_pip_format(
+                package_name, package_dict
+            )
             for package_name, package_dict
             in self.python_packages.items()
-            ])
+        ])
 
         subprocess.run(run_command, check=True)
 
     def link_binaries(self):
-        """Creates symlinks for the resulting binaries from the virtual
-        environment to the installation directory.
-        """
-        os.makedirs(self.installation_directory, exist_ok=True)
+        """Creates symlinks for binaries from the venv."""
+        os.makedirs(
+            self.installation_directory, exist_ok=True
+        )
 
         for resulting_binary in self.resulting_binaries:
-            package_binary = Path(os.path.join(
-                self.venv_path,
-                "bin",
+            package_binary = (
+                Path(self.venv_path) / "bin" /
                 resulting_binary
-                ))
+            )
 
             if not package_binary.exists():
                 raise FileNotFoundError(
@@ -490,10 +578,9 @@ class PipVenvDependency(Dependency):
                     "installed in the virtual environment."
                 )
 
-            link = Path(os.path.join(
-                self.installation_directory,
-                resulting_binary
-            ))
+            link = Path(
+                self.installation_directory
+            ) / resulting_binary
             if link.exists() or link.is_symlink():
                 link.unlink()
             os.symlink(package_binary, link)
@@ -521,19 +608,22 @@ class AptDependency(Dependency):
         self._keyring_path = None
 
     def set_apt_package_name(self, apt_package_name: str):
-        """Sets the apt package name if it differs from the lock file name.
+        """Sets the apt package name.
 
-        :param apt_package_name: The apt package name to install.
+        :param apt_package_name: The apt package name.
         :type apt_package_name: str
         """
         self.apt_package_name = apt_package_name
 
     def _apt_env(self) -> dict:
-        """Returns an environment dict with DEBIAN_FRONTEND=noninteractive."""
-        return {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+        """Returns env with DEBIAN_FRONTEND=noninteractive."""
+        return {
+            **os.environ,
+            "DEBIAN_FRONTEND": "noninteractive"
+        }
 
     def _run_apt(self, *args):
-        """Runs an apt-get command with noninteractive frontend."""
+        """Runs an apt-get command."""
         subprocess.run(
             ["apt-get", *args],
             check=True,
@@ -541,9 +631,9 @@ class AptDependency(Dependency):
         )
 
     def add_gpg_key(self, key_url: str = None):
-        """Downloads and installs a GPG key for apt repository verification.
+        """Downloads and installs a GPG key for apt.
 
-        :param key_url: URL of the GPG key (defaults to gpgKeyUrl from lock file).
+        :param key_url: URL of the GPG key.
         :type key_url: str
         """
         key_url = key_url or self.gpg_key_url
@@ -576,11 +666,11 @@ class AptDependency(Dependency):
     ):
         """Adds a custom apt repository and pins it.
 
-        :param repo_url: Base URL of the apt repository (defaults to repository from lock file).
+        :param repo_url: Base URL of the apt repository.
         :type repo_url: str
-        :param component: Repository component name (defaults to apt_package_name).
+        :param component: Repository component name.
         :type component: str
-        :param pin_priority: Pin priority for the repository (default 900).
+        :param pin_priority: Pin priority (default 900).
         :type pin_priority: int
         """
         repo_url = repo_url or self.repository
@@ -631,9 +721,9 @@ class AptDependency(Dependency):
     def add_ppa(self, ppa: str = None, pin_priority: int = 1001):
         """Adds a PPA repository and pins it.
 
-        :param ppa: PPA string, e.g. "ppa:owner/name" (defaults to ppa from lock file).
+        :param ppa: PPA string, e.g. "ppa:owner/name".
         :type ppa: str
-        :param pin_priority: Pin priority for the PPA (default 1001).
+        :param pin_priority: Pin priority (default 1001).
         :type pin_priority: int
         """
         ppa = ppa or self.ppa
@@ -647,7 +737,7 @@ class AptDependency(Dependency):
             ["add-apt-repository", "-y", ppa],
             check=True, env=self._apt_env()
         )
-        # Derive pin origin: ppa:owner/name → LP-PPA-owner
+        # Derive pin origin: ppa:owner/name -> LP-PPA-owner
         # or LP-PPA-owner-name when name != "ppa"
         parts = ppa.replace("ppa:", "").split("/")
         owner = parts[0]
@@ -669,13 +759,12 @@ class AptDependency(Dependency):
             )
 
     def default_installation(self):
-        """Installs the apt package, optionally pinned to a version.
+        """Installs the apt package, optionally version-pinned.
 
         If gpgKeyUrl, repository, or ppa are defined in the lock
-        file, sets up the package source first. Runs apt-get update
-        and apt-get install. If a version is specified, it is used
-        as a prefix match. Any additionalPackages from the lock file
-        are installed alongside the main package.
+        file, sets up the package source first. Runs apt-get
+        update and install. Any additionalPackages from the lock
+        file are installed alongside the main package.
         """
         if self.gpg_key_url:
             self.add_gpg_key()
@@ -692,3 +781,75 @@ class AptDependency(Dependency):
             "install", "--no-install-recommends", "-y",
             pkg, *self.additional_packages
         )
+
+
+class NpmDependency(Dependency):  # pylint: disable=too-few-public-methods
+    """A dependency installed via npm global packages.
+
+    Running the default_installation method will install the
+    specified JavaScript packages globally with version pinning
+    using npm.
+    """
+
+    def __init__(
+        self,
+        package_name: str,
+        package_dict: dict,
+        npm_cache_directory: str = "/tmp/npm-cache"
+    ):
+        super().__init__(package_name, package_dict)
+        try:
+            self.js_packages = package_dict["jsPackages"]
+        except KeyError as e:
+            raise KeyError(
+                f"Package '{package_name}' has dependency type "
+                "'npm' and therefore should include one or more "
+                "JavaScript package definitions in 'jsPackages'"
+            ) from e
+        self.npm_cache_directory = npm_cache_directory
+
+    def _package_to_npm_format(
+        self, js_package_name: str, js_package_dict: dict
+    ) -> str:
+        """Converts a JS package name and dict to npm format.
+
+        :param js_package_name: The name of the JS package.
+        :type js_package_name: str
+        :param js_package_dict: Dict with package details.
+        :type js_package_dict: dict
+        :return: 'package_name@version' or 'package_name'.
+        :rtype: str
+        """
+        try:
+            return (
+                f"{js_package_name}@"
+                f"{js_package_dict['version']}"
+            )
+        except KeyError:
+            return js_package_name
+
+    def default_installation(self):
+        """Installs npm packages globally with version pinning.
+
+        Checks that npm is available on PATH, then runs
+        npm install -g with the specified packages and versions.
+
+        Raises an EnvironmentError if npm is not found.
+        """
+        if not shutil.which("npm"):
+            raise EnvironmentError(
+                "npm is not available on PATH. Install Node.js "
+                "before installing npm packages."
+            )
+
+        run_command = [
+            "npm", "install", "-g",
+            "--cache", self.npm_cache_directory
+        ]
+        run_command.extend([
+            self._package_to_npm_format(pkg_name, pkg_dict)
+            for pkg_name, pkg_dict
+            in self.js_packages.items()
+        ])
+
+        subprocess.run(run_command, check=True)
