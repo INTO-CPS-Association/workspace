@@ -44,13 +44,16 @@ jobs:
         with:
           context: ./workspaces
           file: workspaces/Dockerfile.ubuntu.noble.xfce
-          push: false
           platforms: ${{ matrix.arch.platform }}
+          load: true
+          tags: workspace:latest
+          cache-from: type=gha,scope=full-${{ matrix.arch.platform }}
+          cache-to: type=gha,mode=max,scope=full-${{ matrix.arch.platform }}
 
       - name: Start services
         shell: bash
         run: |
-          docker compose -f workspaces/test/dtaas/compose.yml up -d
+          docker compose -f workspaces/test/dtaas/compose.yml up -d --no-build
 
       - name: Check service health
         uses: ./.github/actions/check-service-health
