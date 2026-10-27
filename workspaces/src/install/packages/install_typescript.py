@@ -13,6 +13,10 @@ subprocess.run(
     )
 
 subprocess.run(
-    ["npm", "install", "-g", "typescript", "ts-node", "@types/node"],
+    [
+        "npm", "install", "-g",
+        "--cache", "/tmp/npm-cache",
+        "typescript", "tsx", "@types/node"
+    ],
     check=True
     )
