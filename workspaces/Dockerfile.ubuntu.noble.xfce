@@ -39,7 +39,7 @@ FROM configure AS install-full
 
 RUN bash ${INST_DIR}/packages/install_python.sh
 RUN bash ${INST_DIR}/firefox/install_firefox.sh
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN python3 ${INST_DIR}/packages/install_nginx.py
 RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
 RUN python3 ${INST_DIR}/packages/install_java.py
 RUN python3 ${INST_DIR}/packages/install_jupyter.py
@@ -56,7 +56,7 @@ ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
 RUN bash ${INST_DIR}/packages/install_python.sh
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN python3 ${INST_DIR}/packages/install_nginx.py
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh

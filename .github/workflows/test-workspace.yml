@@ -65,7 +65,7 @@ jobs:
         run: |
           echo "Checking installed toolchain binaries..."
           FAILED=""
-          for binary in python3 uv node npm tsc java jupyter; do
+          for binary in python3 uv node npm tsc java jupyter nginx; do
             if docker exec workspace which "$binary" > /dev/null 2>&1; then
               VERSION=$(docker exec workspace "$binary" --version 2>&1 | head -1)
               echo "✅ $binary: $VERSION"

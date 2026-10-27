@@ -42,7 +42,12 @@
           "version": "0.13.3"
         }
       }
+    },
+    "nginx": {
+      "type": "apt",
+      "gpgKeyUrl": "https://nginx.org/keys/nginx_signing.key",
+      "repository": "http://nginx.org/packages/ubuntu"
     }
   },
-  "lockVersion": "0.2.1"
+  "lockVersion": "0.3.0"
 }

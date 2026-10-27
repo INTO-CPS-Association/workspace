@@ -1,9 +1,10 @@
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Determines the lock file formatting that this util works with.
-LOCK_VERSION = "0.2.1"
+LOCK_VERSION = "0.3.0"
 
 # Default location of the lock file.
 DEFAULT_DEPENDENCY_LOCK_FILE = os.path.join(
@@ -105,8 +106,13 @@ def get_dependencies_for_package(package_name: str, **kwargs):
             return PipVenvDependency(package_name, dependencies, **kwargs)
         case "bin-tar":
             return BinTarDependency(package_name, dependencies, **kwargs)
+        case "apt":
+            return AptDependency(package_name, dependencies, **kwargs)
         case _:
-            raise ValueError(f"Unknown dependency type '{dependency_type}' for package '{package_name}'")
+            raise ValueError(
+                f"Unknown dependency type '{dependency_type}' "
+                f"for package '{package_name}'"
+            )
 
 
 class Dependency:
@@ -476,3 +482,153 @@ class PipVenvDependency(Dependency):
                     resulting_binary
                     ))
                 )
+
+
+class AptDependency(Dependency):
+    """A dependency installed via the apt package manager.
+    """
+
+    def __init__(
+        self,
+        package_name: str,
+        package_dict: dict,
+        apt_package_name: str = None
+    ):
+        super().__init__(package_name, package_dict)
+        self.apt_package_name = apt_package_name or package_name
+        self.version = package_dict.get("version")
+        self.gpg_key_url = package_dict.get("gpgKeyUrl")
+        self.repository = package_dict.get("repository")
+        self._keyring_path = None
+
+    def set_apt_package_name(self, apt_package_name: str):
+        """Sets the apt package name if it differs from the lock file name.
+
+        :param apt_package_name: The apt package name to install.
+        :type apt_package_name: str
+        """
+        self.apt_package_name = apt_package_name
+
+    def _apt_env(self) -> dict:
+        """Returns an environment dict with DEBIAN_FRONTEND=noninteractive."""
+        return {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+
+    def _run_apt(self, *args):
+        """Runs an apt-get command with noninteractive frontend."""
+        import subprocess
+        subprocess.run(
+            ["apt-get", *args],
+            check=True,
+            env=self._apt_env()
+        )
+
+    def add_gpg_key(self, key_url: str = None):
+        """Downloads and installs a GPG key for apt repository verification.
+
+        :param key_url: URL of the GPG key (defaults to gpgKeyUrl from lock file).
+        :type key_url: str
+        """
+        key_url = key_url or self.gpg_key_url
+        if not key_url:
+            raise ValueError(
+                f"No GPG key URL for package "
+                f"'{self.package_name}'. Provide one as "
+                "argument or set gpgKeyUrl in the lock file."
+            )
+        import subprocess
+        keyring = (
+            f"/usr/share/keyrings/"
+            f"{self.apt_package_name}-archive-keyring.gpg"
+        )
+        curl = subprocess.run(
+            ["curl", "-fsSL", key_url],
+            capture_output=True, check=True
+        )
+        with open(keyring, "wb") as f:
+            subprocess.run(
+                ["gpg", "--dearmor"],
+                input=curl.stdout, stdout=f, check=True
+            )
+        self._keyring_path = keyring
+
+    def add_repository(
+        self,
+        repo_url: str = None,
+        component: str = None,
+        pin_priority: int = 900
+    ):
+        """Adds a custom apt repository and pins it.
+
+        :param repo_url: Base URL of the apt repository (defaults to repository from lock file).
+        :type repo_url: str
+        :param component: Repository component name (defaults to apt_package_name).
+        :type component: str
+        :param pin_priority: Pin priority for the repository (default 900).
+        :type pin_priority: int
+        """
+        repo_url = repo_url or self.repository
+        if not repo_url:
+            raise ValueError(
+                f"No repository URL for package "
+                f"'{self.package_name}'. Provide one as "
+                "argument or set repository in the lock file."
+            )
+        import subprocess
+        arch = subprocess.run(
+            ["dpkg", "--print-architecture"],
+            capture_output=True, text=True, check=True
+        ).stdout.strip()
+        codename = subprocess.run(
+            ["lsb_release", "-cs"],
+            capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+        component = component or self.apt_package_name
+        signed_by = ""
+        if self._keyring_path:
+            signed_by = f" signed-by={self._keyring_path}"
+
+        repo_line = (
+            f"deb [arch={arch}{signed_by}] "
+            f"{repo_url} {codename} {component}\n"
+        )
+        list_path = (
+            f"/etc/apt/sources.list.d/"
+            f"{self.apt_package_name}.list"
+        )
+        with open(list_path, "w") as f:
+            f.write(repo_line)
+
+        origin = urlparse(repo_url).hostname
+        pin_path = (
+            f"/etc/apt/preferences.d/"
+            f"99{self.apt_package_name}"
+        )
+        with open(pin_path, "w") as f:
+            f.write(
+                f"Package: *\n"
+                f"Pin: origin {origin}\n"
+                f"Pin: release o={self.apt_package_name}\n"
+                f"Pin-Priority: {pin_priority}\n"
+            )
+
+    def default_installation(self):
+        """Installs the apt package, optionally pinned to a version.
+
+        If gpgKeyUrl and repository are defined in the lock file,
+        sets up the custom repository first. Runs apt-get update
+        and apt-get install. If a version is specified, it is used
+        as a prefix match.
+        """
+        if self.gpg_key_url:
+            self.add_gpg_key()
+        if self.repository:
+            self.add_repository()
+        if self.version:
+            pkg = f"{self.apt_package_name}={self.version}*"
+        else:
+            pkg = self.apt_package_name
+        self._run_apt("update")
+        self._run_apt(
+            "install", "--no-install-recommends", "-y", pkg
+        )
