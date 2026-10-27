@@ -70,7 +70,7 @@ jobs:
               if [ "$binary" = "nginx" ]; then
                 VERSION=$(docker exec workspace "$binary" -v 2>&1 | head -1)
               else
-                VERSION=$(docker exec workspace "$binary" --version 2>&1 | head -1)
+                VERSION=$(docker exec workspace "$binary" --version 2>/dev/null | head -1)
               fi
               echo "✅ $binary: $VERSION"
             else
