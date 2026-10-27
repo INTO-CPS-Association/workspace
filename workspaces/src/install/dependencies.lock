@@ -1,5 +1,22 @@
 {
   "packages": {
+    "code-server": {
+      "type": "bin-tar",
+      "compression": "gz",
+      "amd64": {
+        "source": "https://github.com/coder/code-server/releases/download/v4.143.1/code-server-4.143.1-linux-amd64.tar.gz",
+        "checksum": "614877cf71005f14ea252bd2d9b1c12237cf7d73681ef150f0dff7f13849fdb5"
+      },
+      "arm64": {
+        "source": "https://github.com/coder/code-server/releases/download/v4.143.1/code-server-4.143.1-linux-arm64.tar.gz",
+        "checksum": "51481a891754dc2585b86d007aec24ac675453fc5ef6cfa346c4462449277384"
+      }
+    },
+    "firefox": {
+      "type": "apt",
+      "ppa": "ppa:mozillateam/ppa",
+      "additionalPackages": ["p11-kit-modules"]
+    },
     "java": {
       "type": "bin-tar",
       "compression": "gz",
@@ -23,6 +40,11 @@
         }
       }
     },
+    "nginx": {
+      "type": "apt",
+      "gpgKeyUrl": "https://nginx.org/keys/nginx_signing.key",
+      "repository": "http://nginx.org/packages/ubuntu"
+    },
     "typescript": {
       "type": "bin-tar",
       "compression": "xz",
@@ -42,16 +64,6 @@
           "version": "0.13.3"
         }
       }
-    },
-    "firefox": {
-      "type": "apt",
-      "ppa": "ppa:mozillateam/ppa",
-      "additionalPackages": ["p11-kit-modules"]
-    },
-    "nginx": {
-      "type": "apt",
-      "gpgKeyUrl": "https://nginx.org/keys/nginx_signing.key",
-      "repository": "http://nginx.org/packages/ubuntu"
     }
   },
   "lockVersion": "0.3.1"
