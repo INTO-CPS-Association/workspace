@@ -37,10 +37,14 @@ RUN bash ${INST_DIR}/image_wegovy.sh
 
 FROM configure AS install-full
 
-RUN bash ${INST_DIR}/firefox/install_firefox.sh
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
-RUN bash ${INST_DIR}/vscode/install_vscode_server.sh
-RUN bash ${INST_DIR}/jupyter/install_jupyter.sh
+RUN bash ${INST_DIR}/packages/install_python.sh
+RUN python3 ${INST_DIR}/packages/install_firefox.py
+RUN python3 ${INST_DIR}/packages/install_nginx.py
+RUN python3 ${INST_DIR}/packages/install_code_server.py
+RUN python3 ${INST_DIR}/packages/install_java.py
+RUN python3 ${INST_DIR}/packages/install_jupyter.py
+RUN python3 ${INST_DIR}/packages/install_uv.py
+RUN python3 ${INST_DIR}/packages/install_typescript.py
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh
@@ -51,7 +55,8 @@ FROM configure AS install-minimal
 ENV VSCODE_DISABLED=1 \
     JUPYTER_DISABLED=1
 
-RUN bash ${INST_DIR}/nginx/install_nginx.sh
+RUN bash ${INST_DIR}/packages/install_python.sh
+RUN python3 ${INST_DIR}/packages/install_nginx.py
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh
