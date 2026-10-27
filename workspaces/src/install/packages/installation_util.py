@@ -300,7 +300,7 @@ class BinTarDependency(Dependency):
                 "downloaded."
             )
         with tarfile.open(self.fetch_spot, f"r:{self.compression}") as tar:
-            tar.extractall(path=self.unfolding_directory)
+            tar.extractall(path=self.unfolding_directory, filter="data")
 
     def move_unfolded_contents_to_installation(self):
         """Moves the contents of the unfolding directory to the installation directory.
