@@ -9,6 +9,8 @@ on:
       - 'workspaces/src/**'
       - 'workspaces/Dockerfile.ubuntu.noble.xfce'
       - '.github/workflows/test-workspace.yml'
+      - '.github/actions/check-connectivity/**'
+      - '.github/actions/check-service-health/**'
   workflow_dispatch:
 
 permissions:
