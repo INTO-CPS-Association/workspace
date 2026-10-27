@@ -43,11 +43,16 @@
         }
       }
     },
+    "firefox": {
+      "type": "apt",
+      "ppa": "ppa:mozillateam/ppa",
+      "additionalPackages": ["p11-kit-modules"]
+    },
     "nginx": {
       "type": "apt",
       "gpgKeyUrl": "https://nginx.org/keys/nginx_signing.key",
       "repository": "http://nginx.org/packages/ubuntu"
     }
   },
-  "lockVersion": "0.3.0"
+  "lockVersion": "0.3.1"
 }

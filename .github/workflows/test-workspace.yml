@@ -60,14 +60,18 @@ jobs:
           url: "http://localhost/user1/services"
           expected_response_code: "200"
 
-      - name: Verify toolchain binaries are available
+      - name: Verify installed binaries are available
         shell: bash
         run: |
-          echo "Checking installed toolchain binaries..."
+          echo "Checking installed binaries..."
           FAILED=""
-          for binary in python3 uv node npm tsc java jupyter nginx; do
+          for binary in python3 uv node npm tsc java jupyter nginx firefox; do
             if docker exec workspace which "$binary" > /dev/null 2>&1; then
-              VERSION=$(docker exec workspace "$binary" --version 2>&1 | head -1)
+              if [ "$binary" = "nginx" ]; then
+                VERSION=$(docker exec workspace "$binary" -v 2>&1 | head -1)
+              else
+                VERSION=$(docker exec workspace "$binary" --version 2>&1 | head -1)
+              fi
               echo "✅ $binary: $VERSION"
             else
               echo "❌ $binary: not found on PATH"

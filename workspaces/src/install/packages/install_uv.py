@@ -1,3 +1,4 @@
+"""Installs the uv Python package manager and python development tools."""
 import subprocess
 
 from installation_util import get_dependencies_for_package

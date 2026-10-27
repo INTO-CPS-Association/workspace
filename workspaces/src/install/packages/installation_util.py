@@ -1,10 +1,20 @@
+"""Utility module for managing package installations from a lock file.
+
+Provides dependency types (bin-tar, pip-venv, apt) that read
+source and version information from a JSON lock file and handle
+downloading, verifying, and installing packages.
+"""
+import hashlib
 import json
 import os
+import subprocess
+import tarfile
+import venv
 from pathlib import Path
 from urllib.parse import urlparse
 
 # Determines the lock file formatting that this util works with.
-LOCK_VERSION = "0.3.0"
+LOCK_VERSION = "0.3.1"
 
 # Default location of the lock file.
 DEFAULT_DEPENDENCY_LOCK_FILE = os.path.join(
@@ -50,7 +60,7 @@ def read_dependency_file() -> dict:
     :return: Dictionary containing the dependency information.
     :rtype: dict
     """
-    with open(lock_file_location()) as lock_file:
+    with open(lock_file_location(), encoding="utf-8") as lock_file:
         return json.load(lock_file)
 
 
@@ -115,7 +125,7 @@ def get_dependencies_for_package(package_name: str, **kwargs):
             )
 
 
-class Dependency:
+class Dependency:  # pylint: disable=too-few-public-methods
     """An abstract base class representing a generic dependency.
 
     Subclasses should implement the default_installation method.
@@ -124,7 +134,7 @@ class Dependency:
         self,
         package_name: str,
         package_dict: dict,
-        **kwargs
+        **kwargs  # pylint: disable=unused-argument
     ):
         self.package_name = package_name
         self.package_dict = package_dict
@@ -138,13 +148,15 @@ class Dependency:
 
 
 class BinTarDependency(Dependency):
-    """A class representing a dependency on a tarball containing binaries.
+    """A dependency on a tarball containing binaries.
 
-    Running the default_installation method will fetch the tarball, check its
-    integrity, extract it, move the contents to the installation directory, and
-    add the binaries to the system PATH.
+    Running the default_installation method will fetch the
+    tarball, check its integrity, extract it, move the contents
+    to the installation directory, and add the binaries to the
+    system PATH.
     """
-    def __init__(
+    # pylint: disable=too-many-instance-attributes
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         package_name: str,
         package_dict: dict,
@@ -155,6 +167,7 @@ class BinTarDependency(Dependency):
         system_bin_directory: str = DEFAULT_LINK_DIRECTORY
     ):
         super().__init__(package_name, package_dict)
+        self.installation_location = None
         match ARCHITECTURE:
             case "amd64" | "x86_64" | "x64":
                 self.source = package_dict["amd64"]["source"]
@@ -251,7 +264,6 @@ class BinTarDependency(Dependency):
 
         Raises a CalledProcessError if the curl command fails.
         """
-        import subprocess
         subprocess.run(
             ["curl", "-fsSL", self.source, "-o", self.fetch_spot],
             check=True
@@ -268,7 +280,6 @@ class BinTarDependency(Dependency):
                 f"package '{self.package_name}' hasn't been "
                 "downloaded."
             )
-        import hashlib
         with open(self.fetch_spot, "rb") as f:
             file_hash = hashlib.sha256(f.read()).hexdigest()
             if file_hash != self.checksum:
@@ -289,7 +300,6 @@ class BinTarDependency(Dependency):
                 f"package '{self.package_name}' hasn't been "
                 "downloaded."
             )
-        import tarfile
         with tarfile.open(self.fetch_spot, f"r:{self.compression}") as tar:
             tar.extractall(path=self.unfolding_directory)
 
@@ -329,7 +339,7 @@ class BinTarDependency(Dependency):
     def add_to_path(self):
         """Adds the binaries from the installation location to the system PATH by creating symlinks.
         """
-        if not hasattr(self, "installation_location"):
+        if self.installation_location is None:
             raise AttributeError(
                 f"Installation location for package "
                 f"'{self.package_name}' hasn't been set. "
@@ -357,21 +367,21 @@ class BinTarDependency(Dependency):
 
 
 class PipVenvDependency(Dependency):
-    """A class representing a dependency that requires a Python virtual environment and pip packages.
+    """A dependency requiring a Python virtual environment.
 
-    Running the default_installation method will create a virtual environment,
-    install the specified Python packages, and link the resulting binaries to a
-    specified directory.
+    Running the default_installation method will create a virtual
+    environment, install the specified Python packages, and link
+    the resulting binaries to a specified directory.
     """
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         package_name: str,
         package_dict: dict,
-        resulting_binaries: list[str] = [],
+        resulting_binaries: list[str] = None,
         venv_super_directory: str = DEFAULT_INSTALLATION_DIRECTORY,
         installation_directory: str = DEFAULT_LINK_DIRECTORY
     ):
-        self.package_name = package_name
+        super().__init__(package_name, package_dict)
         try:
             self.python_packages = package_dict["pyPackages"]
         except Exception as e:
@@ -380,7 +390,7 @@ class PipVenvDependency(Dependency):
                 "'pip-venv' and therefore should include one or "
                 "more python package definitions in 'pyPackages'"
             ) from e
-        self.resulting_binaries = resulting_binaries if resulting_binaries else [package_name]
+        self.resulting_binaries = resulting_binaries or [package_name]
         self.venv_path = Path(os.path.join(venv_super_directory, f"{package_name}_env"))
         self.installation_directory = installation_directory
 
@@ -421,7 +431,6 @@ class PipVenvDependency(Dependency):
 
     def create_venv(self):
         """Creates a Python virtual environment at the specified venv_path."""
-        import venv
         venv.create(self.venv_path, with_pip=True)
 
     def _package_to_pip_format(self, py_package_name: str, py_package_dict: dict) -> str:
@@ -431,7 +440,8 @@ class PipVenvDependency(Dependency):
         :type py_package_name: str
         :param py_package_dict: The dictionary containing package details, including version.
         :type py_package_dict: dict
-        :return: A string in the format 'package_name==version' or just 'package_name' if version is not specified.
+        :return: A string in the format 'package_name==version'
+            or just 'package_name' if version is not specified.
         :rtype: str
         """
         try:
@@ -456,8 +466,7 @@ class PipVenvDependency(Dependency):
             in self.python_packages.items()
             ])
 
-        import subprocess
-        subprocess.run(run_command)
+        subprocess.run(run_command, check=True)
 
     def link_binaries(self):
         """Creates symlinks for the resulting binaries from the virtual
@@ -473,7 +482,10 @@ class PipVenvDependency(Dependency):
                 ))
 
             if not package_binary.exists():
-                raise FileNotFoundError(f"Binary '{resulting_binary}' hasn't been installed in the virtual environment.")
+                raise FileNotFoundError(
+                    f"Binary '{resulting_binary}' hasn't been "
+                    "installed in the virtual environment."
+                )
 
             os.symlink(
                 package_binary,
@@ -499,6 +511,10 @@ class AptDependency(Dependency):
         self.version = package_dict.get("version")
         self.gpg_key_url = package_dict.get("gpgKeyUrl")
         self.repository = package_dict.get("repository")
+        self.ppa = package_dict.get("ppa")
+        self.additional_packages = package_dict.get(
+            "additionalPackages", []
+        )
         self._keyring_path = None
 
     def set_apt_package_name(self, apt_package_name: str):
@@ -515,7 +531,6 @@ class AptDependency(Dependency):
 
     def _run_apt(self, *args):
         """Runs an apt-get command with noninteractive frontend."""
-        import subprocess
         subprocess.run(
             ["apt-get", *args],
             check=True,
@@ -535,7 +550,6 @@ class AptDependency(Dependency):
                 f"'{self.package_name}'. Provide one as "
                 "argument or set gpgKeyUrl in the lock file."
             )
-        import subprocess
         keyring = (
             f"/usr/share/keyrings/"
             f"{self.apt_package_name}-archive-keyring.gpg"
@@ -573,7 +587,6 @@ class AptDependency(Dependency):
                 f"'{self.package_name}'. Provide one as "
                 "argument or set repository in the lock file."
             )
-        import subprocess
         arch = subprocess.run(
             ["dpkg", "--print-architecture"],
             capture_output=True, text=True, check=True
@@ -596,7 +609,7 @@ class AptDependency(Dependency):
             f"/etc/apt/sources.list.d/"
             f"{self.apt_package_name}.list"
         )
-        with open(list_path, "w") as f:
+        with open(list_path, "w", encoding="utf-8") as f:
             f.write(repo_line)
 
         origin = urlparse(repo_url).hostname
@@ -604,7 +617,7 @@ class AptDependency(Dependency):
             f"/etc/apt/preferences.d/"
             f"99{self.apt_package_name}"
         )
-        with open(pin_path, "w") as f:
+        with open(pin_path, "w", encoding="utf-8") as f:
             f.write(
                 f"Package: *\n"
                 f"Pin: origin {origin}\n"
@@ -612,23 +625,67 @@ class AptDependency(Dependency):
                 f"Pin-Priority: {pin_priority}\n"
             )
 
+    def add_ppa(self, ppa: str = None, pin_priority: int = 1001):
+        """Adds a PPA repository and pins it.
+
+        :param ppa: PPA string, e.g. "ppa:owner/name" (defaults to ppa from lock file).
+        :type ppa: str
+        :param pin_priority: Pin priority for the PPA (default 1001).
+        :type pin_priority: int
+        """
+        ppa = ppa or self.ppa
+        if not ppa:
+            raise ValueError(
+                f"No PPA for package '{self.package_name}'. "
+                "Provide one as argument or set ppa in the "
+                "lock file."
+            )
+        subprocess.run(
+            ["add-apt-repository", "-y", ppa],
+            check=True, env=self._apt_env()
+        )
+        # Derive pin origin: ppa:owner/name → LP-PPA-owner
+        # or LP-PPA-owner-name when name != "ppa"
+        parts = ppa.replace("ppa:", "").split("/")
+        owner = parts[0]
+        name = parts[1] if len(parts) > 1 else "ppa"
+        if name == "ppa":
+            origin = f"LP-PPA-{owner}"
+        else:
+            origin = f"LP-PPA-{owner}-{name}"
+
+        pin_path = (
+            f"/etc/apt/preferences.d/"
+            f"{self.apt_package_name}"
+        )
+        with open(pin_path, "w", encoding="utf-8") as f:
+            f.write(
+                f"Package: *\n"
+                f"Pin: release o={origin}\n"
+                f"Pin-Priority: {pin_priority}\n"
+            )
+
     def default_installation(self):
         """Installs the apt package, optionally pinned to a version.
 
-        If gpgKeyUrl and repository are defined in the lock file,
-        sets up the custom repository first. Runs apt-get update
+        If gpgKeyUrl, repository, or ppa are defined in the lock
+        file, sets up the package source first. Runs apt-get update
         and apt-get install. If a version is specified, it is used
-        as a prefix match.
+        as a prefix match. Any additionalPackages from the lock file
+        are installed alongside the main package.
         """
         if self.gpg_key_url:
             self.add_gpg_key()
         if self.repository:
             self.add_repository()
+        if self.ppa:
+            self.add_ppa()
         if self.version:
             pkg = f"{self.apt_package_name}={self.version}*"
         else:
             pkg = self.apt_package_name
         self._run_apt("update")
         self._run_apt(
-            "install", "--no-install-recommends", "-y", pkg
+            "install", "--no-install-recommends", "-y",
+            pkg, *self.additional_packages
         )

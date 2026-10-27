@@ -1,3 +1,4 @@
+"""Installs nginx from the official nginx.org repository."""
 import os
 import subprocess
 
