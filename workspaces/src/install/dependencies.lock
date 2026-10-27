@@ -33,10 +33,10 @@
       "type": "pip-venv",
       "pyPackages": {
         "jupyterlab": {
-          "version": "4.3.4"
+          "version": "4.6.4"
         },
         "notebook": {
-          "version": "7.3.2"
+          "version": "7.6.3"
         }
       }
     },
