@@ -174,6 +174,10 @@ class BinTarDependency(Dependency):
             case "arm64" | "aarch64":
                 self.source = package_dict["arm64"]["source"]
                 self.checksum = package_dict["arm64"]["checksum"]
+            case _:
+                raise ValueError(
+                    f"Script running on unsupported architecture '{ARCHITECTURE}'"
+                )
         compression = package_dict["compression"].lower()
         match compression:
             case "gz" | "gzip" | "lz77":
@@ -280,7 +284,7 @@ class BinTarDependency(Dependency):
                 "downloaded."
             )
         with open(self.fetch_spot, "rb") as f:
-            file_hash = hashlib.sha256(f.read()).hexdigest()
+            file_hash = hashlib.file_digest(f, "sha256").hexdigest()
             if file_hash != self.checksum:
                 raise ValueError(
                     f"Checksum mismatch for package "
@@ -486,13 +490,13 @@ class PipVenvDependency(Dependency):
                     "installed in the virtual environment."
                 )
 
-            os.symlink(
-                package_binary,
-                Path(os.path.join(
-                    self.installation_directory,
-                    resulting_binary
-                    ))
-                )
+            link = Path(os.path.join(
+                self.installation_directory,
+                resulting_binary
+            ))
+            if link.exists() or link.is_symlink():
+                link.unlink()
+            os.symlink(package_binary, link)
 
 
 class AptDependency(Dependency):
