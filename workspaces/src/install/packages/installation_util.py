@@ -133,8 +133,7 @@ class Dependency:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
         package_name: str,
-        package_dict: dict,
-        **kwargs  # pylint: disable=unused-argument
+        package_dict: dict
     ):
         self.package_name = package_name
         self.package_dict = package_dict
