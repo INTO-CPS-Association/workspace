@@ -37,6 +37,8 @@ RUN bash ${INST_DIR}/image_wegovy.sh
 
 FROM configure AS install-full
 
+ENV JAVA_HOME=/opt/java
+
 RUN bash ${INST_DIR}/packages/install_python.sh
 RUN python3 ${INST_DIR}/packages/install_firefox.py
 RUN python3 ${INST_DIR}/packages/install_nginx.py
