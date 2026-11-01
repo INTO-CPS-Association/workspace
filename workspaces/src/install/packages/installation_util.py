@@ -844,7 +844,8 @@ class NpmDependency(Dependency):  # pylint: disable=too-few-public-methods
 
         run_command = [
             "npm", "install", "-g",
-            "--cache", self.npm_cache_directory
+            "--cache", self.npm_cache_directory,
+            "--prefix", "/usr/local"
         ]
         run_command.extend([
             self._package_to_npm_format(pkg_name, pkg_dict)

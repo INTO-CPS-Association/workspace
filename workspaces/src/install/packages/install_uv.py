@@ -4,6 +4,11 @@ import subprocess
 from installation_util import get_dependencies_for_package
 
 subprocess.run(
+    ["apt-get", "update"],
+    check=True
+    )
+
+subprocess.run(
     ["apt-get", "install", "-y", "--no-install-recommends", "python3-dev", "build-essential"],
     check=True
     )
