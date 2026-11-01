@@ -38,13 +38,13 @@ RUN bash ${INST_DIR}/image_wegovy.sh
 FROM configure AS install-full
 
 RUN bash ${INST_DIR}/packages/install_python.sh
-RUN python3 ${INST_DIR}/packages/install_firefox.py
-RUN python3 ${INST_DIR}/packages/install_nginx.py
 RUN python3 ${INST_DIR}/packages/install_code_server.py
 RUN python3 ${INST_DIR}/packages/install_java.py
+RUN python3 ${INST_DIR}/packages/install_nginx.py
 RUN python3 ${INST_DIR}/packages/install_jupyter.py
 RUN python3 ${INST_DIR}/packages/install_uv.py
 RUN python3 ${INST_DIR}/packages/install_typescript.py
+RUN python3 ${INST_DIR}/packages/install_firefox.py
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh
