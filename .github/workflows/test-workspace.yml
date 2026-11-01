@@ -78,6 +78,12 @@ jobs:
               else
                 VERSION=$(docker exec -u 1000 workspace "$binary" --version 2>/dev/null | awk 'NR==1')
               fi
+              EXIT=$?
+              if [ $EXIT -ne 0 ]; then
+                echo "❌ $binary: failed to get version (exit code $EXIT) - got output: $VERSION"
+                FAILED="$FAILED $binary"
+                continue
+              fi
               echo "✅ $binary: $VERSION"
             else
               echo "❌ $binary: not found on PATH"
