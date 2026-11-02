@@ -34,6 +34,7 @@ COPY ./src/install/ ${INST_DIR}
 COPY ./src/admin/ ${ADMIN_DIR}
 
 RUN bash ${INST_DIR}/image_wegovy.sh
+COPY ./src/resources/.bashrc /home/kasm-default-profile/.bashrc
 
 FROM configure AS install-full
 
@@ -54,7 +55,7 @@ RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh
 
 RUN chown -R 1000:0 /usr/local/npm-packages
-ENV PATH="/usr/local/npm-packages/bin:${PATH}"
+ENV PATH="${PATH}:/usr/local/npm-packages/bin"
 
 FROM configure AS install-minimal
 
@@ -91,6 +92,8 @@ RUN mkdir -p /www/Downloads && \
 
 RUN adduser "$(id -un 1000)" sudo && \
     passwd -d "$(id -un 1000)"
+
+ENV PATH="${PATH}:/home/${MAIN_USER}/.local/bin"
 
 RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}' for k, v in os.environ.items()))" >> ${STARTUPDIR}/.docker_set_envs && \
     chmod 755 ${STARTUPDIR}/.docker_set_envs
