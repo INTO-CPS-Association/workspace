@@ -54,6 +54,7 @@ RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh
 
 RUN chown -R 1000:0 /usr/local/npm-packages
+ENV PATH="/usr/local/npm-packages/bin:${PATH}"
 
 FROM configure AS install-minimal
 
