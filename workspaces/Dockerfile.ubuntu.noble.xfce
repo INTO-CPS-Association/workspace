@@ -39,6 +39,8 @@ FROM configure AS install-full
 
 ENV JAVA_HOME=/opt/java
 
+RUN mkdir /usr/local/npm-packages
+
 RUN bash ${INST_DIR}/packages/install_python.sh
 RUN python3 ${INST_DIR}/packages/install_code_server.py
 RUN python3 ${INST_DIR}/packages/install_java.py
@@ -50,6 +52,8 @@ RUN python3 ${INST_DIR}/packages/install_firefox.py
 RUN bash ${INST_DIR}/admin/install_admin.sh
 RUN bash ${INST_DIR}/dtaas_cleanup.sh
 RUN bash ${INST_DIR}/kasm_fixes.sh
+
+RUN chown -R 1000:0 /usr/local/npm-packages
 
 FROM configure AS install-minimal
 
