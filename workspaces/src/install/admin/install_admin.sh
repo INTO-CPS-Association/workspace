@@ -1,58 +1,34 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 echo "Installing Admin Service"
 
-# Install Poetry and pipx
-DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    python3-poetry \
-    python-is-python3 \
-    pipx
+# The admin service gets its own venv under /opt, like the pip-venv packages
+# in dependencies.lock, with its entry point linked into /usr/local/bin, which
+# is on the PATH of every user at runtime. pip builds the wheel through the
+# poetry-core backend declared in pyproject.toml; the dependency ranges in
+# pyproject.toml decide the versions. python3-venv comes from
+# packages/install_python.sh.
+VENV_DIR=/opt/workspace-admin
 
-poetry --version
-pipx --version
-
-# Copy admin service to /opt/admin
-cp -r "${ADMIN_DIR}" /opt/
-
-# Verify pyproject.toml exists
-if [[ ! -f /opt/admin/pyproject.toml ]]; then
-    echo "Error: pyproject.toml not found in /opt/admin"
-    ls -la /opt/admin/
+if [[ ! -f "${ADMIN_DIR}/pyproject.toml" ]]; then
+    echo "Error: pyproject.toml not found in ${ADMIN_DIR}" >&2
+    ls -la "${ADMIN_DIR}" >&2
     exit 1
 fi
 
-# Build the wheel package
-cd /opt/admin
-poetry config virtualenvs.in-project true
-poetry install --only main --no-root
-poetry build
+python3 -m venv "${VENV_DIR}"
+"${VENV_DIR}/bin/pip" install --no-cache-dir "${ADMIN_DIR}"
+ln -sf "${VENV_DIR}/bin/workspace-admin" /usr/local/bin/workspace-admin
 
-# Install the wheel package using pipx
-# Find the built wheel file
-WHEEL_FILE=$(find /opt/admin/dist -name "*.whl" -type f | head -n 1) || true
-if [[ -z "${WHEEL_FILE}" ]]; then
-    echo "Error: No wheel file found in /opt/admin/dist"
-    exit 1
-fi
-
-echo "Installing wheel: ${WHEEL_FILE}"
-pipx install "${WHEEL_FILE}"
-pipx ensurepath
-# shellcheck disable=SC1090
-source ~/.bashrc
-
-# Verify installation
 if ! command -v workspace-admin &> /dev/null; then
-    echo "Error: workspace-admin command not found after installation"
+    echo "Error: workspace-admin command not found after installation" >&2
     exit 1
 fi
 
 workspace-admin --version
 
-# Cleanup
-rm -rf /opt/admin
-rm -rf /home/kasm-default-profile/.cache/pypoetry/*
-rm -rf /home/kasm-default-profile/.cache/pipx/*
+# The sources are only needed for the build.
+rm -rf "${ADMIN_DIR}"
 
 echo "Admin Service installation complete"

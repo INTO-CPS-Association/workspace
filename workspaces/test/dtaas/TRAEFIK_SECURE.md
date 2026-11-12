@@ -58,7 +58,8 @@ To do this, follow the steps in [KEYCLOAK_SETUP.md](./KEYCLOAK_SETUP.md).
 
 ## :technologist: Accessing Workspaces
 
-Once all services are running and Keycloak is configured, access them through Traefik at `http://<DOMAIN_NAME>`.
+Once all services are running and Keycloak is configured, access them
+through Traefik at `http://<DOMAIN_NAME>`.
 
 ### Initial Access
 
@@ -137,6 +138,7 @@ The endpoint values are dynamically populated with the user's username from the
 - **Jupyter Lab**: `http://<DOMAIN_NAME>/user2/lab`
 
 ### Logging Out
+
 When logged in as one of the users:
 
 - **URL**: `https://<DOMAIN_NAME>/logout`
@@ -178,8 +180,9 @@ If Keycloak displays "We are sorry... HTTPS required" when accessed via HTTP:
 
 1. This is caused by the per-realm `sslRequired` setting (defaults to `external`),
    which rejects HTTP from non-localhost clients
-2. Fix it by disabling SSL requirement on the affected realm(s) — see
-   [Disable Realm SSL Requirement](#disable-realm-ssl-requirement-http-only) above
+2. Fix it by disabling the SSL requirement on the affected realm(s): in
+   the Keycloak admin console, open **Realm settings** → **General** and
+   set **Require SSL** to **None**
 3. If you previously ran the TLS composition (`compose.traefik.secure.tls.yml`),
    the `keycloak-data` volume may retain old SSL settings. Remove it and restart:
 

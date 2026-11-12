@@ -53,13 +53,13 @@ by [mkcert](https://github.com/FiloSottile/mkcert) so that the
 
 ### 1 — Install mkcert
 
-**Linux / macOS (Homebrew)**
+#### Linux / macOS (Homebrew)
 
 ```bash
 brew install mkcert
 ```
 
-**Linux (direct binary)**
+#### Linux (direct binary)
 
 ```bash
 # Adjust the tag and arch as needed (linux-amd64 / linux-arm64)
@@ -72,7 +72,7 @@ chmod +x /tmp/mkcert
 sudo mv /tmp/mkcert /usr/local/bin/mkcert
 ```
 
-**Windows (Chocolatey / Scoop)**
+#### Windows (Chocolatey / Scoop)
 
 ```powershell
 choco install mkcert      # or: scoop install mkcert
@@ -161,7 +161,7 @@ python3 workspaces/test/dtaas/ci/scripts/ci_auth_login.py \
 CA is embedded in the forward-auth container, not in the host Python
 environment). A successful run ends with:
 
-```
+```text
 ✅  Login successful – HTTP 200 received for /user1/
 ```
 

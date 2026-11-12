@@ -24,12 +24,12 @@ services:
       - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=http://localhost,http://host.docker.internal"
       - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS"
       - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
-      - "traefik.http.routers.myservice.rule=Host(`myservice.localhost`)"
-      - "traefik.http.services.myservice.loadbalancer.server.port=80"
     ports:
       - "80:80"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Root-equivalent access to the host's Docker daemon, even read-only.
+      # See "Docker socket" in TRAEFIK.md before using this outside development.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       frontend:
         aliases:

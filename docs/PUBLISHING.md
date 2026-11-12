@@ -50,7 +50,9 @@ configure these secrets in GitHub repository settings
 
 3. **DOCKERHUB_SCOPE**
    - The Dockerhub scope that the image should be saved in.
-   - Example: if it should be saved in `hub.docker.com/r/intocps/workspace`, then `intocps` would be the scope.
+   - Example: if it should be saved in
+     `hub.docker.com/r/intocps/workspace`, then `intocps` would be the
+     scope.
 
 ### Docker Hub Repository
 
@@ -99,7 +101,8 @@ After publishing, the workflow automatically:
 This ensures that published images are functional and match local builds.
 
 **Note**: The test suite currently runs on linux/amd64 runners. Both
-architectures are built, tested and published. The arm64 variant uses QEMU emulation during testing.
+architectures are built, tested and published. The arm64 variant uses
+QEMU emulation during testing.
 
 ## Manual Publishing
 

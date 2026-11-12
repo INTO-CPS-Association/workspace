@@ -1,7 +1,8 @@
 # Documentation
 
 Repository-level documentation. Documentation for a specific component
-lives beside the code it describes, not here.
+lives beside the code it describes, not here. The one exception is the git
+backup, which spans the image, the compose files and the admin service.
 
 ## In this directory
 
@@ -17,6 +18,7 @@ lives beside the code it describes, not here.
 | [design/workspace-admin/](design/workspace-admin/README.md) | workspace-admin requirements, `config.toml`, `/config` page, PKCE sign-in, CLI |
 | [design/auth/LOGIN_RELAY.md](design/auth/LOGIN_RELAY.md) | login-relay and Oathkeeper design, requirements and API |
 | [specs/](specs/), [plans/](plans/), [tasks/](tasks/) | Spec, implementation plan and task list per feature |
+| [workspace-admin/STORAGE.md](workspace-admin/STORAGE.md) | The git backup of the workspace: `config.toml`, paths, cloning, the sync cycle, conflicts, `/storage/status`, log lines |
 
 ## Elsewhere in the repository
 
@@ -32,8 +34,8 @@ Component documentation:
 | Document | Covers |
 | -------- | ------ |
 | [workspaces/DEVELOPER.md](../workspaces/DEVELOPER.md) | Building and developing the image |
-| [workspaces/src/admin/README.md](../workspaces/src/admin/README.md) | Admin service overview (also the package readme in `pyproject.toml`) |
-| [workspaces/src/admin/DOCUMENTATION.md](../workspaces/src/admin/DOCUMENTATION.md) | Admin service endpoints and architecture |
+| [workspaces/src/admin/README.md](../workspaces/src/admin/README.md) | Admin service for users and operators (also the package readme in `pyproject.toml`) |
+| [workspaces/src/admin/DEVELOPER.md](../workspaces/src/admin/DEVELOPER.md) | Admin service for developers: HTTP API, code layout, tests, installation, design decisions |
 | [workspaces/test/dtaas/CONFIGURATION.md](../workspaces/test/dtaas/CONFIGURATION.md) | Configuring the DTaaS compositions |
 | [workspaces/test/dtaas/SINGLE_USER.md](../workspaces/test/dtaas/SINGLE_USER.md) | Single-user deployment |
 | [workspaces/test/dtaas/TRAEFIK.md](../workspaces/test/dtaas/TRAEFIK.md) | Multi-user deployment over HTTP |

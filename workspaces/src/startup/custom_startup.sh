@@ -21,6 +21,26 @@ trap cleanup SIGINT SIGTERM SIGQUIT SIGHUP ERR
 declare -A DTAAS_PROCS
 declare -a RESTART_QUEUE
 
+# Exits with an error if a binary a service needs is not on PATH. Kasm runs
+# this script again after it exits, so the error repeats in the container log
+# until the binary is there.
+function require_binary {
+    command -v "$1" >/dev/null || {
+        echo "[ERROR] required binary '$1' not found on PATH" >&2
+        exit 1
+    }
+}
+
+# Logs an error if a just-restarted service has exited again within a second.
+# The monitor loop below retries it on its next pass.
+function report_failed_restart {
+    local process="$1"
+    sleep 1
+    if ! kill -0 "${DTAAS_PROCS[${process}]}" 2>/dev/null; then
+        echo "[ERROR] ${process} failed to restart; retrying in 3 s" >&2
+    fi
+}
+
 function start_nginx {
     setsid nginx -g 'daemon off;' &
     DTAAS_PROCS['nginx']=$!
@@ -57,6 +77,15 @@ function start_admin_server {
 # KASM has setup the main user home directories.
 if [[ ! -h "${HOME}"/Desktop/workspace ]]; then
     ln -s "${PERSISTENT_DIR}" "${HOME}"/Desktop/workspace
+fi
+
+require_binary nginx
+require_binary workspace-admin
+if [[ ! ${JUPYTER_DISABLED:-0} == 1 ]]; then
+    require_binary jupyter
+fi
+if [[ ! ${VSCODE_DISABLED:-0} == 1 ]]; then
+    require_binary code-server
 fi
 
 start_nginx
@@ -102,8 +131,10 @@ do
                 ;;
             *)
                 echo "[WARNING] An unknown service '${process}' unexpectedly monitored by the custom_startup script was reported to have exited. This is most irregular - check if something is adding processes to the custom_startup script's list of monitored subprocesses."
+                continue
                 ;;
         esac
+        report_failed_restart "${process}"
     done
 
     sleep 3

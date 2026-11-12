@@ -49,10 +49,18 @@ if [[ -z "${MAIN_USER}" ]]; then
 fi
 
 export HOME="/home/${MAIN_USER}"
+# Commands from "pip install --user", "uv tool install" and pipx. The
+# directory depends on MAIN_USER, so it is added here rather than in the
+# Dockerfile; the Kasm scripts and every service inherit it through exec.
+export PATH="${PATH}:${HOME}/.local/bin"
 
 if [[ "${CURRENT_USER}" != "${MAIN_USER}" ]]; then
-    convert_current_user_to_main_user
+    # configure_nginx.py validates MAIN_USER: up to 32 letters, digits, "_",
+    # "." or "-", not starting with "." or "-". On any other value it exits
+    # non-zero and set -e stops this script, so the user is never renamed to
+    # an invalid name and the next start runs this block again.
     do_user_dependent_configurations
+    convert_current_user_to_main_user
 fi
 
 echo "Continuing KASM script chain: '$*'"

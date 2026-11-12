@@ -78,11 +78,13 @@ jobs:
         composition:
           - compose_file: workspaces/test/dtaas/compose.yml
             startup_timeout: 30
-            connectivity_endpoint: "http://localhost/user/services"
+            connectivity_endpoint: "http://localhost/user1/services"
+            connectivity_expected_response_code: "200"
             basic_test: true
           - compose_file: workspaces/test/dtaas/compose.traefik.yml
             startup_timeout: 0
-            connectivity_endpoint: "http://localhost/user/services"
+            connectivity_endpoint: "http://localhost/user1/services"
+            connectivity_expected_response_code: "200"
           - compose_file: workspaces/test/dtaas/compose.traefik.secure.yml
             startup_timeout: 60
             connectivity_endpoint: "http://localhost/auth"

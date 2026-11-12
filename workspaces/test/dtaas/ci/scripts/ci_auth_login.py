@@ -42,9 +42,11 @@ TLS verification:
 """
 
 import argparse
+import http.cookiejar
 import re
 import sys
 from typing import Union
+from urllib.parse import urlsplit
 
 # Seconds to wait for any single HTTP request/redirect chain before giving up.
 REQUEST_TIMEOUT = 30
@@ -60,6 +62,48 @@ except ImportError:
         file=sys.stderr,
     )
     sys.exit(1)
+
+
+class BrowserLikeCookiePolicy(http.cookiejar.DefaultCookiePolicy):
+    """Send Secure cookies to http://localhost, as browsers do.
+
+    login-relay marks its cookies Secure. Browsers treat http://localhost as
+    a secure origin and send them anyway; Python's cookie jar does not, so
+    over plain HTTP the state cookie never reached /login-relay/callback and
+    every login failed with "Missing OAuth state cookie".
+    """
+
+    LOCAL_HOSTS = {"localhost", "127.0.0.1"}
+
+    def return_ok_secure(self, cookie, request):
+        if urlsplit(request.get_full_url()).hostname in self.LOCAL_HOSTS:
+            return True
+        return super().return_ok_secure(cookie, request)
+
+
+class BrowserLikeSession(requests.Session):
+    """A Session whose requests use BrowserLikeCookiePolicy.
+
+    requests copies the session's cookies into a fresh jar for every request
+    (and copies that jar, policy included, for each redirect), so the policy
+    has to be set on that per-request jar, not only on ``session.cookies``.
+    """
+
+    def prepare_request(self, request):
+        prepared = super().prepare_request(request)
+        # pylint: disable-next=protected-access
+        jar = prepared._cookies
+        jar.set_policy(BrowserLikeCookiePolicy())
+        prepared.prepare_cookies(jar)
+        return prepared
+
+
+def new_session(verify: Union[bool, str]) -> requests.Session:
+    """Return a session that handles cookies the way a browser would."""
+    session = BrowserLikeSession()
+    session.cookies.set_policy(BrowserLikeCookiePolicy())
+    session.verify = verify
+    return session
 
 
 def extract_form_action(html: str) -> str:
@@ -111,16 +155,25 @@ def _submit_credentials(
         print(f"❌ Failed to POST credentials to {post_url}: {exc}")
         return False
     print(f"  HTTP code after credential POST + redirect chain: {resp.status_code}")
+    if resp.status_code != 200:
+        print(f"❌ Login did not complete: {resp.url} answered {resp.status_code}")
+        print("--- Response content (first 2000 chars) ---")
+        print(resp.text[:2000])
+        return False
     return True
 
 
-def _verify_authenticated_access(
+def verify_authenticated_access(
     session: requests.Session, protected_url: str
 ) -> bool:
-    """Access the protected resource and check for HTTP 200."""
+    """Access the protected resource and check it answers 200 itself.
+
+    Redirects are not followed: an unauthenticated request is redirected to
+    the login page, which also answers 200.
+    """
     print("=== Step 4: Access protected resource with session cookie ===")
     try:
-        resp = session.get(protected_url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
+        resp = session.get(protected_url, allow_redirects=False, timeout=REQUEST_TIMEOUT)
     except RequestException as exc:
         print(f"❌ Failed to GET {protected_url} after login: {exc}")
         return False
@@ -129,7 +182,9 @@ def _verify_authenticated_access(
     if resp.status_code == 200:
         print(f"✅ Authenticated access to {protected_url} succeeded (HTTP 200)")
         return True
-    print(f"❌ Expected HTTP 200 but got {resp.status_code}")
+    location = resp.headers.get("Location", "")
+    print(f"❌ Expected HTTP 200 but got {resp.status_code}"
+          + (f" (redirect to {location})" if location else ""))
     print("--- Response content (first 2000 chars) ---")
     print(resp.text[:2000])
     return False
@@ -158,8 +213,7 @@ def login(
     """
     email = f"{username}@localhost"
 
-    session = requests.Session()
-    session.verify = verify
+    session = new_session(verify)
 
     # ── Step 1 ─────────────────────────────────────────────────────────────
     login_html = _fetch_dex_login_page(session, protected_url)
@@ -186,7 +240,7 @@ def login(
         return False
 
     # ── Step 4 ─────────────────────────────────────────────────────────────
-    return _verify_authenticated_access(session, protected_url)
+    return verify_authenticated_access(session, protected_url)
 
 
 def main() -> int:

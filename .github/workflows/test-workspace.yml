@@ -71,7 +71,7 @@ jobs:
         run: |
           echo "Checking installed binaries..."
           FAILED=""
-          for binary in python3 uv node npm tsc tsx java javac jupyter nginx firefox code-server; do
+          for binary in python3 uv node npm tsc tsx java javac jupyter nginx firefox code-server workspace-admin; do
             if docker exec -u 1000 workspace bash -c ". /dockerstartup/.docker_set_envs && which $binary > /dev/null 2>&1"; then
               if [ "$binary" = "nginx" ]; then
                 VERSION=$(docker exec -u 1000 workspace bash -c ". /dockerstartup/.docker_set_envs && $binary -v 2>&1 | awk 'NR==1'") && rc=0 || rc=$?

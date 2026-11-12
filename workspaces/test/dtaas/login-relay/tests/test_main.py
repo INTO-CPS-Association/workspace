@@ -269,6 +269,42 @@ class TestLogin:
         assert c.get("/login-relay?return_to=/user2/lab").status_code == 302
 
 
+class TestCookieSecureFlag:
+    """Cookies are Secure only when the public protocol is https.
+
+    Browsers do not send Secure cookies back over plain HTTP to anything but
+    localhost, so with TLS=false (compose.traefik.secure.yml on a real
+    domain) a Secure oauth_state cookie never reached the callback and every
+    login ended in 400.
+    """
+
+    @staticmethod
+    def _login_and_callback():
+        nonce = "securenonce"
+        return_to_b64 = base64.urlsafe_b64encode(b"/user1/lab").decode()
+        login = client.get("/login-relay")
+        c = TestClient(
+            app, follow_redirects=False, cookies={"oauth_state": f"{nonce}:{return_to_b64}"}
+        )
+        with patch("main._fetch_tokens", new=AsyncMock(return_value=("fake-token", "", 3600))):
+            callback = c.get(f"/login-relay/callback?code=authcode&state={nonce}")
+        return login.headers["set-cookie"].lower(), callback.headers["set-cookie"].lower()
+
+    def test_cookies_are_secure_with_tls(self):
+        """With TLS (the default) both cookies keep the Secure flag."""
+        state_cookie, token_cookie = self._login_and_callback()
+        assert "secure" in state_cookie
+        assert "secure" in token_cookie
+
+    def test_cookies_are_not_secure_without_tls(self, monkeypatch):
+        """With TLS=false the cookies must be usable over plain HTTP."""
+        monkeypatch.setattr("_helpers.TLS", False)
+        state_cookie, token_cookie = self._login_and_callback()
+        assert "secure" not in state_cookie
+        assert "secure" not in token_cookie
+        assert "httponly" in state_cookie and "httponly" in token_cookie
+
+
 # ---------------------------------------------------------------------------
 # GET /login-relay/callback
 # ---------------------------------------------------------------------------

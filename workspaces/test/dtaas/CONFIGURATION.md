@@ -182,6 +182,7 @@ For OAuth2 authentication, the [environment variable file](#-environment)
 1. Set the default admin credentials for Keycloak. You can leave the admin
    username as the default (`admin`), but you should change the password.
    If testing remote make sure to set a strong password:
+
    ```bash
    # Keycloak Admin Credentials
    KEYCLOAK_ADMIN=admin
@@ -207,13 +208,13 @@ For OAuth2 authentication, the [environment variable file](#-environment)
 
 3. Add the usernames to the list of users with workspaces, substituting the
    defaults with your specific names, if needed:
+
    ```bash
    WORKSPACE_USERS=user1,user2
    ```
 
 The environment variables `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID` and
 `KEYCLOAK_CLIENT_SECRET` must be updated after starting the Docker compositions.
-
 
 ## 🚪 Traefik Forward Auth Configuration
 
