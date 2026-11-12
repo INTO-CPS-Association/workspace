@@ -62,6 +62,11 @@ The main changes made so far are listed here.
 
 ### Fixed
 
+* The user's `~/.local/bin` is on `PATH` in the desktop and every service.
+  The image added `/home//.local/bin` instead, because `MAIN_USER` is not
+  set at build time; `dtaas_shim.sh` now adds it at startup
+* `workspaces/DEVELOPER.md` describes the `dependencies.lock` installers
+  instead of the removed shell install scripts
 * `workspace-admin` was not on any `PATH` in the image; it only started
   because `pipx ensurepath` had written its directory into the default
   profile's `.bashrc`

@@ -49,6 +49,10 @@ if [[ -z "${MAIN_USER}" ]]; then
 fi
 
 export HOME="/home/${MAIN_USER}"
+# Commands from "pip install --user", "uv tool install" and pipx. The
+# directory depends on MAIN_USER, so it is added here rather than in the
+# Dockerfile; the Kasm scripts and every service inherit it through exec.
+export PATH="${PATH}:${HOME}/.local/bin"
 
 if [[ "${CURRENT_USER}" != "${MAIN_USER}" ]]; then
     # configure_nginx.py validates MAIN_USER: up to 32 letters, digits, "_",

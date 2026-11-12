@@ -322,26 +322,32 @@ When adding new software or scripts:
 
 1. **Check architecture compatibility**: Ensure downloaded binaries support both
    amd64 and arm64
-2. **Use `${TARGETARCH}` in downloads**: Many projects provide separate
-   downloads per architecture
+2. **Pin both architectures**: A `bin-tar` entry in `dependencies.lock` holds
+   a source URL and checksum for each of `amd64` and `arm64`
 3. **Test on both architectures**: If possible, test builds on both platforms
 4. **Use QEMU for testing**: You can test arm64 builds on amd64 using QEMU
    emulation
 
-Example of architecture-aware installation:
-
-```bash
-#!/bin/bash
-# Example: Download architecture-specific binary
-
-ARCH="${TARGETARCH:-amd64}"  # Default to amd64 if not set
-wget "https://example.com/download-${ARCH}.tar.gz"
-```
+`src/install/packages/installation_util.py` picks the architecture once, as
+`ARCHITECTURE`: `TARGETARCH` when Docker Buildx sets it, otherwise
+`os.uname().machine`. `amd64`/`x86_64` select the `amd64` entry and
+`arm64`/`aarch64` the `arm64` entry; any other value stops the build. Install
+scripts therefore do not handle the architecture themselves.
 
 ## Installation Scripts
 
 Installation scripts are located in `src/install/` and are executed during the
-Docker build process.
+Docker build process, one `RUN` per script.
+
+- `src/install/dependencies.lock` pins the version, source and checksum of
+  every package. Its format is described in
+  `src/install/LOCKFILE_DESCRIPTION.md`.
+- `src/install/packages/install_<component>.py` installs one entry of the lock
+  file through `installation_util.get_dependencies_for_package`.
+- `src/install/packages/install_python.sh` installs Python and `python3-venv`
+  with apt; it runs before the other scripts.
+- `src/install/admin/install_admin.sh` installs the admin service from the
+  local source tree into a venv under `/opt/workspace-admin`.
 
 ### Script Environment
 
@@ -352,79 +358,62 @@ Docker build process.
 
 ### Best Practices for Installation Scripts
 
-1. **Use bash shebang**: Start scripts with `#!/bin/bash`
-2. **Set error handling**: Use `set -e` to exit on errors
-3. **Clean up**: Remove temporary files and package caches
-4. **Pin versions**: Specify exact versions for reproducible builds
-5. **Handle architectures**: Use `${TARGETARCH}` when downloading binaries
-
-### Example Installation Script
-
-```bash
-#!/bin/bash
-set -e
-
-# Get architecture (defaults to amd64 if not in Docker build)
-ARCH="${TARGETARCH:-amd64}"
-
-# Install package
-VERSION="1.2.3"
-wget "https://example.com/package-${VERSION}-${ARCH}.deb"
-apt-get install -y ./package-${VERSION}-${ARCH}.deb
-rm ./package-${VERSION}-${ARCH}.deb
-
-# Clean up
-apt-get clean
-rm -rf /var/lib/apt/lists/*
-```
+1. **Pin versions in the lock file**: Add the package, with exact versions and
+   checksums, to `dependencies.lock` instead of hard-coding them in a script
+2. **Use the shared installer**: Call `get_dependencies_for_package` rather
+   than downloading files yourself, so checksums are verified
+3. **Keep shell scripts strict**: Start them with `#!/usr/bin/env bash` and
+   `set -euo pipefail`
+4. **Clean up**: Remove temporary files and package caches
 
 ### Real-World Examples
 
-#### VSCode Server Installation
+#### code-server Installation
 
-The VSCode installation script (`src/install/vscode/install_vscode_server.sh`) uses
-TARGETARCH to download the correct architecture-specific package:
+code-server is a `bin-tar` package. Its lock entry names a tarball and its
+checksum per architecture:
 
-```bash
-# Use TARGETARCH if available (set by Docker Buildx), otherwise detect architecture
-ARCH="${TARGETARCH:-amd64}"
-
-# code-server uses the same architecture naming as Docker (amd64/arm64)
-fetch "https://github.com/coder/code-server/releases/download/v${VERSION}/code-server_${VERSION}_${ARCH}.deb" \
-    "${CACHE_DIR}/code-server_${VERSION}_${ARCH}.deb"
+```json
+"code-server": {
+  "type": "bin-tar",
+  "compression": "gz",
+  "amd64": {
+    "source": "https://github.com/coder/code-server/releases/download/v4.143.1/code-server-4.143.1-linux-amd64.tar.gz",
+    "checksum": "614877cf71005f14ea252bd2d9b1c12237cf7d73681ef150f0dff7f13849fdb5"
+  },
+  "arm64": {
+    "source": "https://github.com/coder/code-server/releases/download/v4.143.1/code-server-4.143.1-linux-arm64.tar.gz",
+    "checksum": "51481a891754dc2585b86d007aec24ac675453fc5ef6cfa346c4462449277384"
+  }
+}
 ```
+
+and `src/install/packages/install_code_server.py` installs it:
+
+```python
+from installation_util import get_dependencies_for_package
+
+get_dependencies_for_package("code-server").default_installation()
+```
+
+`default_installation()` downloads the tarball for `ARCHITECTURE`, verifies
+its checksum, unpacks it under `/opt` and links its binaries into
+`/usr/local/bin`.
 
 #### Firefox Installation
 
-The Firefox installation script (`src/install/firefox/install_firefox.sh`) demonstrates
-a simplified approach to convert architecture names to GNU triplet format:
+`src/install/packages/install_firefox.py` needs the GNU triplet for a system
+library path, so it maps `ARCHITECTURE` itself:
 
-```bash
-# Prefer TARGETARCH (set by Docker Buildx); fallback to system uname -m
-# Convert to GNU triplet format for library paths
-src_arch="${TARGETARCH:-$(uname -m)}"
+```python
+from installation_util import get_dependencies_for_package, ARCHITECTURE
 
-case "${src_arch}" in
-  amd64|x86_64)
-    GNU_ARCH="x86_64"
-    ;;
-  arm64|aarch64)
-    GNU_ARCH="aarch64"
-    ;;
-  386)
-    GNU_ARCH="i386"
-    ;;
-  *)
-    GNU_ARCH="${src_arch}"
-    ;;
-esac
-
-# Use GNU_ARCH for system library paths
-ln /usr/lib/"${GNU_ARCH}"-linux-gnu/pkcs11/p11-kit-trust.so /usr/lib/firefox/libnssckbi.so
+LIB_ARCH_MAP = {
+    "amd64": "x86_64", "x86_64": "x86_64", "x64": "x86_64",
+    "arm64": "aarch64", "aarch64": "aarch64",
+}
+LIB_ARCH = LIB_ARCH_MAP[ARCHITECTURE]
 ```
-
-This approach handles both Docker architecture names (amd64/arm64) and system
-architecture names (x86_64/aarch64) in a single case statement.
 
 ## Startup Scripts
 

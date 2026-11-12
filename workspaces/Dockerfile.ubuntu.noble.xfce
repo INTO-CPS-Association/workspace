@@ -103,8 +103,6 @@ RUN mkdir -p /www/Downloads && \
 RUN adduser "$(id -un 1000)" sudo && \
     passwd -d "$(id -un 1000)"
 
-ENV PATH="${PATH}:/home/${MAIN_USER}/.local/bin"
-
 RUN python3 -c "import os, shlex; print('\n'.join(f'export {k}={shlex.quote(v)}' for k, v in os.environ.items()))" >> "${STARTUPDIR}"/.docker_set_envs && \
     chmod 755 "${STARTUPDIR}"/.docker_set_envs
 
