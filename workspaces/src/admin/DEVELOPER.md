@@ -286,18 +286,18 @@ an `endpoint`.
 
 `workspaces/Dockerfile.ubuntu.noble.xfce` copies `workspaces/src/admin/`
 to `$ADMIN_DIR` (`$STARTUPDIR/admin`) and runs
-`workspaces/src/install/admin/install_admin.sh`, which:
+`workspaces/src/install/admin/install_admin.sh` after
+`workspaces/src/install/packages/install_python.sh` has installed
+`python3-venv`. The script:
 
-1. installs `python3-venv` and `python-is-python3` with apt
-2. creates a venv at `/opt/workspace-admin` and runs
+1. creates a venv at `/opt/workspace-admin` and runs
    `pip install "$ADMIN_DIR"` in it. pip builds the wheel through the
    `poetry-core` backend named in `pyproject.toml`, so neither Poetry nor
    pipx is in the image. The wheel's dependency ranges decide the versions;
    `poetry.lock` is not consulted
-3. links `/opt/workspace-admin/bin/workspace-admin` into `/usr/local/bin`,
+2. links `/opt/workspace-admin/bin/workspace-admin` into `/usr/local/bin`,
    which is on every user's `PATH`
-4. checks `workspace-admin --version` and deletes `$ADMIN_DIR` and the
-   apt lists
+3. checks `workspace-admin --version` and deletes `$ADMIN_DIR`
 
 The Dockerfile also copies `workspaces/src/templates/config.toml.example`
 to `$WORKSPACE_CONFIG_TEMPLATE` (`$STARTUPDIR/templates/config.toml`) and

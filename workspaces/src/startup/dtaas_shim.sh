@@ -51,8 +51,10 @@ fi
 export HOME="/home/${MAIN_USER}"
 
 if [[ "${CURRENT_USER}" != "${MAIN_USER}" ]]; then
-    # Validates MAIN_USER, so it runs before the rename: a refused name must
-    # leave the user as it was, or the next start would skip this block.
+    # configure_nginx.py validates MAIN_USER: up to 32 letters, digits, "_",
+    # "." or "-", not starting with "." or "-". On any other value it exits
+    # non-zero and set -e stops this script, so the user is never renamed to
+    # an invalid name and the next start runs this block again.
     do_user_dependent_configurations
     convert_current_user_to_main_user
 fi

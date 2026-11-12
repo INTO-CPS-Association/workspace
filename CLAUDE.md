@@ -242,18 +242,23 @@ To manually trigger publishing:
 
 ### Installation Scripts
 
-Location: `workspaces/src/install/<component>/install_<component>.sh`
+Location: `workspaces/src/install/packages/`
 
-When adding new software (see example patterns in
-`workspaces/src/install/firefox/install_firefox.sh`):
+Versions and sources are pinned in `workspaces/src/install/dependencies.lock`
+(format in `workspaces/src/install/LOCKFILE_DESCRIPTION.md`). Each
+`install_<component>.py` installs one entry through
+`installation_util.get_dependencies_for_package` (see
+`workspaces/src/install/packages/install_jupyter.py`). The admin service is the
+exception: `workspaces/src/install/admin/install_admin.sh` installs it from the
+local source tree.
 
-1. Create installation script following shell format (see existing
-  examples)
-2. Pin versions explicitly
-3. Clean up temporary files
-4. Call the installation script from the `install-full` and
-  `install-minimal` stages of `workspaces/Dockerfile.ubuntu.noble.xfce`
-5. Run installation scripts as part of the Docker build process, not
+When adding new software:
+
+1. Add the package, with pinned version and checksum, to `dependencies.lock`
+2. Add `packages/install_<component>.py` following the existing examples
+3. Call it from the `install-full` (and, if needed, `install-minimal`)
+  stage of `workspaces/Dockerfile.ubuntu.noble.xfce`, one `RUN` per script
+4. Run installation scripts as part of the Docker build process, not
   at container runtime
 
 ### Configuration Files
@@ -408,7 +413,7 @@ guidelines.
 - Use `set -e` for error handling
 - Quote variables appropriately
 - Include proper shebang lines
-- **Example**: `workspaces/src/install/firefox/install_firefox.sh` demonstrates
+- **Example**: `workspaces/src/install/admin/install_admin.sh` demonstrates
   proper structure
 
 ### Python Scripts

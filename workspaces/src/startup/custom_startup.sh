@@ -21,8 +21,9 @@ trap cleanup SIGINT SIGTERM SIGQUIT SIGHUP ERR
 declare -A DTAAS_PROCS
 declare -a RESTART_QUEUE
 
-# Kasm relaunches this script every few seconds after it exits, so exiting
-# here repeats the error in the container log rather than failing silently.
+# Exits with an error if a binary a service needs is not on PATH. Kasm runs
+# this script again after it exits, so the error repeats in the container log
+# until the binary is there.
 function require_binary {
     command -v "$1" >/dev/null || {
         echo "[ERROR] required binary '$1' not found on PATH" >&2
@@ -30,8 +31,8 @@ function require_binary {
     }
 }
 
-# Reports a restart whose process died straight away, instead of looping
-# over "Restarting ..." with no hint that it never comes up.
+# Logs an error if a just-restarted service has exited again within a second.
+# The monitor loop below retries it on its next pass.
 function report_failed_restart {
     local process="$1"
     sleep 1
