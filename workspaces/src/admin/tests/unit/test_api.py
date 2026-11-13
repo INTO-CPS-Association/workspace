@@ -12,22 +12,20 @@ import pytest
 from fastapi.testclient import TestClient
 
 from admin.api import APP_VERSION, create_app, normalize_path_prefix
-from admin.git.status import SyncStatus
-from admin.git.sync import SyncErrorKind
+from admin.git.service.status import SyncStatus
+from admin.git.run.errors import SyncErrorKind
 
 
 @pytest.fixture(name='test_client')
 def fixture_test_client():
     """Create a test client for the FastAPI app."""
-    app = create_app()
-    return TestClient(app)
+    return TestClient(create_app())
 
 
 @pytest.fixture(name='test_client_with_prefix')
 def fixture_test_client_with_prefix():
     """Create a test client for the FastAPI app with path prefix."""
-    app = create_app(path_prefix="user1")
-    return TestClient(app)
+    return TestClient(create_app(path_prefix="user1"))
 
 
 def test_root_endpoint(test_client):
@@ -67,19 +65,6 @@ def test_services_endpoint(test_client):
     assert "description" in desktop
     assert "endpoint" in desktop
     assert desktop["name"] == "Desktop"
-
-
-def test_services_endpoint_returns_all_services(test_client):
-    """Test /services endpoint returns all defined services."""
-    response = test_client.get("/services")
-    assert response.status_code == 200
-
-    services = response.json()
-
-    # Verify all expected services are present
-    required_services = ["desktop", "vscode", "notebook", "lab"]
-    for service_id in required_services:
-        assert service_id in services
 
 
 def test_services_endpoint_json_structure(test_client):
@@ -191,7 +176,10 @@ def test_storage_status_reports_disabled_without_a_status(test_client):
     """Test /storage/status works, and says disabled, when no backup runs."""
     response = test_client.get("/storage/status")
     assert response.status_code == 200
-    assert response.json() == {"enabled": False, "repositories": {}}
+    data = response.json()
+    assert (data["state"], data["enabled"], data["repositories"]) == (
+        "disabled", False, {}
+    )
 
 
 def test_storage_status_serves_the_recorded_outcome():

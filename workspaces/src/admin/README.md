@@ -9,10 +9,14 @@ FastAPI service for workspace service discovery and management.
 - Command-line interface for standalone operation
 - Periodic git backup - commits, pulls and pushes the workspace's git assets
   every five minutes by default, so users never run a git command themselves
-- Conflict resolution that keeps the workspace's own version of a file when
-  it and the remote have both changed
-- Never commits an unfinished merge or a file with conflict markers; those
-  wait for the user (see
+- The work is pushed to the workspace's own backup branch every cycle, so a
+  conflict is never resolved by overwriting anyone: the merge is aborted
+  and left to the user
+- `common`, shared between users, is pull-only by default: other users'
+  changes arrive, and nobody's files are overwritten
+- Never commits an unfinished merge; a file with conflict markers, or over
+  50 MiB, is left out while the rest is backed up; virtual environments and
+  caches are never staged (see
   [Conflicts](DOCUMENTATION.md#conflicts-what-is-automatic-and-what-is-manual))
 - Git assets configured in one TOML file, `config.toml`, which is validated
   on startup so a mistake in it is reported by name instead of failing
@@ -28,31 +32,45 @@ src/admin/
 ├── config/
 │   └── services_template.json    # Service catalogue
 └── git/                          # Git backup of workspace directories
-    ├── config.py                 # config.toml -> RepoConfig
-    ├── auth.py                   # Shared HTTP auth header and failure detection
-    ├── clone.py                  # Clone a single RepoConfig
-    ├── sync.py                   # Commit, pull and push one working tree
-    ├── scheduler.py              # Run the sync on a timer, in the background
-    ├── status.py                 # Outcome of the last backups, for /storage/status
-    ├── provision.py              # Create a missing config.toml from the template
-    ├── runner.py                 # Run one git command with a time limit
-    └── bootstrap.py              # Wire the above together on startup
+    ├── setup/                    # What to back up
+    │   ├── locate.py             # Choose which config.toml to read
+    │   ├── provision.py          # Create a missing config.toml from the template
+    │   ├── config.py             # RepoConfig and the settings
+    │   ├── validate.py           # Check the values of config.toml
+    │   └── load.py               # config.toml -> RepoConfig
+    ├── run/                      # Running git
+    │   ├── runner.py             # Run git with a time limit
+    │   ├── command.py            # The one runner for every git command
+    │   ├── auth.py               # HTTP auth header (in the environment), https only
+    │   └── errors.py             # Status kinds, and sorting failures by kind
+    ├── repo/                     # Working on one repository
+    │   ├── clone.py              # Clone a single RepoConfig
+    │   ├── sync.py               # One cycle: commit, back up, pull, push
+    │   ├── commit.py             # Commit the user's changes
+    │   ├── pull.py               # Fetch and merge, or fast-forward
+    │   ├── push.py               # Push, and back up to backup/<id>
+    │   ├── refs.py               # Ref names and refspecs of the branch
+    │   ├── busy.py               # Whether the user is busy with the repository
+    │   └── checks.py             # What is checked in the files to commit
+    └── service/                  # Running the backup in the service
+        ├── bootstrap.py          # Start and stop the backup
+        ├── scheduler.py          # Run the sync on a timer, in the background
+        └── status.py             # Where the backup stands, for /storage/status
 ```
 
 See [DOCUMENTATION.md](DOCUMENTATION.md) for the full architecture and
-endpoint reference. Parts of it still describe an older layout of
-`config.toml`; where it disagrees with this README, this README is right.
+endpoint reference.
 
 ## Where the Config File Lives
 
-The service always reads its config file from one place:
+The service chooses its config file once, when it starts:
 
-```text
-$PERSISTENT_DIR/.config/workspace-admin/config.toml
-```
+1. `WORKSPACE_ADMIN_CONFIG`, when it is set and not empty. A relative path
+   is resolved against the directory you start `workspace-admin` from.
+2. Otherwise `~/.config/workspace-admin/config.toml`.
 
-When `PERSISTENT_DIR` is not set, your home directory is used instead. The
-directory you start `workspace-admin` from does not matter.
+A file named by `WORKSPACE_ADMIN_CONFIG` is used even if it does not exist:
+the service never looks past it for another one.
 
 | Where it runs | Config file |
 | --- | --- |
@@ -60,13 +78,16 @@ directory you start `workspace-admin` from does not matter.
 | Locally, Linux or macOS | `~/.config/workspace-admin/config.toml` |
 | Locally, Windows | `%USERPROFILE%\.config\workspace-admin\config.toml` |
 
-The full path is logged every time the service starts.
+The container sets `WORKSPACE_ADMIN_CONFIG` to the path in the table when
+it starts the service, so the file stays on the persistent volume. The full
+path is logged every time the service starts.
 
 - **In the container** the file is created for you the first time.
 - **Locally** you create the directory and the file yourself; see
   [Run it locally](#run-it-locally).
 
-The repositories are placed below the same root: each one's files in
+The repositories are placed below `$PERSISTENT_DIR`, or your home directory
+when it is not set, wherever the config file is: each one's files in
 `assets/<name>` and its git data in `.local/share/workspace-admin/<name>`.
 
 ## Getting Started
@@ -84,11 +105,11 @@ These steps take you from nothing to a running git backup:
 The service backs up two repositories: `private` for your own files and
 `common` for files shared between users. You need at least one of them.
 
-- Create the repository on GitLab (or another git host). It needs at least
-  one commit on the branch you will use, so tick *Initialize repository
-  with a README* when creating it.
+- Create the repository on GitLab (or another git host). It may be empty:
+  the first backup creates the branch.
 - Create an access token with the `read_repository` and
-  `write_repository` scopes.
+  `write_repository` scopes. For `common`, which is pull-only unless you
+  set `MODE = "sync"`, `read_repository` is enough.
 
 ### 2. Understand the config file
 
@@ -110,12 +131,18 @@ GIT_REPO_BRANCH = "main"
 # HTTP token for authentication
 GIT_REPO_TOKEN = "gitlab-api-token"
 
-# Uncomment to also back up files shared between users.
+# Uncomment to also receive files shared between users. common is
+# pull-only by default: other users' changes arrive, but nothing you change
+# in /workspace/assets/common is committed or pushed, so nobody's files are
+# overwritten. A read-only token is enough.
 # [assets.common]
 # GIT_REPO_URL = "https://gitlab.com/username/repository.git"
 # GIT_REPO_BRANCH = "main"
 # # HTTP token for authentication
 # GIT_REPO_TOKEN = "gitlab-api-token"
+# # "pull" (default for common) or "sync" (default for private). Only use
+# # "sync" for common if a single user writes to it.
+# MODE = "pull"
 ```
 
 What each line means:
@@ -128,6 +155,7 @@ What each line means:
 | `GIT_REPO_URL` | Yes | The repository's `https://` address, as shown under *Clone* on GitLab. |
 | `GIT_REPO_BRANCH` | Yes | The branch to back up, usually `main`. |
 | `GIT_REPO_TOKEN` | Yes | The access token from step 1. |
+| `MODE` | No | `"pull"` only takes the remote's changes; `"sync"` also commits and pushes yours. Default: `"sync"` for `private`, `"pull"` for `common`. |
 
 Things to know:
 
@@ -135,8 +163,13 @@ Things to know:
 - The example values (`username/repository.git`, `gitlab-api-token`) are
   refused. You have to replace them, so nothing is ever sent to the
   example address.
-- The file holds your token. Keep it readable only by you, and never put
-  it inside one of the backed-up folders.
+- The file holds your token. Keep it readable only by you (the service
+  warns otherwise), and never put it inside one of the backed-up folders.
+- A key the service does not know, such as a misspelt one, is reported
+  with a warning in the log rather than silently ignored.
+- **Do not share `common` in `"sync"` mode between users.** Every
+  workspace would push its own version of any file both changed, and a
+  colleague's change would be dropped.
 
 ### Run it locally
 
@@ -203,9 +236,10 @@ made:
 INFO:     Git backup config file: C:\Users\<name>\.config\workspace-admin\config.toml
 ```
 
-Cloning happens once, on startup. The repositories are cloned into
-`assets/<name>` in your home directory. After a change to the config file,
-stop the service with `Ctrl+C` and start it again.
+Cloning starts on startup, and a repository that fails to clone is tried
+again on every interval. The repositories are cloned into `assets/<name>`
+in your home directory. After a change to the config file, stop the
+service with `Ctrl+C` and start it again.
 
 #### Step 6: Check that it runs
 
@@ -213,11 +247,12 @@ See [Checking the backup](#checking-the-backup).
 
 #### Using another directory
 
-To keep the config file and the repositories somewhere other than your
-home directory, set `PERSISTENT_DIR` before every start. The config file
-then belongs in `$PERSISTENT_DIR/.config/workspace-admin/config.toml`:
+To use another config file, set `WORKSPACE_ADMIN_CONFIG` to it before every
+start. To keep the repositories somewhere other than your home directory,
+set `PERSISTENT_DIR`. The two are independent:
 
 ```powershell
+$env:WORKSPACE_ADMIN_CONFIG = "C:\my-workspace\.config\workspace-admin\config.toml"
 $env:PERSISTENT_DIR = "C:\my-workspace"
 poetry run workspace-admin
 ```
@@ -283,7 +318,11 @@ curl http://localhost:8091/dtaas-user/storage/status
 ```
 
 In the container, go through nginx instead: `http://localhost/<username>/storage/status`
-with the bundled compose files.
+with the bundled compose files. Its `state` says where the backup
+stands: `disabled`, `needs_setup` (fill in the config file and restart),
+`config_error` (the log says what is wrong), `starting` or `running`. Each
+repository has a `state` too (`cloning`, `clone_failed` or `syncing`) and
+the kind of its last error, if any.
 
 If nothing happens, the log says why:
 
@@ -294,8 +333,8 @@ If nothing happens, the log says why:
 | `Cannot clone git assets: ...` | The file is not valid; the rest of the line names the problem. |
 | `... GIT_REPO_TOKEN was rejected ...` | The remote refused the token. |
 
-If one repository fails to clone, the other is still cloned and the
-service starts anyway. See
+If one repository fails to clone, the other is still cloned, the service
+starts anyway, and the failed one is tried again on every interval. See
 [Cloning the Git Assets](DOCUMENTATION.md#cloning-the-git-assets) for the
 full process and what each error means.
 
