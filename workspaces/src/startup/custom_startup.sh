@@ -43,6 +43,8 @@ function start_vscode_server {
     DTAAS_PROCS['vscode']=$!
 }
 
+# workspace-admin reads its config file from
+# $PERSISTENT_DIR/.config/workspace-admin, on the persistent volume.
 function start_admin_server {
     local path_prefix="${MAIN_USER:-}"
     if [[ -n "${path_prefix}" ]]; then

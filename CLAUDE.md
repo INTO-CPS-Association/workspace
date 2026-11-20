@@ -309,47 +309,118 @@ The package is layered, and the test files mirror it:
   (tested by `tests/unit/test_services.py`)
 - `src/admin/main.py` - CLI entry point
   (tested by `tests/unit/test_main.py`)
-- `src/admin/git/` - Git backup of workspace directories
-- `src/admin/config/` - Service catalogue and other configuration data
+- `src/admin/config/` - What to back up: finding, creating and reading
+  `config.toml`
+- `src/admin/sync/git/` - Git backup of workspace directories
+- `src/admin/process/` - Running git as a child process (`git_runner.py`)
+- `src/admin/templates/` - Service catalogue (`services_template.json`)
 
-Dependencies point one way only: `main` → `api` → `services`.
+Imports point down the layers only, never up and never sideways: `main` →
+`api` → `sync`/`services` → `config` → `process`. `api` uses
+`sync/git/status.py`, and `config/validate.py` uses
+`process/git_runner.py` to ask git about a branch name.
+`tests/unit/test_layers.py` fails on an import against this order.
 
-The `git/` package backs the workspace up to its remotes and is layered the
-same way, `bootstrap` → `scheduler` → `sync`/`clone` → `auth` → `config`
-→ `runner`:
+The backup lives in three packages, and the tests mirror them under
+`tests/unit/process/`, `tests/unit/config/`, `tests/unit/sync/git/` and
+`tests/integration/sync/git/`. `config/config.py` and
+`process/git_runner.py` import nothing from the package.
 
-- `config.py`: reads `config.toml` and returns one `RepoConfig` per
-  repository, raising `ConfigError` on anything unusable
-- `auth.py`: builds the per-command HTTP Basic header and recognises a
-  rejected token in git's stderr
+`config/`: what to back up
+
+- `locate.py`: `discover_config()` chooses the config file,
+  `$WORKSPACE_ADMIN_CONFIG` before `.config/workspace-admin/config.toml`
+  below `persistent_root()` (`$PERSISTENT_DIR`, or the home directory),
+  and returns the path with the rule that chose it
+- `provision.py`: copies the template into place when `config.toml` is
+  missing (mode `0600`, never overwriting) and adds a `.gitignore` holding
+  `*` to its directory when that is `.config/workspace-admin`
+- `config.py`: the types (`RepoConfig`, `SyncMode`, `ConfigError`) and the
+  settings' names and limits
+- `validate.py`: checks each value (https URL, branch, `MODE`, interval,
+  placeholders), raising `ConfigError`, and warns about unknown keys
+- `load.py`: reads `config.toml` and returns one `RepoConfig` per
+  repository
+
+`process/`, running git:
+
+- `git_runner.py`: runs every git command with prompts off, empty stdin and
+  a time limit, stopping an overrunning command and its child processes
+
+`sync/git/`, running git for the backup:
+
+- `command.py`: the one runner for every git command, clone included,
+  raising `SyncError` for the caller to log; commands in a cloned
+  repository always get `--git-dir` and `--work-tree`, so a lost `.git`
+  file cannot redirect them
+- `auth.py`: builds the HTTP Basic header, passed in git's environment
+  (`GIT_CONFIG_COUNT`) and scoped to the repository's own URL
+  (`header_scope()`), never to the whole host and never on argv; and
+  recognises a rejected token in git's stderr
+- `errors.py`: `SyncErrorKind`, `SyncError`, and every rule reading a kind
+  out of git's output: `failure_kind()` sorts a failure into `auth_failed`,
+  `network`, `remote_changed` or `git_failed`; `merge_failure_kind()` names
+  a merge refused for a local file `local_changes`
+
+`sync/git/`, working on one repository, `sync` → `pull`/`push` → `commit`
+→ `busy`/`checks`:
+
 - `clone.py`: clones one repository, git directory and working tree kept
-  apart
-- `sync.py`: one cycle for a cloned tree: commit, pull, push. Local files
-  win a conflict. Skips the cycle while the user is busy: an unfinished
-  merge, another branch or detached HEAD, or a fresh `index.lock`
-- `scheduler.py`: runs the cycle on a background daemon thread and records
-  each outcome in a `SyncStatus`
-- `status.py`: thread-safe record of the last attempt, success and error
-  kind per repository, served by `/storage/status`
+  apart; starts one locally on an empty remote; on startup restores a
+  missing or empty working tree; writes back a lost `.git` file
+- `sync.py`: one cycle for a cloned tree. `MODE = "sync"` (default for
+  `private`): commit, pull, push; on a conflict the workspace's
+  branch replaces the remote's (`push.overwrite_remote`).
+  `MODE = "pull"` (default for `common`): fast-forward only, never commit
+  or push
+- `commit.py`: commits the user's changes, holding back large and marked
+  files (`HeldBack`)
+- `pull.py`: fetches and merges (`pull_changes`), aborting on a conflict
+  (`merge_conflict`); `pull_only` fast-forwards a `pull` repository;
+  `remote_changed_paths` lists the files the remote changed
+- `push.py`: pushes the branch; after a conflict, `overwrite_remote()`
+  saves the remote's branch on `remote-backup/<time>-<hash>` (UTC time,
+  short hash of the saved commit) and force-pushes the workspace's over
+  it, in one atomic push with `--force-with-lease`
+- `refs.py`: ref names and refspecs of the configured branch
+- `clock.py`: `utc_now()`, the one clock for status times and
+  `remote-backup/` branch names
+- `busy.py`: whether the user is busy with the repository, so no cycle
+  starts: a missing working tree, an unfinished merge, another branch or
+  detached HEAD, unresolved files, a fresh `index.lock`
+- `checks.py`: what is checked in the files about to be committed: mass
+  deletion, files over 50 MiB, conflict markers, default excludes
+
+`sync/git/`, running the backup in the service:
+
 - `bootstrap.py`: called once from `main.cli()` on startup; creates a
   missing config file, or clones and starts the sync, on a background
   thread, so the HTTP API never waits.
   `stop_git_backup()` is run by the FastAPI lifespan on shutdown
-- `provision.py`: copies the template into place when `config.toml` is
-  missing (mode `0600`, never overwriting) and adds a `.gitignore` holding
-  `*` to its directory
-- `runner.py`: runs every git command with prompts off, empty stdin and a
-  time limit, stopping an overrunning command and its child processes
+- `scheduler.py`: runs the cycle on a background daemon thread, clones a
+  repository whose clone failed (`clone_and_record()`, also used on
+  startup), and records each outcome in a `SyncStatus`
+- `status.py`: thread-safe record of the backup's `state` and, per
+  repository, its state, last attempt, success, error kind and last
+  overwrite of the remote's branch, served by `/storage/status`
 
 Failures here are logged, never raised: a broken git configuration must not
 stop the HTTP API from starting.
 
-`config.toml` is always read from
-`$PERSISTENT_DIR/.config/workspace-admin/config.toml`, with the home
-directory as the root when `PERSISTENT_DIR` is unset; the working directory
-never matters. In the image that is
-`/workspace/.config/workspace-admin/config.toml`. The absolute path is
-logged on every startup. When it is absent it is created from
+`locate.discover_config()` chooses `config.toml` once on startup:
+`$WORKSPACE_ADMIN_CONFIG` when it is set and not empty (a relative path is
+resolved against the current directory), otherwise
+`$PERSISTENT_DIR/.config/workspace-admin/config.toml`, or
+`~/.config/workspace-admin/config.toml` when `PERSISTENT_DIR` is unset. A
+file named by the variable is used even when it is missing; nothing falls
+back past it. `bootstrap` passes the chosen path to every step, so changing
+the variable later has no effect. In the image the file is
+`/workspace/.config/workspace-admin/config.toml`, for the service and for
+a `workspace-admin` started by hand in a VS Code or Jupyter terminal alike.
+`docker exec` does not inherit `PERSISTENT_DIR` (the image is built
+`FROM scratch`; the variables come from `/dockerstartup/.docker_set_envs`),
+so pass `-e PERSISTENT_DIR=/workspace`. The absolute path
+is logged on every startup. When it is absent it is created from
 the template `workspaces/src/templates/config.toml.example`, which the
 Dockerfile copies to `$WORKSPACE_CONFIG_TEMPLATE`. Nothing is cloned until
 the user fills it in and restarts: its placeholder values are rejected.
@@ -357,14 +428,15 @@ Outside the image no template is set, and the backup stays disabled.
 The file holds an optional top-level `SYNC_INTERVAL_SECONDS` (1 to 86400,
 default 300; `--sync-interval` overrides it) and an `[assets.private]`
 and/or `[assets.common]` table with `GIT_REPO_URL`, `GIT_REPO_BRANCH` and
-`GIT_REPO_TOKEN`. Every path follows from `$PERSISTENT_DIR` and the section
-name: git directories in `.local/share/workspace-admin/<name>`, work trees in
-`assets/<name>`. `workspaces/src/admin/DOCUMENTATION.md` still describes the
-older layout.
+`GIT_REPO_TOKEN` (optional with `MODE = "pull"`), plus an optional
+`MODE`. Unknown keys are logged as
+warnings. Every path follows from `$PERSISTENT_DIR` and the section name:
+git directories in `.local/share/workspace-admin/<name>`, work trees in
+`assets/<name>`.
 
 To add new services to the workspace:
 
-1. Edit `src/admin/src/admin/config/services_template.json`
+1. Edit `src/admin/src/admin/templates/services_template.json`
 2. Add service definition with name, description, and endpoint
 3. No code changes needed - template is read at runtime
 
@@ -378,9 +450,12 @@ To add new services to the workspace:
   `configure_nginx.py`)
 - `PERSISTENT_DIR`: Directory for user data persistence (default:
   `/workspace` in the image, the home directory outside it); also the
-  root of `config.toml` and every git backup path
+  root of every git backup path, wherever `config.toml` is
 - `PATH_PREFIX`: Optional path prefix for admin service routes (can
   be set via CLI)
+- `WORKSPACE_ADMIN_CONFIG`: Config file of the git backup; when unset or
+  empty, `.config/workspace-admin/config.toml` below `$PERSISTENT_DIR`
+  (or the home directory) is used. The image does not set it
 - `WORKSPACE_CONFIG_TEMPLATE`: Template copied to `config.toml` when it is
   missing (set by the Dockerfile; unset outside the image)
 
